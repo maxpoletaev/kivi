@@ -111,7 +111,7 @@ func (l *Skiplist[K, V]) Insert(key K, value V) {
 }
 
 func (l *Skiplist[K, V]) Scan() *Iterator[K, V] {
-	return newIterator(l.head.Next(0), 0, l.compare, nil)
+	return newIterator(l.head.next[0], 0, l.compare, nil)
 }
 
 func (l *Skiplist[K, V]) ScanFrom(key K) *Iterator[K, V] {

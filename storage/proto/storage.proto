@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package storage;
+
+option go_package = "github.com/maxpoletaev/kv/storage/proto";
+
+message GetRequest {
+    string key = 1;
+}
+
+message VersionedValue {
+    map<uint32, uint64> version = 1;
+    bytes data = 2;
+}
+
+message GetResponse {
+    bool found = 1;
+    repeated VersionedValue value = 2;
+}
+
+message PutRequest {
+    string key = 1;
+    bool primary = 2;
+    VersionedValue value = 3;
+}
+
+message PutResponse {
+    map<uint32, uint64> version = 1;
+}
+
+service StorageService {
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Put(PutRequest) returns (PutResponse);
+}
