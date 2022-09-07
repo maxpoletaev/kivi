@@ -27,3 +27,19 @@ func Max[V Number](values ...V) V {
 
 	return current
 }
+
+func Min[V Number](values ...V) V {
+	if len(values) == 0 {
+		panic("must have at least one value")
+	}
+
+	current := values[0]
+
+	for i := 1; i < len(values); i++ {
+		if values[i] < current {
+			current = values[i]
+		}
+	}
+
+	return current
+}

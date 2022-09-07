@@ -18,3 +18,11 @@ func TestMax(t *testing.T) {
 		Max[int]()
 	})
 }
+
+func TestMin(t *testing.T) {
+	assert.Equal(t, -5, Min(1, 4, -1, 10, -5, 12, 140))
+
+	assert.PanicsWithValue(t, "must have at least one value", func() {
+		Min[int]()
+	})
+}

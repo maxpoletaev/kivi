@@ -13,6 +13,10 @@ func TestMapKeys(t *testing.T) {
 	assert.ElementsMatch(t, keys, []string{"key1", "key2", "key3"})
 }
 
+func TestMapValues(t *testing.T) {
+
+}
+
 func TestMapCopy(t *testing.T) {
 	mapA := map[string]bool{"key1": true, "key2": true}
 	mapB := make(map[string]bool)
