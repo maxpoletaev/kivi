@@ -7,8 +7,8 @@ import (
 	"github.com/maxpoletaev/kv/internal/heap"
 )
 
-type Option func(q *OrderedQueue)
-
+// OrderedQueue is a message queue that guarantees delivery order.
+// It is safe to read and write from multiple threads concurrently.
 type OrderedQueue struct {
 	mut       sync.RWMutex
 	pq        *heap.Heap[*proto.GossipMessage]
@@ -16,7 +16,7 @@ type OrderedQueue struct {
 	delivered uint64
 }
 
-func New(opts ...Option) *OrderedQueue {
+func New() *OrderedQueue {
 	q := &OrderedQueue{
 		waiting: make(map[uint64]bool),
 		pq: heap.New(func(a, b *proto.GossipMessage) bool {
@@ -24,13 +24,11 @@ func New(opts ...Option) *OrderedQueue {
 		}),
 	}
 
-	for _, opt := range opts {
-		opt(q)
-	}
-
 	return q
 }
 
+// Len returns the current number of queued messages. A non-zero result
+// does not mean that a is ready to be poped from the queue.
 func (q *OrderedQueue) Len() int {
 	q.mut.RLock()
 	defer q.mut.RUnlock()
@@ -38,7 +36,9 @@ func (q *OrderedQueue) Len() int {
 	return len(q.waiting)
 }
 
-// Push adds a new message into the queue and provide
+// Push adds a new message into the queue. Messages can be pushed in any order.
+// However, messages that are already in the queue or have been already delivered
+// will not be added.
 func (q *OrderedQueue) Push(msg *proto.GossipMessage) bool {
 	q.mut.Lock()
 	defer q.mut.Unlock()
@@ -54,6 +54,8 @@ func (q *OrderedQueue) Push(msg *proto.GossipMessage) bool {
 	return true
 }
 
+// PopNext returns message wich directly succeeds the last poped message.
+// This will return nil if there is no successor, even if the queue is not empty.
 func (q *OrderedQueue) PopNext() *proto.GossipMessage {
 	q.mut.Lock()
 	defer q.mut.Unlock()

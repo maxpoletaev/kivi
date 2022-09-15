@@ -5,16 +5,16 @@ import (
 	"sync/atomic"
 )
 
-// AtomicValue is the same as atomic.Value with additional type safety.
-type AtomicValue[T any] struct {
+// Atomic is the same as atomic.Value with additional type safety.
+type Atomic[T any] struct {
 	sync.Mutex
 	value atomic.Value
 }
 
-func (v *AtomicValue[T]) Load() T {
+func (v *Atomic[T]) Load() T {
 	return v.value.Load().(T)
 }
 
-func (v *AtomicValue[T]) Store(value T) {
+func (v *Atomic[T]) Store(value T) {
 	v.value.Store(value)
 }

@@ -3,7 +3,7 @@ package gossip
 import (
 	"bytes"
 	"math/rand"
-	"net"
+	"net/netip"
 	"os"
 	"sync"
 	"testing"
@@ -46,7 +46,7 @@ func (d *delegateMock) GetDelivered() [][]byte {
 
 type virtualPeer struct {
 	ID       PeerID
-	Addr     Addr
+	Addr     netip.AddrPort
 	Gossiper *Gossiper
 	Delegate *delegateMock
 }
@@ -68,15 +68,13 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 	for id := 1; id <= n; id++ {
 		delegate := &delegateMock{}
 
-		addr := Addr{
-			IP:   net.IPv4(127, 0, 0, 1),
-			Port: 4000 + id,
-		}
+		ip := netip.AddrFrom4([4]byte{127, 0, 0, 1})
+		addr := netip.AddrPortFrom(ip, uint16(4000+id))
 
 		conf := DefaultConfig()
 		conf.Logger = log.WithPrefix(logger, "node_id", id)
+		conf.BindAddr = addr.String()
 		conf.PeerID = PeerID(id)
-		conf.BindAddr = addr
 		conf.Delegate = delegate
 
 		g, err := Start(conf)
@@ -105,7 +103,7 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 				continue
 			}
 
-			node.Gossiper.Register(other.ID, &other.Addr)
+			node.Gossiper.Register(other.ID, other.Addr.String())
 		}
 	}
 
