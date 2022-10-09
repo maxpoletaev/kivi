@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package clustering;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/maxpoletaev/kv/clustering/proto";
+
+enum Status {
+    Alive = 0;
+    Dead = 1;
+}
+
+message Member {
+    uint32 id = 1;
+    string name = 2;
+    string server_addr = 3;
+    string gossip_addr = 4;
+    Status status = 5;
+    uint64 version = 6;
+}
+
+message JoinRequest {
+    repeated Member local_members = 1;
+}
+
+message JoinResponse {
+    repeated Member remote_members = 1;
+}
+
+message ClusterInfo {
+    repeated Member members = 1;
+}
+
+message PingRequest {
+    uint32 node_id = 1;
+}
+
+message PingResponse {
+    int64 duration_ms = 1;
+}
+
+message NodeJoinedEvent {
+    Member member = 1;
+}
+
+message NodeLeftEvent {
+    uint32 node_id = 1;
+}
+
+message NodeStatusChangedEvent {
+    uint32 source_id = 1;
+    uint32 node_id = 2;
+    Status status = 3;
+    Status old_status = 4;
+    uint64 version = 5;
+}
+
+message ClusterEvent {
+    oneof event {
+        NodeLeftEvent left = 1;
+        NodeJoinedEvent joined = 2;
+        NodeStatusChangedEvent status_changed = 3;
+    }
+}
+
+service ClusteringSerice {
+    rpc Join(JoinRequest) returns (JoinResponse);
+    rpc Info(google.protobuf.Empty) returns (ClusterInfo);
+    rpc PingIndirect(PingRequest) returns (PingResponse);
+    rpc Ping(google.protobuf.Empty) returns (google.protobuf.Empty);
+}

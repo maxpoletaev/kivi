@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,10 +51,10 @@ type UDPTransport struct {
 }
 
 // Create starts a UDP listener on the given address.
-func Create(addr *net.UDPAddr) (*UDPTransport, error) {
-	conn, err := net.ListenUDP("udp", addr)
+func Create(bindAddr *netip.AddrPort) (*UDPTransport, error) {
+	conn, err := net.ListenUDP("udp", asUDPAddr(bindAddr))
 	if err != nil {
-		return nil, fmt.Errorf("failed to listen udp port on %s: %w", addr, err)
+		return nil, fmt.Errorf("failed to listen udp port on %s: %w", bindAddr, err)
 	}
 
 	// Set system buffer to larger size to reduce the number of packet drops
@@ -125,7 +126,6 @@ func (t *UDPTransport) Consume() {
 	}
 
 	close(t.in)
-
 	close(t.done)
 }
 
@@ -156,7 +156,7 @@ func (t *UDPTransport) ReadFrom(msg *proto.GossipMessage) error {
 	return nil
 }
 
-func (t *UDPTransport) WriteTo(msg *proto.GossipMessage, peer Addressable) error {
+func (t *UDPTransport) WriteTo(msg *proto.GossipMessage, addr *netip.AddrPort) error {
 	payload, err := protobuf.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf("failed to marshal gossip message: %w", err)
@@ -166,7 +166,7 @@ func (t *UDPTransport) WriteTo(msg *proto.GossipMessage, peer Addressable) error
 		return ErrMaxSizeExceeded
 	}
 
-	_, err = t.conn.WriteToUDP(payload, peer.UDPAddr())
+	_, err = t.conn.WriteToUDP(payload, asUDPAddr(addr))
 	if err != nil {
 		if atomic.LoadInt32(&t.closed) == 1 {
 			return ErrClosed
@@ -176,4 +176,11 @@ func (t *UDPTransport) WriteTo(msg *proto.GossipMessage, peer Addressable) error
 	}
 
 	return nil
+}
+
+func asUDPAddr(addr *netip.AddrPort) *net.UDPAddr {
+	return &net.UDPAddr{
+		IP:   addr.Addr().AsSlice(),
+		Port: int(addr.Port()),
+	}
 }

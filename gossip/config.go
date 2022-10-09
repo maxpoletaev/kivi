@@ -1,15 +1,14 @@
 package gossip
 
 import (
-	"net"
-
 	"github.com/go-kit/log"
 )
 
+// NoopDelegate is an event delegate that does nothing.
 type NoopDelegate struct{}
 
-func (d *NoopDelegate) Receive([]byte) {}
-func (d *NoopDelegate) Deliver([]byte) {}
+func (d *NoopDelegate) Receive([]byte) error { return nil }
+func (d *NoopDelegate) Deliver([]byte) error { return nil }
 
 type Config struct {
 	// PeerID identifier of the current node. It will be attached to every
@@ -23,7 +22,7 @@ type Config struct {
 
 	// BindAddr is where gossiper will be expecting messages to appear. Other
 	// nodes should know this address in order to broadcast messages to this node.
-	BindAddr Addr
+	BindAddr string
 
 	// Delegate is the interface the user should implement in order to receive
 	// broadcasted messages. See Delegate interface documentation for more detail.
@@ -50,11 +49,8 @@ type Config struct {
 func DefaultConfig() *Config {
 	return &Config{
 		GossipFactor: 2,
-		BindAddr: Addr{
-			IP:   net.IPv4(0, 0, 0, 0),
-			Port: 1984,
-		},
-		Logger:   log.NewNopLogger(),
-		Delegate: &NoopDelegate{},
+		BindAddr:     "0.0.0.0:1984",
+		Logger:       log.NewNopLogger(),
+		Delegate:     &NoopDelegate{},
 	}
 }
