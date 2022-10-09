@@ -29,7 +29,7 @@ and Riak), the key properties of which are:
    asynchronous messages between cluster nodes. This is the main building block
    used in the following layer to exchange the information about cluster members
    and their status.
- - **network** – contains the code to group several storage nodes into a cluster
+ - **clustering** – contains the code to group several storage nodes into a cluster
   abstraction and also implements a simple membership protocol for decentralized
   nodes discovery and failure detection.
  - **replication** – does all the coordination heavy-lifting and ensures the data
@@ -60,6 +60,6 @@ as BloomRPC. Any replica can be used for reads and writes.
 
 With the default consistency level, you need the majority of nodes (2 out of 3)
 to be available to perform reads and writes. A failure can be simulated by
-killing one or two of the containers with docker kill.
+killing one or two of the containers with `docker kill`.
 
 
