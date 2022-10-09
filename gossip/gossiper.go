@@ -19,8 +19,8 @@ import (
 )
 
 // Delegate is an interface the client should implement to receive gossip
-// messages.The methods are never called concurrently and guaranteed to be
-// called only once for each message.
+// messages. The methods are never called concurrently and guaranteed to be
+// called at most once for each message.
 type Delegate interface {
 	// Receive is called when a message is received by the consumer.
 	// The order of calls is non-deterministic, since the messages may be
@@ -223,7 +223,7 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 		}
 	}
 
-	// Error only if all attempts are failed.
+	// Error only if all attempts have failed.
 	if nFailed == nScheduled {
 		return lastErr
 	}

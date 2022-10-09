@@ -18,10 +18,12 @@ type delegateMock struct {
 	delivered [][]byte
 }
 
-func (d *delegateMock) Receive(payload []byte) {
+func (d *delegateMock) Receive(payload []byte) error {
 	d.mut.Lock()
 	d.received = append(d.received, payload)
 	d.mut.Unlock()
+
+	return nil
 }
 
 func (d *delegateMock) GetReceived() [][]byte {
@@ -31,10 +33,12 @@ func (d *delegateMock) GetReceived() [][]byte {
 	return received
 }
 
-func (d *delegateMock) Deliver(payload []byte) {
+func (d *delegateMock) Deliver(payload []byte) error {
 	d.mut.Lock()
 	d.delivered = append(d.delivered, payload)
 	d.mut.Unlock()
+
+	return nil
 }
 
 func (d *delegateMock) GetDelivered() [][]byte {

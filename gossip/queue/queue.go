@@ -27,8 +27,8 @@ func New() *OrderedQueue {
 	return q
 }
 
-// Len returns the current number of queued messages. A non-zero result
-// does not mean that a is ready to be poped from the queue.
+// Len returns the current number of currently buffered messages. A non-zero result
+// does not mean that there is a message that is ready to be poped from the queue.
 func (q *OrderedQueue) Len() int {
 	q.mut.RLock()
 	defer q.mut.RUnlock()

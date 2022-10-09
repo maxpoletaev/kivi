@@ -13,7 +13,14 @@ services:
   replica1:
     image: maxpoletaev/kv
     container_name: replica1
-    command: "server -id=1 -name=replica1 -server-addr=172.24.2.1:3000 -local-addr=127.0.0.1:3000 -gossip-addr=172.24.2.1:4000"
+    command: >
+      server
+        -id=1
+        -name=replica1
+        -bind-addr=0.0.0.0:3000
+        -advertise-addr=172.24.2.1:3000
+        -local-addr=127.0.0.1:3000
+        -gossip-addr=172.24.2.1:4000
     ports:
       - 3001:3000
     networks:
@@ -25,7 +32,15 @@ services:
       - replica1
     image: maxpoletaev/kv
     container_name: replica2
-    command: "server -id=2 -name=replica2 -server-addr=172.24.2.2:3000 -local-addr=127.0.0.1:3000 -gossip-addr=172.24.2.2:4000 -join=replica1:3000"
+    command: >
+      server
+        -id=2
+        -name=replica2
+        -advertise-addr=172.24.2.2:3000
+        -bind-addr=0.0.0.0:3000
+        -local-addr=127.0.0.1:3000
+        -gossip-addr=172.24.2.2:4000
+        -join=replica1:3000
     ports:
       - 3002:3000
     networks:
@@ -37,7 +52,15 @@ services:
       - replica2
     image: maxpoletaev/kv
     container_name: replica3
-    command: "server -id=3 -name=replica3 -server-addr=172.24.2.3:3000 -local-addr=127.0.0.1:3000 -gossip-addr=172.24.2.3:4000 -join=replica2:3000"
+    command: >
+      server
+        -id=3
+        -name=replica3
+        -bind-addr=0.0.0.0:3000
+        -advertise-addr=172.24.2.3:3000
+        -local-addr=127.0.0.1:3000
+        -gossip-addr=172.24.2.3:4000
+        -join=replica2:3000
     ports:
       - 3003:3000
     networks:
