@@ -17,6 +17,8 @@ import (
 	clusterpb "github.com/maxpoletaev/kv/clustering/proto"
 	clustersvc "github.com/maxpoletaev/kv/clustering/service"
 	"github.com/maxpoletaev/kv/gossip"
+	replicationpb "github.com/maxpoletaev/kv/replication/proto"
+	replicationsvc "github.com/maxpoletaev/kv/replication/service"
 	"github.com/maxpoletaev/kv/storage/inmemory"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 	storagesvc "github.com/maxpoletaev/kv/storage/service"
@@ -93,6 +95,9 @@ func main() {
 
 	clusterService := clustersvc.NewClusteringService(cluster)
 	clusterpb.RegisterClusteringSericeServer(grpcServer, clusterService)
+
+	replicationService := replicationsvc.New(cluster, logger)
+	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
 
 	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)

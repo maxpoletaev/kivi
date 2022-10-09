@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package replication;
+
+option go_package = "github.com/maxpoletaev/kv/replication/proto";
+
+message Empty {}
+
+message Value {
+    bytes data = 1;
+}
+
+message GetRequest {
+    string key = 1;
+}
+
+message GetResponse {
+    repeated Value values = 1;
+    map<uint32, uint64> version = 2;
+}
+
+message PutRequest {
+    string key = 1;
+    Value value = 2;
+    map<uint32, uint64> version = 3;
+}
+
+message PutResponse {
+    map<uint32, uint64> version = 1;
+}
+
+service CoordinatorService {
+    rpc ReplicatedGet(GetRequest) returns (GetResponse);
+    rpc ReplicatedPut(PutRequest) returns (PutResponse);
+}

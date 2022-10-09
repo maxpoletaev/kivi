@@ -100,8 +100,9 @@ func (c *Cluster) NodeByID(id NodeID) *Node {
 
 // LocalNode returns local node. Since local node cannot be removed from the cluster,
 // this method should never return nil.
-func (c *Cluster) LocalNode() *Node {
-	return c.NodeByID(c.localID)
+func (c *Cluster) LocalNode() Node {
+	node := c.NodeByID(c.localID)
+	return *node
 }
 
 // NRandomNodes returns up to n random nodes according to the filter function.
