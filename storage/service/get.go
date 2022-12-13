@@ -16,9 +16,7 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 	values, err := s.storage.Get(req.Key)
 	if err != nil {
 		if errors.Is(err, storage.ErrNotFound) {
-			return &proto.GetResponse{
-				Found: false,
-			}, nil
+			return &proto.GetResponse{}, nil
 		}
 
 		return nil, status.New(
@@ -28,7 +26,6 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 
 	resp := &proto.GetResponse{
 		Value: toResponseValues(values),
-		Found: true,
 	}
 
 	return resp, nil

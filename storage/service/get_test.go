@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -11,41 +12,39 @@ import (
 	"github.com/maxpoletaev/kv/internal/grpcutil"
 	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/storage"
+	storagemock "github.com/maxpoletaev/kv/storage/mock"
 	"github.com/maxpoletaev/kv/storage/proto"
 )
 
 func TestGet(t *testing.T) {
 	type test struct {
-		prepareBackend func(backend *storage.BackendMock)
 		request        *proto.GetRequest
+		setupBackend   func(b *storagemock.MockBackend)
 		assertResponse func(t *testing.T, res *proto.GetResponse, err error)
 	}
 
 	tests := map[string]test{
 		"FoundSingleValue": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.GetFunc = func(key string) ([]storage.StoredValue, error) {
-					return []storage.StoredValue{
-						{
-							Version: vclock.Vector{1: 1},
-							Blob:    []byte("value"),
-						},
-					}, nil
-				}
+			setupBackend: func(b *storagemock.MockBackend) {
+				b.EXPECT().Get("key").Return([]storage.StoredValue{
+					{
+						Version: vclock.Vector{1: 1},
+						Blob:    []byte("value"),
+					},
+				}, nil)
 			},
 			request: &proto.GetRequest{Key: "key"},
 			assertResponse: func(t *testing.T, res *proto.GetResponse, err error) {
 				require.NoError(t, err)
-				assert.Equal(t, true, res.Found)
 				assert.Equal(t, 1, len(res.Value))
 				assert.Equal(t, []byte("value"), res.Value[0].Data)
 				assert.Equal(t, map[uint32]uint64{1: 1}, res.Value[0].Version)
 			},
 		},
 		"FoundMultipleValues": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.GetFunc = func(key string) ([]storage.StoredValue, error) {
-					return []storage.StoredValue{
+			setupBackend: func(b *storagemock.MockBackend) {
+				b.EXPECT().Get("key").Return(
+					[]storage.StoredValue{
 						{
 							Version: vclock.Vector{1: 1},
 							Blob:    []byte("value 1"),
@@ -54,13 +53,12 @@ func TestGet(t *testing.T) {
 							Version: vclock.Vector{2: 1},
 							Blob:    []byte("value 2"),
 						},
-					}, nil
-				}
+					}, nil,
+				)
 			},
 			request: &proto.GetRequest{Key: "key"},
 			assertResponse: func(t *testing.T, res *proto.GetResponse, err error) {
 				require.NoError(t, err)
-				assert.Equal(t, true, res.Found)
 				assert.Equal(t, 2, len(res.Value))
 				assert.Equal(t, []byte("value 1"), res.Value[0].Data)
 				assert.Equal(t, map[uint32]uint64{1: 1}, res.Value[0].Version)
@@ -69,24 +67,20 @@ func TestGet(t *testing.T) {
 			},
 		},
 		"NotFound": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.GetFunc = func(key string) ([]storage.StoredValue, error) {
-					return nil, storage.ErrNotFound
-				}
+			setupBackend: func(b *storagemock.MockBackend) {
+				b.EXPECT().Get("non-existing-key").Return(nil, storage.ErrNotFound)
 			},
 			request: &proto.GetRequest{Key: "non-existing-key"},
 			assertResponse: func(t *testing.T, res *proto.GetResponse, err error) {
 				require.NoError(t, err)
-				assert.False(t, res.Found)
+				assert.Equal(t, 0, len(res.Value))
 			},
 		},
 		"BackendError": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.GetFunc = func(key string) ([]storage.StoredValue, error) {
-					return nil, assert.AnError
-				}
+			setupBackend: func(b *storagemock.MockBackend) {
+				b.EXPECT().Get("key").Return(nil, assert.AnError)
 			},
-			request: &proto.GetRequest{Key: "non-existing-key"},
+			request: &proto.GetRequest{Key: "key"},
 			assertResponse: func(t *testing.T, res *proto.GetResponse, err error) {
 				require.Error(t, err)
 				code := grpcutil.ErrorCode(err)
@@ -97,11 +91,12 @@ func TestGet(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			backend := &storage.BackendMock{}
+			ctrl := gomock.NewController(t)
+			backend := storagemock.NewMockBackend(ctrl)
 			service := New(backend, 0)
 			ctx := context.Background()
 
-			tt.prepareBackend(backend)
+			tt.setupBackend(backend)
 
 			res, err := service.Get(ctx, tt.request)
 

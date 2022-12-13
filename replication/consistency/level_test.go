@@ -7,8 +7,8 @@ import (
 )
 
 func TestConsistencyLevel_Count(t *testing.T) {
-	assert.Equal(t, 1, LevelOne.N(9))
-	assert.Equal(t, 2, LevelTwo.N(9))
-	assert.Equal(t, 5, LevelQuorum.N(9))
-	assert.Equal(t, 9, LevelAll.N(9))
+	assert.Equal(t, 1, One.N(9))
+	assert.Equal(t, 2, Two.N(9))
+	assert.Equal(t, 5, Quorum.N(9))
+	assert.Equal(t, 9, All.N(9))
 }

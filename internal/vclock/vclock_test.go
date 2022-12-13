@@ -6,6 +6,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestVector_String(t *testing.T) {
+	tests := map[string]struct {
+		vector     Vector
+		wantString string
+	}{
+		"EmptyVector": {
+			vector:     Vector{},
+			wantString: "{}",
+		},
+		"SingleValue": {
+			vector:     Vector{1: 10},
+			wantString: "{1=10}",
+		},
+		"MultipleValues": {
+			vector:     Vector{1: 10, 3: 20, 2: 5, 0: 1},
+			wantString: "{0=1, 1=10, 2=5, 3=20}",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			s := tt.vector.String()
+			assert.Equal(t, tt.wantString, s)
+		})
+	}
+}
+
 func TestCompare(t *testing.T) {
 	tests := map[string]struct {
 		a        Vector

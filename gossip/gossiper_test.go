@@ -114,11 +114,6 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 	return nodes, nil
 }
 
-// The execution of this test is non-deterministic, and it may sometimes fail
-// with a couple of nodes not delivering messages correctly. This is fine as
-// the algorithm is probabilistic and does not guarantee a 100% delivery. As
-// long as the error rate is within 1-2%, we are OK. Later I’ll find a better
-// way of handling this.
 func TestGossiper(t *testing.T) {
 	// Spin up 50 gossip publishers/listeners.
 	nodes, err := createTestCluster(50)
@@ -161,8 +156,7 @@ func TestGossiper(t *testing.T) {
 	// Then broadcast the remaining ones. These may be received by nodes in
 	// different order but should still be delivered in the same order.
 	for _, payload := range messages[1:] {
-		err = nodes[0].Gossiper.Broadcast(payload)
-		if err != nil {
+		if err = nodes[0].Gossiper.Broadcast(payload); err != nil {
 			t.Fatalf("err: %v", err)
 		}
 	}

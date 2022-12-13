@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -11,28 +12,31 @@ import (
 	"github.com/maxpoletaev/kv/internal/grpcutil"
 	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/storage"
+	"github.com/maxpoletaev/kv/storage/mock"
 	"github.com/maxpoletaev/kv/storage/proto"
 )
 
 func TestPut(t *testing.T) {
 	type test struct {
-		prepareBackend func(backend *storage.BackendMock)
+		setupBackend   func(backend *mock.MockBackend)
 		request        *proto.PutRequest
 		assertResponse func(t *testing.T, res *proto.PutResponse, err error)
 	}
 
 	tests := map[string]test{
 		"OkPrimary": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.PutFunc = func(key string, value storage.StoredValue) error {
-					return nil
-				}
+			setupBackend: func(b *mock.MockBackend) {
+				b.EXPECT().Put("key", storage.StoredValue{
+					Version: vclock.Vector{100: 2, 200: 1},
+					Blob:    []byte("value"),
+				}).Return(nil)
 			},
 			request: &proto.PutRequest{
 				Key:     "key",
 				Primary: true,
 				Value: &proto.VersionedValue{
 					Version: vclock.Vector{100: 1, 200: 1},
+					Data:    []byte("value"),
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
@@ -43,16 +47,18 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"OkNonPrimary": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.PutFunc = func(key string, value storage.StoredValue) error {
-					return nil
-				}
+			setupBackend: func(b *mock.MockBackend) {
+				b.EXPECT().Put("key", storage.StoredValue{
+					Version: vclock.Vector{100: 1, 200: 1},
+					Blob:    []byte("value"),
+				}).Return(nil)
 			},
 			request: &proto.PutRequest{
 				Key:     "key",
 				Primary: false,
 				Value: &proto.VersionedValue{
 					Version: vclock.Vector{100: 1, 200: 1},
+					Data:    []byte("value"),
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
@@ -63,15 +69,17 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"FailsObsoleteWrite": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.PutFunc = func(key string, value storage.StoredValue) error {
-					return storage.ErrObsoleteWrite
-				}
+			setupBackend: func(b *mock.MockBackend) {
+				b.EXPECT().Put("key", storage.StoredValue{
+					Version: vclock.Vector{},
+					Blob:    []byte{},
+				}).Return(storage.ErrObsoleteWrite)
 			},
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
 					Version: vclock.Vector{},
+					Data:    []byte{},
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
@@ -81,15 +89,17 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"FailsRandomError": {
-			prepareBackend: func(backend *storage.BackendMock) {
-				backend.PutFunc = func(key string, value storage.StoredValue) error {
-					return assert.AnError
-				}
+			setupBackend: func(b *mock.MockBackend) {
+				b.EXPECT().Put("key", storage.StoredValue{
+					Version: vclock.Vector{},
+					Blob:    []byte{},
+				}).Return(assert.AnError)
 			},
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
 					Version: vclock.Vector{},
+					Data:    []byte{},
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
@@ -102,11 +112,12 @@ func TestPut(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			backend := &storage.BackendMock{}
+			ctrl := gomock.NewController(t)
+			backend := mock.NewMockBackend(ctrl)
 			service := New(backend, 100)
 			ctx := context.Background()
 
-			tt.prepareBackend(backend)
+			tt.setupBackend(backend)
 
 			res, err := service.Put(ctx, tt.request)
 

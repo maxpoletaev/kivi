@@ -8,17 +8,17 @@ import (
 type Level int
 
 const (
-	// LevelOne implies that an acknowledgement from a single node is enough to complete the operation.
-	LevelOne Level = iota
+	// One implies that an acknowledgement from a single node is enough to complete the operation.
+	One Level = iota
 
-	// LevelTwo needs acknowledgement from at least two nodes to complete the operation.
-	LevelTwo
+	// Two needs acknowledgement from at least two nodes to complete the operation.
+	Two
 
-	// LevelQuorum needs acknowledgement from N/2+1 of nodes to complete the operation.
-	LevelQuorum
+	// Quorum needs acknowledgement from N/2+1 of nodes to complete the operation.
+	Quorum
 
-	// LevelAll requires acknowledgement from ALL nodes.
-	LevelAll
+	// All requires acknowledgement from ALL nodes.
+	All
 )
 
 // N returns how many replicas are needed to satisfy the consistency level if there are n replicas in total.
@@ -26,13 +26,13 @@ const (
 // level Two always requires two nodes even if total number of nodes is 1.
 func (l Level) N(total int) int {
 	switch l {
-	case LevelOne:
+	case One:
 		return 1
-	case LevelTwo:
+	case Two:
 		return 2
-	case LevelQuorum:
+	case Quorum:
 		return total/2 + 1
-	case LevelAll:
+	case All:
 		return total
 	default:
 		panic(fmt.Sprintf("unknown consistency level: %d", l))
@@ -42,13 +42,13 @@ func (l Level) N(total int) int {
 // String returns string representation of the consistency level.
 func (l Level) String() string {
 	switch l {
-	case LevelOne:
+	case One:
 		return "one"
-	case LevelTwo:
+	case Two:
 		return "two"
-	case LevelQuorum:
+	case Quorum:
 		return "quorum"
-	case LevelAll:
+	case All:
 		return "all"
 	default:
 		return ""

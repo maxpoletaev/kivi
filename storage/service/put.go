@@ -21,7 +21,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	if req.Primary {
-		version.IncrementFor(s.nodeID)
+		version.Increment(s.nodeID)
 	}
 
 	value := storage.StoredValue{

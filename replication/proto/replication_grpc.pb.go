@@ -22,7 +22,6 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type CoordinatorServiceClient interface {
-	ClusterInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterInfoResponse, error)
 	ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	ReplicatedPut(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 }
@@ -33,15 +32,6 @@ type coordinatorServiceClient struct {
 
 func NewCoordinatorServiceClient(cc grpc.ClientConnInterface) CoordinatorServiceClient {
 	return &coordinatorServiceClient{cc}
-}
-
-func (c *coordinatorServiceClient) ClusterInfo(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*ClusterInfoResponse, error) {
-	out := new(ClusterInfoResponse)
-	err := c.cc.Invoke(ctx, "/replication.CoordinatorService/ClusterInfo", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *coordinatorServiceClient) ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
@@ -66,7 +56,6 @@ func (c *coordinatorServiceClient) ReplicatedPut(ctx context.Context, in *PutReq
 // All implementations must embed UnimplementedCoordinatorServiceServer
 // for forward compatibility
 type CoordinatorServiceServer interface {
-	ClusterInfo(context.Context, *Empty) (*ClusterInfoResponse, error)
 	ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error)
 	ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error)
 	mustEmbedUnimplementedCoordinatorServiceServer()
@@ -76,9 +65,6 @@ type CoordinatorServiceServer interface {
 type UnimplementedCoordinatorServiceServer struct {
 }
 
-func (UnimplementedCoordinatorServiceServer) ClusterInfo(context.Context, *Empty) (*ClusterInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ClusterInfo not implemented")
-}
 func (UnimplementedCoordinatorServiceServer) ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedGet not implemented")
 }
@@ -96,24 +82,6 @@ type UnsafeCoordinatorServiceServer interface {
 
 func RegisterCoordinatorServiceServer(s grpc.ServiceRegistrar, srv CoordinatorServiceServer) {
 	s.RegisterService(&CoordinatorService_ServiceDesc, srv)
-}
-
-func _CoordinatorService_ClusterInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(CoordinatorServiceServer).ClusterInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/replication.CoordinatorService/ClusterInfo",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServiceServer).ClusterInfo(ctx, req.(*Empty))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _CoordinatorService_ReplicatedGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -159,10 +127,6 @@ var CoordinatorService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "replication.CoordinatorService",
 	HandlerType: (*CoordinatorServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "ClusterInfo",
-			Handler:    _CoordinatorService_ClusterInfo_Handler,
-		},
 		{
 			MethodName: "ReplicatedGet",
 			Handler:    _CoordinatorService_ReplicatedGet_Handler,

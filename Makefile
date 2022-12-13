@@ -12,12 +12,6 @@ help:  ## print help (this message)
 	| sed -n 's/^\(.*\): \(.*\)## \(.*\)/\1;\3/p' \
 	| column -t  -s ';'
 
-.PHONY: clean
-clean:  ## cleanup built binaries and generated files
-	@echo "--------- running: $@ ---------"
-	-rm server
-	-rm co
-
 .PHONY: test
 test:  ## run go tests
 	@echo "--------- running: $@ ---------"
@@ -60,15 +54,16 @@ proto-gen:  ## generate protobuf/grpc models
 .PHONY: proto-mock
 proto-mock:  ## generate protobuf mocks
 	@echo "--------- running: $@ ---------"
-	moq -stub -out storage/proto/storage_mock.pb.go storage/proto StorageServiceClient StorageServiceServer
+	mockgen -package proto -destination=storage/proto/storage_mock.pb.go github.com/maxpoletaev/kv/storage/proto StorageServiceClient,StorageServiceServer
+	mockgen -package proto -destination=replication/proto/replication_mock.pb.go github.com/maxpoletaev/kv/replication/proto CoordinatorServiceClient,CoordinatorServiceServer
 
 .PHONY: proto
-proto: proto-clean proto-gen proto-mock  ## generate protobuf files + mocks
+proto: proto-clean proto-gen proto-mock  ## re-generate protobuf files + mocks
 
 .PHONY: lint
 lint:  ## run linter
 	@echo "--------- running: $@ ---------"
-	golangci-lint run --enable gofmt,unparam,prealloc,gosec,nilerr,errcheck,gosimple,wsl
+	golangci-lint run $(LINT_PACKAGE)
 
 .PHONY: escape
 escape: ## run escape analysis

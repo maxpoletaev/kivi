@@ -124,7 +124,7 @@ func TestAddVersion(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result, err := AddVersion(tt.currentValues, tt.incomingValue)
+			result, err := AppendVersion(tt.currentValues, tt.incomingValue)
 			require.ErrorIs(t, err, tt.wantErr)
 			require.Equal(t, tt.wantResult, result)
 		})

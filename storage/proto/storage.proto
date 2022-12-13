@@ -14,7 +14,6 @@ message VersionedValue {
 }
 
 message GetResponse {
-    bool found = 1;
     repeated VersionedValue value = 2;
 }
 

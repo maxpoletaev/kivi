@@ -1,6 +1,7 @@
 package queue_test
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -110,6 +111,28 @@ func TestQueue(t *testing.T) {
 				assert.Nil(t, msg2)
 
 				assert.Equal(t, uint64(1), msg1.SeqNumber)
+			},
+		},
+		"PushPopWithOverflow": {
+			prepareFunc: func(q *queue.OrderedQueue) {
+				q.Push(&proto.GossipMessage{SeqNumber: math.MaxUint64})
+				q.Push(&proto.GossipMessage{SeqNumber: 1})
+				q.Push(&proto.GossipMessage{SeqNumber: 0})
+			},
+			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+				require.Equal(t, 3, q.Len())
+
+				msg1 := q.PopNext()
+				require.NotNil(t, msg1)
+				require.Equal(t, uint64(math.MaxUint64), msg1.SeqNumber)
+
+				msg2 := q.PopNext()
+				require.NotNil(t, msg2)
+				require.Equal(t, uint64(0), msg2.SeqNumber)
+
+				msg3 := q.PopNext()
+				require.NotNil(t, msg3)
+				require.Equal(t, uint64(1), msg3.SeqNumber)
 			},
 		},
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 func TestMakeSkiplist(t *testing.T) {
-	list := makeSkiplist([][]int{
+	list := construct([][]int{
 		{1, 2, 3, 4, 5, 6},
 		{1, 3, 5},
 		{1, 5},
@@ -46,7 +46,7 @@ func TestMakeSkiplist(t *testing.T) {
 
 func TestMakeSkiplistFails(t *testing.T) {
 	assert.PanicsWithValue(t, "invalid list: node 3 is defined at level 0 but missing from level 1", func() {
-		makeSkiplist([][]int{
+		construct([][]int{
 			{1, 2, 4, 5},
 			{1, 3, 4},
 		}, IntComparator, false)
@@ -163,7 +163,7 @@ func TestSkiplist_findGreaterOrEqual(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			list := makeSkiplist(tt.list, IntComparator, false)
+			list := construct(tt.list, IntComparator, false)
 
 			found := list.findGreaterOrEqual(tt.keyToFind, nil)
 
@@ -184,7 +184,7 @@ func TestSkiplist_findGreaterOrEqual(t *testing.T) {
 }
 
 func TestSkiplist_findGreaterOrEqual_WithSearchPath(t *testing.T) {
-	list := makeSkiplist([][]int{
+	list := construct([][]int{
 		{1, 2, 3, 4, 6, 7, 8, 9, 10},
 		{1, 4, 6, 9},
 		{1, 6},
@@ -288,7 +288,7 @@ func TestSkiplist_Insert(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			list := makeSkiplist(tt.initialKeys, IntComparator, "")
+			list := construct(tt.initialKeys, IntComparator, "")
 
 			for _, key := range tt.insertKeys {
 				list.Insert(key, tt.insertValue)

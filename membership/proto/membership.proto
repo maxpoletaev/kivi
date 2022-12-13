@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package membership;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/maxpoletaev/kv/membership/proto";
+
+enum Status {
+    Healthy = 0;
+    Faulty = 1;
+}
+
+message Member {
+    uint32 id = 1;
+    string name = 2;
+    string server_addr = 3;
+    string gossip_addr = 4;
+    Status status = 5;
+    uint64 version = 6;
+}
+
+message JoinRequest {
+    repeated Member local_members = 1;
+}
+
+message JoinResponse {
+    repeated Member remote_members = 1;
+}
+
+message MembersResponse {
+    repeated Member members = 1;
+}
+
+message ExpellRequest {
+    uint32 member_id = 1;
+}
+
+message MemberJoinedEvent {
+    uint32 member_id = 1;
+    string member_name = 2;
+    string server_addr = 3;
+    string gossip_addr = 4;
+}
+
+message MemberLeftEvent {
+    uint32 member_id = 1;
+    uint32 source_member_id = 2;
+}
+
+message MemberUpdatedEvent {
+    uint32 member_id = 1;
+    uint32 source_member_id = 2;
+    Status status = 3;
+    uint64 version = 4;
+}
+
+message ClusterEvent {
+    oneof event {
+        MemberLeftEvent member_left = 1;
+        MemberJoinedEvent member_joined = 2;
+        MemberUpdatedEvent member_updated = 3;
+    }
+}
+
+service MembershipService {
+    rpc Join(JoinRequest) returns (JoinResponse);
+    rpc Expell(ExpellRequest) returns (google.protobuf.Empty);
+    rpc Members(google.protobuf.Empty) returns (MembersResponse);
+}

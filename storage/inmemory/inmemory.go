@@ -50,12 +50,12 @@ func (s *inMemory) Put(key string, value storage.StoredValue) error {
 		}
 	}
 
-	newValues, err := storage.AddVersion(values, value)
+	values, err = storage.AppendVersion(values, value)
 	if err != nil {
 		return err
 	}
 
-	s.data.Insert(key, newValues)
+	s.data.Insert(key, values)
 
 	return nil
 }

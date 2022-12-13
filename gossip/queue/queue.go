@@ -12,13 +12,13 @@ import (
 type OrderedQueue struct {
 	mut       sync.RWMutex
 	pq        *heap.Heap[*proto.GossipMessage]
-	waiting   map[uint64]bool
+	waiting   map[uint64]struct{}
 	delivered uint64
 }
 
 func New() *OrderedQueue {
 	q := &OrderedQueue{
-		waiting: make(map[uint64]bool),
+		waiting: make(map[uint64]struct{}),
 		pq: heap.New(func(a, b *proto.GossipMessage) bool {
 			return a.SeqNumber < b.SeqNumber // min heap
 		}),
@@ -43,11 +43,12 @@ func (q *OrderedQueue) Push(msg *proto.GossipMessage) bool {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
-	if q.delivered >= msg.SeqNumber || q.waiting[msg.SeqNumber] {
+	// Skip messages that are already in the queue or have been already delivered.
+	if _, queued := q.waiting[msg.SeqNumber]; queued || q.delivered >= msg.SeqNumber {
 		return false
 	}
 
-	q.waiting[msg.SeqNumber] = true
+	q.waiting[msg.SeqNumber] = struct{}{}
 
 	q.pq.Push(msg)
 
@@ -70,7 +71,9 @@ func (q *OrderedQueue) PopNext() *proto.GossipMessage {
 
 	if q.delivered == 0 || msg.SeqNumber == nextSeqNumber {
 		delete(q.waiting, msg.SeqNumber)
+
 		q.delivered = msg.SeqNumber
+
 		return q.pq.Pop()
 	}
 

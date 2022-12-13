@@ -4,34 +4,52 @@ import (
 	"context"
 	"sync"
 
-	"github.com/maxpoletaev/kv/clustering"
-	"github.com/maxpoletaev/kv/internal/collections"
+	"github.com/go-kit/log/level"
+	"github.com/maxpoletaev/kv/internal/generic"
+	"github.com/maxpoletaev/kv/internal/grpcutil"
+	"github.com/maxpoletaev/kv/internal/set"
 	"github.com/maxpoletaev/kv/internal/vclock"
+	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/proto"
-	spb "github.com/maxpoletaev/kv/storage/proto"
+	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
-func (s *CoordinatorService) ReplicatedGet(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
-	replicas := make([]clustering.Node, 0)
-	for _, node := range s.cluster.Nodes() {
-		if !node.Local && node.Status == clustering.StatusAlive {
-			replicas = append(replicas, node)
-		}
+func (s *ReplicationService) validateGetRequest(req *proto.GetRequest) error {
+	if len(req.Key) == 0 {
+		return errMissingKey
 	}
 
-	minReadAcks := s.readConsistency.N(len(replicas))
-	if len(replicas) < minReadAcks {
-		return nil, errLevelNotSatisfied
+	return nil
+}
+
+func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
+	if err := s.validateGetRequest(req); err != nil {
+		return nil, err
+	}
+
+	replicas := s.cluster.Members()
+
+	minAcks := s.readLevel.N(len(replicas))
+
+	if countAlive(replicas) < minAcks {
+		return nil, errNotEnoughReplicas
 	}
 
 	readCtx, cacnelRead := context.WithTimeout(ctx, s.readTimeout)
-	readResults := make(chan *replicaGetResult, len(replicas))
+
+	readResults := make(chan *nodeGetResult)
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(replicas))
 
-	for _, replica := range replicas {
-		go func(replica clustering.Node) {
+	for i := range replicas {
+		replica := &replicas[i]
+		if !replica.IsReacheable() {
+			continue
+		}
+
+		wg.Add(1)
+
+		go func(replica *membership.Member) {
 			defer wg.Done()
 
 			select {
@@ -40,15 +58,24 @@ func (s *CoordinatorService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			default:
 			}
 
-			res, err := replica.Get(readCtx, &spb.GetRequest{Key: req.Key})
+			conn, err := s.cluster.Conn(replica.ID)
 			if err != nil {
-				s.logger.Log("msg", "failed to read from replica", "name", replica.Name)
+				level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
 				return
 			}
 
-			readResults <- &replicaGetResult{
-				ReplicaName: replica.Name,
-				Values:      res.Value,
+			res, err := conn.Get(readCtx, &storagepb.GetRequest{Key: req.Key})
+			if err != nil {
+				if !grpcutil.IsCanceled(err) {
+					s.logger.Log("msg", "failed to read from replica", "name", replica.Name, "err", err)
+				}
+
+				return
+			}
+
+			readResults <- &nodeGetResult{
+				NodeID: replica.ID,
+				Values: res.Value,
 			}
 		}(replica)
 	}
@@ -60,33 +87,34 @@ func (s *CoordinatorService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 	}()
 
 	// All values we received from the replicas.
-	replicaValues := make([]replicaValue, 0)
+	receivedValues := make([]nodeValue, 0)
 
-	// Keeping track of replied and outdated replicas for further repair.
-	repliedReplicas := make(collections.Set[string])
-	staleReplicas := make(collections.Set[string])
+	// Keeping track of replied and empty replicas for further repair.
+	repliedReplicas := make(set.Set[membership.NodeID])
+	emptyReplicas := make(set.Set[membership.NodeID])
 
-loop:
+readloop:
 	for {
 		select {
 		case r := <-readResults:
 			if r != nil {
-				repliedReplicas.Add(r.ReplicaName)
+				repliedReplicas.Add(r.NodeID)
 
 				if len(r.Values) == 0 {
-					staleReplicas.Add(r.ReplicaName)
+					emptyReplicas.Add(r.NodeID)
 				}
 
 				for i := range r.Values {
-					replicaValues = append(replicaValues, replicaValue{
-						ReplicaName:    r.ReplicaName,
+					receivedValues = append(receivedValues, nodeValue{
+						NodeID:         r.NodeID,
 						VersionedValue: r.Values[i],
 					})
 				}
 
-				if len(repliedReplicas) == minReadAcks {
-					cacnelRead() // Got enough here, no need to wait for other reads.
-					break loop
+				// Got enough here, no need to wait for other reads.
+				if len(repliedReplicas) == minAcks {
+					cacnelRead()
+					break readloop
 				}
 			} else {
 				return nil, errLevelNotSatisfied
@@ -96,44 +124,47 @@ loop:
 		}
 	}
 
-	// If a replica has returned an outdated value, it should be marked for repair.
-	patch := mergePrepare(replicaValues)
-	replicaValues = mergeApply(replicaValues, patch)
-	staleReplicas = staleReplicas.And(patch.OutdatedReplicas)
+	// Discard all outdated values and keep only the latest conflicting ones.
+	mergedValues := mergeValues(receivedValues)
 
-	// Create a new version taking the maximum of all versions.
-	mergedVersion := make(vclock.Vector, len(replicas))
-	mergedValues := make([]*proto.Value, 0, len(replicaValues))
-	for _, value := range replicaValues {
-		mergedVersion = vclock.Merge(mergedVersion, value.Version)
-		mergedValues = append(mergedValues, &proto.Value{Data: value.VersionedValue.Data})
-	}
+	// Replicas that did not retuned any value or returned an outdated value should be repaired.
+	repairSet := set.FromSlice(mergedValues.StaleReplicas).And(emptyReplicas)
 
-	if len(replicaValues) == 1 && len(staleReplicas) > 0 {
+	// Read repair, only if there are no conflicts.
+	if len(mergedValues.Values) == 1 && len(repairSet) > 0 {
 		repairCtx, cancelRepair := context.WithTimeout(ctx, s.writeTimeout)
-		repairResults := make(chan *replicaPutResult)
-		data := replicaValues[0].Data
-
+		repairResults := make(chan *nodePutResult)
+		data := mergedValues.Values[0].Data
 		wg := sync.WaitGroup{}
-		wg.Add(len(staleReplicas))
 
-		for _, replica := range replicas {
-			if staleReplicas.Has(replica.Name) {
-				go func(replica clustering.Node) {
-					defer wg.Done()
-
-					ver, err := put(repairCtx, replica, req.Key, data, mergedVersion, false)
-					if err != nil {
-						s.logger.Log("msg", "failed to repair", "replica", replica.Name)
-						return
-					}
-
-					repairResults <- &replicaPutResult{
-						ReplicaName: replica.Name,
-						Version:     ver,
-					}
-				}(replica)
+		for i := range replicas {
+			replica := &replicas[i]
+			if !repairSet.Has(replica.ID) {
+				continue
 			}
+
+			wg.Add(1)
+
+			go func(replica *membership.Member) {
+				defer wg.Done()
+
+				conn, err := s.cluster.Conn(replica.ID)
+				if err != nil {
+					level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
+					return
+				}
+
+				version, err := put(repairCtx, conn, req.Key, data, mergedValues.Version, false)
+				if err != nil {
+					s.logger.Log("msg", "failed to repair", "replica", replica.Name, "err", err)
+					return
+				}
+
+				repairResults <- &nodePutResult{
+					NodeID:  replica.ID,
+					Version: version,
+				}
+			}(replica)
 		}
 
 		go func() {
@@ -142,15 +173,14 @@ loop:
 			close(repairResults)
 		}()
 
-	loop2:
+	repairloop:
 		for {
 			select {
 			case r := <-repairResults:
 				if r != nil {
-					staleReplicas.Remove(r.ReplicaName)
-
-					if len(staleReplicas) == 0 {
-						break loop2
+					repairSet.Remove(r.NodeID)
+					if len(repairSet) == 0 {
+						break repairloop
 					}
 				} else {
 					return nil, errLevelNotSatisfied
@@ -161,52 +191,65 @@ loop:
 		}
 	}
 
+	protoValues := make([]*proto.Value, 0, len(mergedValues.Values))
+	for _, value := range mergedValues.Values {
+		protoValues = append(protoValues, &proto.Value{Data: value.VersionedValue.Data})
+	}
+
 	return &proto.GetResponse{
-		Values:  mergedValues,
-		Version: mergedVersion,
+		Version: mergedValues.Version,
+		Values:  protoValues,
 	}, nil
 }
 
-type preparedMerge struct {
-	RemovedIndices   collections.Set[int]
-	OutdatedReplicas collections.Set[string]
+type mergeResult struct {
+	Values        []nodeValue
+	Version       vclock.Vector
+	StaleReplicas []membership.NodeID
 }
 
-func mergePrepare(values []replicaValue) preparedMerge {
-	indicesToRemove := make(collections.Set[int])
-	outdatedReplicas := make(collections.Set[string])
+func mergeValues(values []nodeValue) mergeResult {
+	mergedVersion := make(vclock.Vector)
+	for _, v := range values {
+		mergedVersion = vclock.Merge(mergedVersion, v.Version)
+	}
 
-	// FIXME: O(n^2) here
-	for i := 0; i < len(values); i++ {
-		replicaName := values[i].ReplicaName
-
-		for j := i + 1; j < len(values); j++ {
-			switch vclock.Compare(values[i].Version, values[j].Version) {
-			case vclock.Before:
-				outdatedReplicas.Add(replicaName)
-				indicesToRemove.Add(i)
-			case vclock.Equal:
-				// Vectors are equal means that the replica is up to date
-				// but its value should be dropped as a duplicate.
-				indicesToRemove.Add(i)
-			}
+	if len(values) < 2 {
+		return mergeResult{
+			Values:  values,
+			Version: mergedVersion,
 		}
 	}
 
-	return preparedMerge{
-		RemovedIndices:   indicesToRemove,
-		OutdatedReplicas: outdatedReplicas,
-	}
-}
+	var staleReplicas []membership.NodeID
 
-func mergeApply(values []replicaValue, patch preparedMerge) []replicaValue {
-	merged := make([]replicaValue, 0, len(values))
+	uniqueValues := make(map[uint32]nodeValue)
 
-	for i, a := range values {
-		if !patch.RemovedIndices.Has(i) {
-			merged = append(merged, a)
+	// Find out the highest version.
+	highestVer := values[0].Version
+	for _, v := range values[1:] {
+		if vclock.Compare(highestVer, v.Version) == vclock.Before {
+			highestVer = v.Version
 		}
 	}
 
-	return merged
+	for _, v := range values {
+		// Ignore the values that clearly precedes the highest version.
+		if vclock.Compare(v.Version, highestVer) == vclock.Before {
+			staleReplicas = append(staleReplicas, v.NodeID)
+			continue
+		}
+
+		// Keep unique values only, based on version hash.
+		h := vclock.Vector(v.Version).Hash()
+		if _, ok := uniqueValues[h]; !ok {
+			uniqueValues[h] = v
+		}
+	}
+
+	return mergeResult{
+		Values:        generic.MapValues(uniqueValues),
+		Version:       mergedVersion,
+		StaleReplicas: staleReplicas,
+	}
 }

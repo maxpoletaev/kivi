@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/rand"
 	"net/netip"
 	"sync"
 	"sync/atomic"
@@ -15,32 +14,17 @@ import (
 	"github.com/maxpoletaev/kv/gossip/proto"
 	"github.com/maxpoletaev/kv/gossip/queue"
 	"github.com/maxpoletaev/kv/gossip/transport"
-	"github.com/maxpoletaev/kv/internal/generics"
+	"github.com/maxpoletaev/kv/internal/generic"
 )
-
-// Delegate is an interface the client should implement to receive gossip
-// messages. The methods are never called concurrently and guaranteed to be
-// called at most once for each message.
-type Delegate interface {
-	// Receive is called when a message is received by the consumer.
-	// The order of calls is non-deterministic, since the messages may be
-	// received in different order depending on the transport protocol.
-	Receive([]byte) error
-
-	// Deliver is called when a message is ready to be delivered. Which means
-	// that and all its predecessor have already been delivered. It guarantees
-	// that the messages broadcasted by the same node always
-	// arrive in the same order.
-	Deliver([]byte) error
-}
 
 // Transport is the underlying transport protocol used to deliver peer-to-peer
 // messages from one node to another.
 type Transport interface {
+	// WriteTo writes a message to the network address.
 	WriteTo(*proto.GossipMessage, *netip.AddrPort) error
 
 	// ReadFrom reads message from the network and stores into the given message.
-	// This should block until a message is received or the transport is closed.
+	// This will block until a message is received or the transport is closed.
 	ReadFrom(*proto.GossipMessage) error
 
 	// Close closes the underlying transport connection. After that, no messages
@@ -73,49 +57,49 @@ type Gossiper struct {
 
 	// Peers is the registry of known peers, to which messages will be gossiped.
 	// Implemented as a map wrapped into atomic.Value to provide lock-free reads.
-	peers *generics.Atomic[peerMap]
+	peers *generic.Atomic[peerMap]
 }
 
 // Start initializes the gossiper struct with the given configuration
 // and starts a background listener process accepting gossip messages.
 func Start(conf *Config) (*Gossiper, error) {
-	c := &Config{}
-	*c = *conf
-
-	bindAddr, err := netip.ParseAddrPort(c.BindAddr)
+	bindAddr, err := netip.ParseAddrPort(conf.BindAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse bind address (%s): %w", c.BindAddr, err)
+		return nil, fmt.Errorf("failed to parse bind address (%s): %w", conf.BindAddr, err)
 	}
 
-	if c.Transport == nil {
+	if conf.Transport == nil {
+		// Ensure that the original config is not modified.
+		conf = func() *Config { c := *conf; return &c }()
+
 		tr, err := transport.Create(&bindAddr)
 		if err != nil {
 			return nil, err
 		}
 
-		tr.Logger = c.Logger
-		c.Transport = tr
+		tr.Logger = conf.Logger
 
-		go tr.Consume()
+		conf.Transport = tr
 	}
 
-	g := newGossiper(c)
+	g := newGossiper(conf)
+
 	g.StartListener()
 
 	return g, nil
 }
 
-func newGossiper(cfg *Config) *Gossiper {
-	peers := &generics.Atomic[peerMap]{}
+func newGossiper(conf *Config) *Gossiper {
+	peers := &generic.Atomic[peerMap]{}
 	peers.Store(make(peerMap))
 
 	return &Gossiper{
-		peerID:       cfg.PeerID,
-		gossipFactor: cfg.GossipFactor,
-		transport:    cfg.Transport,
-		delegate:     cfg.Delegate,
-		logger:       cfg.Logger,
-		messageTTL:   cfg.MessageTTL,
+		peerID:       conf.PeerID,
+		gossipFactor: conf.GossipFactor,
+		transport:    conf.Transport,
+		delegate:     conf.Delegate,
+		logger:       conf.Logger,
+		messageTTL:   conf.MessageTTL,
 		peers:        peers,
 	}
 }
@@ -127,7 +111,8 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 		level.Debug(l).Log("msg", "scheduled for rebroadcast", "ttl", msg.Ttl)
 
 		// Keep track of peers that have seen the message in order to avoid recursion.
-		// TODO: probably should make it configurable as it may affect message size on large ttls.
+		// TODO: probably should make it configurable as it may affect message size
+		//	on large ttls. Or maybe use bloom filter.
 		msg.SeenBy = append(msg.SeenBy, uint32(g.peerID))
 
 		msg.Ttl--
@@ -188,19 +173,16 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 
 	var lastErr error
 
-	var nScheduled, nFailed int
+	var sentCount, failedCount int
 
 	knownPeers := g.peers.Load()
 
-	// It is important that target peers are randomly selected. Even though map iteration
-	// order is non-deterministic, it is not fully random and not uniformly distributed.
-	ids := generics.MapKeys(knownPeers)
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+	peerIDs := generic.MapKeys(knownPeers)
 
-	for _, id := range ids {
-		if nScheduled >= g.gossipFactor {
+	generic.Shuffle(peerIDs)
+
+	for _, id := range peerIDs {
+		if sentCount >= g.gossipFactor {
 			break
 		}
 
@@ -209,7 +191,7 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 			continue
 		}
 
-		nScheduled++
+		sentCount++
 
 		err := g.transport.WriteTo(msg, &p.Addr)
 		if err != nil {
@@ -219,12 +201,12 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 				lastErr = err
 			}
 
-			nFailed++
+			failedCount++
 		}
 	}
 
 	// Error only if all attempts have failed.
-	if nFailed == nScheduled {
+	if failedCount > 0 && sentCount == failedCount {
 		return lastErr
 	}
 
@@ -263,6 +245,7 @@ func (g *Gossiper) listenMessages() {
 			}
 
 			level.Error(g.logger).Log("msg", "error while reading", "err", err)
+
 			continue
 		}
 
@@ -310,7 +293,7 @@ func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
 
 	newMap := make(peerMap, len(oldMap)+1)
 
-	generics.MapCopy(oldMap, newMap)
+	generic.MapCopy(oldMap, newMap)
 
 	newMap[id] = &remotePeer{
 		ID:    id,

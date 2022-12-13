@@ -4,12 +4,6 @@ import (
 	"github.com/go-kit/log"
 )
 
-// NoopDelegate is an event delegate that does nothing.
-type NoopDelegate struct{}
-
-func (d *NoopDelegate) Receive([]byte) error { return nil }
-func (d *NoopDelegate) Deliver([]byte) error { return nil }
-
 type Config struct {
 	// PeerID identifier of the current node. It will be attached to every
 	// message and must be be unique.

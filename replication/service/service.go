@@ -1,5 +1,7 @@
 package service
 
+//go:generate moq -stub -out service_mock.go . cluster
+
 import (
 	"time"
 
@@ -7,62 +9,78 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/clustering"
 	"github.com/maxpoletaev/kv/internal/vclock"
+	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
-	spb "github.com/maxpoletaev/kv/storage/proto"
+	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
 const (
 	defaultReadTimeout      = time.Second * 5
 	defaultWriteTimeout     = time.Second * 5
-	defaultConsistencyLevel = consistency.LevelQuorum
+	defaultConsistencyLevel = consistency.Quorum
 )
 
 var (
 	errLevelNotSatisfied = status.Error(codes.Unavailable, "unable to satisfy the desired consistency level")
 	errNotEnoughReplicas = status.Error(codes.FailedPrecondition, "not enough replicas available to satisfy the consistency level")
+	errMissingVersion    = status.Error(codes.InvalidArgument, "version is required")
+	errMissingKey        = status.Error(codes.InvalidArgument, "key is required")
 )
 
-type cluster interface {
-	LocalNode() clustering.Node
-	Nodes() []clustering.Node
+type nodePutResult struct {
+	NodeID  membership.NodeID
+	Version vclock.Vector
 }
 
-type replicaPutResult struct {
-	Version     vclock.Vector
-	ReplicaName string
+type nodeGetResult struct {
+	NodeID membership.NodeID
+	Values []*storagepb.VersionedValue
 }
 
-type replicaGetResult struct {
-	Values      []*spb.VersionedValue
-	ReplicaName string
+type nodeValue struct {
+	NodeID membership.NodeID
+	*storagepb.VersionedValue
 }
 
-type replicaValue struct {
-	*spb.VersionedValue
-	ReplicaName string
+type serviceOption func(s *ReplicationService)
+
+func WithConsistencyLevel(read, write consistency.Level) serviceOption {
+	return func(s *ReplicationService) {
+		s.readLevel = read
+		s.writeLevel = write
+	}
 }
 
-type CoordinatorService struct {
+type ReplicationService struct {
 	proto.UnimplementedCoordinatorServiceServer
 
-	cluster          cluster
-	logger           kitlog.Logger
-	readTimeout      time.Duration
-	writeTimeout     time.Duration
-	readConsistency  consistency.Level
-	writeConsistency consistency.Level
+	cluster      Cluster
+	logger       kitlog.Logger
+	readTimeout  time.Duration
+	writeTimeout time.Duration
+	readLevel    consistency.Level
+	writeLevel   consistency.Level
 }
 
-func New(clust cluster, logger kitlog.Logger) *CoordinatorService {
-	return &CoordinatorService{
-		cluster:          clust,
-		logger:           logger,
-		readTimeout:      defaultReadTimeout,
-		writeTimeout:     defaultWriteTimeout,
-		readConsistency:  defaultConsistencyLevel,
-		writeConsistency: defaultConsistencyLevel,
+func New(clust Cluster, logger kitlog.Logger, readLevel, writeLevel consistency.Level) *ReplicationService {
+	return &ReplicationService{
+		cluster:      clust,
+		logger:       logger,
+		readTimeout:  defaultReadTimeout,
+		writeTimeout: defaultWriteTimeout,
+		readLevel:    readLevel,
+		writeLevel:   writeLevel,
 	}
+}
+
+func countAlive(members []membership.Member) (alive int) {
+	for i := range members {
+		if members[i].IsReacheable() {
+			alive++
+		}
+	}
+
+	return
 }

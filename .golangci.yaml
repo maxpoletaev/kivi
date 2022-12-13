@@ -1,0 +1,19 @@
+linters:
+  enable:
+    - errcheck
+    - gofmt
+    - unparam
+    - prealloc
+    - gosec
+    - nilerr
+    - errcheck
+    - gosimple
+    - wsl
+
+issues:
+  exclude-use-default: false
+
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (github.com/go-kit/log.Logger).Log

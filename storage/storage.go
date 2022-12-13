@@ -1,6 +1,6 @@
 package storage
 
-//go:generate moq -stub -out storage_mock.go . Backend
+//go:generate mockgen -source=storage.go -destination=mock/storage_mock.go -package=mock
 
 import (
 	"errors"
@@ -29,7 +29,7 @@ type ScanIterator interface {
 	HasNext() bool
 }
 
-func AddVersion(values []StoredValue, newValue StoredValue) ([]StoredValue, error) {
+func AppendVersion(values []StoredValue, newValue StoredValue) ([]StoredValue, error) {
 	merged := make([]StoredValue, 0, len(values)+1)
 
 	for _, val := range values {

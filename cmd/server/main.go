@@ -1,22 +1,29 @@
 package main
 
 import (
-	"flag"
+	"context"
 	"net"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 	"google.golang.org/grpc"
 
-	"github.com/maxpoletaev/kv/clustering"
-	"github.com/maxpoletaev/kv/clustering/faildetect"
-	clusterpb "github.com/maxpoletaev/kv/clustering/proto"
-	clustersvc "github.com/maxpoletaev/kv/clustering/service"
+	clusterpkg "github.com/maxpoletaev/kv/cluster"
+	"github.com/maxpoletaev/kv/cluster/nodeclient"
+	"github.com/maxpoletaev/kv/faildetector"
+	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
+	faildetectorsvc "github.com/maxpoletaev/kv/faildetector/service"
 	"github.com/maxpoletaev/kv/gossip"
+	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kv/membership/broadcast"
+	membershippb "github.com/maxpoletaev/kv/membership/proto"
+	membershipsvc "github.com/maxpoletaev/kv/membership/service"
+	"github.com/maxpoletaev/kv/replication/consistency"
 	replicationpb "github.com/maxpoletaev/kv/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kv/replication/service"
 	"github.com/maxpoletaev/kv/storage/inmemory"
@@ -24,93 +31,118 @@ import (
 	storagesvc "github.com/maxpoletaev/kv/storage/service"
 )
 
+type App struct {
+	wg         sync.WaitGroup
+	onShutdown []func()
+}
+
+func NewApp() *App {
+	return &App{}
+}
+
+func (a *App) AddWorker(fn func()) {
+	a.wg.Add(1)
+
+	go func() {
+		fn()
+		a.wg.Done()
+	}()
+}
+
+func (a *App) AddShutdownHook(fn func()) {
+	a.onShutdown = append(a.onShutdown, fn)
+}
+
+func (a *App) Run() {
+	a.wg.Wait()
+}
+
+func (a *App) Shutdown() {
+	for _, fn := range a.onShutdown {
+		fn()
+	}
+
+	a.wg.Wait()
+}
+
 func main() {
-	var (
-		nodeID        uint
-		nodeName      string
-		localAddr     string
-		bindAddr      string
-		advertiseAddr string
-		gossipAddr    string
-		joinAddr      string
-	)
-
-	flag.UintVar(&nodeID, "id", 0, "unique node id")
-	flag.StringVar(&nodeName, "name", "", "node name")
-	flag.StringVar(&localAddr, "local-addr", "", "addres of local grpc server")
-	flag.StringVar(&bindAddr, "bind-addr", "", "address of local grpc server")
-	flag.StringVar(&advertiseAddr, "advertise-addr", "", "address to advertise to other nodes")
-	flag.StringVar(&gossipAddr, "gossip-addr", "", "address of local gossip listener")
-	flag.StringVar(&joinAddr, "join", "", "any cluster node to join")
-	flag.Parse()
-
+	appctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stderr))
-	logger = kitlog.With(logger, "replica", nodeName)
+	args := parseCliArgs()
+
+	defer cancel()
+
+	if !args.verbose {
+		logger = level.NewFilter(logger, level.AllowInfo())
+	}
+
+	gossipConf := gossip.DefaultConfig()
+	gossipConf.PeerID = gossip.PeerID(args.nodeID)
+	gossipConf.BindAddr = args.gossipBindAddr
+	gossipConf.Logger = logger
+
+	eventDelegate := broadcast.NewGossipEventDelegate()
+	gossipConf.Delegate = eventDelegate
+
+	// Start gossip publisher/listener process.
+	gossiper, err := gossip.Start(gossipConf)
+	if err != nil {
+		logger.Log("msg", "failed to start gossip listener", "addr", args.gossipBindAddr, "err", err)
+		os.Exit(1)
+	}
+
+	// Event publisher that uses gossip protocol to broadcast messages within the cluster.
+	eventBroadcaster := broadcast.New(gossiper)
+
+	localMember := membership.Member{
+		ID:         membership.NodeID(args.nodeID),
+		Name:       args.nodeName,
+		GossipAddr: args.gossipPublicAddr,
+		ServerAddr: args.grpcPublicAddr,
+		Status:     membership.StatusHealthy,
+		Version:    1,
+	}
+
+	memberlist := membership.New(localMember, logger, eventBroadcaster)
+
+	dialer := nodeclient.NewDialer()
+	connections := clusterpkg.NewConnRegistry(memberlist, dialer)
+	cluster := clusterpkg.New(localMember.ID, memberlist, connections, dialer)
 
 	grpcServer := grpc.NewServer()
 
 	storage := inmemory.New()
-	storageService := storagesvc.New(storage, uint32(nodeID))
+	storageService := storagesvc.New(storage, uint32(args.nodeID))
 	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
 
-	gossipDelegate := clustering.NewGossipDelegate()
+	membershipService := membershipsvc.NewMembershipService(memberlist)
+	membershippb.RegisterMembershipServiceServer(grpcServer, membershipService)
 
-	gossipConf := gossip.DefaultConfig()
-	gossipConf.PeerID = gossip.PeerID(nodeID)
-	gossipConf.Delegate = gossipDelegate
-	gossipConf.BindAddr = gossipAddr
-	gossipConf.Logger = logger
-
-	gossiper, err := gossip.Start(gossipConf)
-	if err != nil {
-		logger.Log("msg", "failed to start gossip listener", "addr", gossipAddr, "err", err)
-		os.Exit(1)
-	}
-
-	if advertiseAddr == "" {
-		advertiseAddr = bindAddr
-	}
-
-	localNode := clustering.Member{
-		ID:              clustering.NodeID(nodeID),
-		Status:          clustering.StatusAlive,
-		Name:            nodeName,
-		GossipAddr:      gossipAddr,
-		ServerAddr:      advertiseAddr,
-		LocalServerAddr: localAddr,
-	}
-
-	eventPubSub := clustering.NewGossipEventPublisher(gossiper)
-	cluster := clustering.NewCluster(localNode, logger, eventPubSub)
-	failDetector := faildetect.New(cluster, logger)
-
-	if len(joinAddr) != 0 {
-		level.Debug(logger).Log("msg", "attempting to join the cluster", "addr", joinAddr)
-
-		if err = cluster.JoinTo(joinAddr); err != nil {
-			level.Error(logger).Log("msg", "failed to join cluster", "err", err)
-			os.Exit(1)
-		}
-	}
-
-	clusterService := clustersvc.NewClusteringService(cluster)
-	clusterpb.RegisterClusteringSericeServer(grpcServer, clusterService)
-
-	replicationService := replicationsvc.New(cluster, logger)
+	replicationService := replicationsvc.New(cluster, logger, consistency.Quorum, consistency.Quorum)
 	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
 
-	wg := sync.WaitGroup{}
+	faildetectorService := faildetectorsvc.New(cluster)
+	faildetectorpb.RegisterFailDetectorServiceServer(grpcServer, faildetectorService)
+
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	serverReady := make(chan struct{})
+	detector := faildetector.New(memberlist, connections, logger, faildetector.WithIndirectPingNodes(1))
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		detector.RunLoop(appctx)
+	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 
-		for event := range gossipDelegate.Events() {
-			cluster.DispatchEvent(event)
+		for event := range eventDelegate.Events() {
+			memberlist.HandleEvent(event)
 		}
 	}()
 
@@ -118,50 +150,57 @@ func main() {
 	go func() {
 		defer wg.Done()
 
-		listener, err := net.Listen("tcp", bindAddr)
-		if err != nil {
-			logger.Log("msg", "failed to listen tcp address", "addr", bindAddr, "err", err)
-			os.Exit(1)
-		}
-
-		err = cluster.ConnectLocal()
-		if err != nil {
-			logger.Log("msg", "local connection failed", "err", err)
-			os.Exit(1)
-		}
-
-		close(serverReady)
-
-		if err := grpcServer.Serve(listener); err != nil {
-			logger.Log("msg", "failed to start grpc server", "err", err)
-			os.Exit(1)
+		for {
+			select {
+			case <-appctx.Done():
+				return
+			case <-time.After(5 * time.Second):
+				connections.CollectGarbage()
+			}
 		}
 	}()
 
-	wg.Add(1)
-	go func() {
-		<-serverReady
+	if len(args.joinAddr) != 0 {
+		for {
+			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
+			ctx := context.Background()
 
-		defer wg.Done()
+			if err = cluster.JoinTo(ctx, []string{args.joinAddr}); err != nil {
+				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
+				time.Sleep(3 * time.Second)
+				continue
+			}
 
-		failDetector.RunLoop()
-	}()
+			break
+		}
+	}
 
 	wg.Add(1)
 	go func() {
 		<-interrupt
-
 		defer wg.Done()
 
-		if err := cluster.Leave(); err != nil {
+		if err := memberlist.Leave(); err != nil {
 			logger.Log("msg", "failed to leave the cluster", "err", err)
 		}
 
-		failDetector.Stop()
 		gossiper.Shutdown()
-		gossipDelegate.Close()
+		eventDelegate.Close()
 		grpcServer.GracefulStop()
 	}()
+
+	// Create a TCP listener for the GRPC server.
+	listener, err := net.Listen("tcp", args.grpcBindAddr)
+	if err != nil {
+		logger.Log("msg", "failed to listen tcp address", "addr", args.grpcBindAddr, "err", err)
+		os.Exit(1)
+	}
+
+	// Start the GRPC server.
+	if err := grpcServer.Serve(listener); err != nil {
+		logger.Log("msg", "failed to start grpc server", "err", err)
+		os.Exit(1)
+	}
 
 	wg.Wait()
 }

@@ -144,8 +144,8 @@ func randomHeight() int {
 	return height
 }
 
-// makeSkiplist is a helper to simplify skiplist construction during tests.
-func makeSkiplist[K comparable, V any](keys [][]K, keyComparator Comparator[K], defaultValue V) *Skiplist[K, V] {
+// construct is a helper to simplify skiplist construction during tests.
+func construct[K comparable, V any](keys [][]K, keyComparator Comparator[K], defaultValue V) *Skiplist[K, V] {
 	nodes := make(map[K]*listNode[K, V], 0)
 	head := &listNode[K, V]{}
 	size := 0

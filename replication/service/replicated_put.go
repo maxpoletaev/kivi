@@ -4,56 +4,73 @@ import (
 	"context"
 	"sync"
 
+	"github.com/go-kit/log/level"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/clustering"
+	"github.com/maxpoletaev/kv/cluster"
 	"github.com/maxpoletaev/kv/internal/grpcutil"
 	"github.com/maxpoletaev/kv/internal/vclock"
+	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
-func (s *CoordinatorService) ReplicatedPut(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
-	replicas := make([]clustering.Node, 0)
-	for _, node := range s.cluster.Nodes() {
-		if node.Status == clustering.StatusAlive && !node.Local {
-			replicas = append(replicas, node)
-		}
+func (s *ReplicationService) validatePutRequest(req *proto.PutRequest) error {
+	if len(req.Key) == 0 {
+		return errMissingKey
 	}
 
-	minAcks := s.writeConsistency.N(len(replicas))
+	if req.Version == nil {
+		return errMissingVersion
+	}
 
-	if len(replicas) < minAcks {
+	return nil
+}
+
+func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+	if err := s.validatePutRequest(req); err != nil {
+		return nil, err
+	}
+
+	members := s.cluster.Members()
+
+	acksLeft := s.writeLevel.N(len(members))
+
+	if countAlive(members) < acksLeft {
 		return nil, errNotEnoughReplicas
 	}
 
-	// Local node coordinates the write.
-	leader := s.cluster.LocalNode()
-
 	criterr := make(chan error, 1)
-	putResults := make(chan *replicaPutResult, len(replicas))
 
-	// Initial write goes to the local replica.
-	// This one should increment the verstion vector which then will be replicated to other replicas.
-	newVersion, err := put(ctx, leader, req.Key, req.Value.Data, req.Version, true)
+	localMember := s.cluster.Self()
+	localConn := s.cluster.SelfConn()
+
+	putResults := make(chan *nodePutResult, len(members))
+
+	// Initial write goes to the local node which increments the verstion vector.
+	newVersion, err := put(ctx, localConn, req.Key, req.Value.Data, req.Version, true)
 	if err != nil {
-		s.logger.Log("msg", "primary replica write failed", "err", err)
-		return nil, status.Errorf(codes.Unavailable, "failed to write to primary replica: %s", err)
+		s.logger.Log("msg", "primary write failed", "err", err)
+		return nil, status.Errorf(codes.Internal, "failed to write to primary: %s", err)
 	}
 
-	// To provide best-effort, we continue writing to replicas in background even after
-	// we have received enough acknowledgements to satisfy the desired consistency level.
-	// Therefore, the context should not be cancelled until the timeout fires or unless
-	// there is a critical error that makes the current write pointless.
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), s.writeTimeout)
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(replicas))
+	wg.Add(len(members))
 
-	for _, replica := range replicas {
-		go func(replica clustering.Node) {
+	// The write is then replicated across other nodes.
+	for i := range members {
+		replica := &members[i]
+
+		if !replica.IsReacheable() || replica.ID == localMember.ID {
+			wg.Done()
+			continue
+		}
+
+		go func(member *membership.Member) {
 			defer wg.Done()
 
 			select {
@@ -62,29 +79,45 @@ func (s *CoordinatorService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 			default:
 			}
 
-			version, err := put(writeCtx, replica, req.Key, req.Value.Data, newVersion, false)
+			conn, err := s.cluster.Conn(replica.ID)
+			if err != nil {
+				level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
+				return
+			}
+
+			version, err := put(writeCtx, conn, req.Key, req.Value.Data, newVersion, false)
 			if err != nil {
 				if grpcutil.ErrorCode(err) == codes.AlreadyExists {
-					// Some replicas already have a newer value. There is no point to continue the operation.
-					// The channel write is non-blocking since the error is only read once.
+					// Some replicas already have a newer value, there is no point
+					// to continue the operation. The channel write is non-blocking
+					// since it will only be read once.
 					select {
 					case criterr <- err:
 					default:
 					}
 				}
 
-				s.logger.Log("msg", "write to replica has failed", "err", err)
+				level.Warn(s.logger).Log(
+					"msg", "write to replica has failed",
+					"replica", replica.Name,
+					"key", req.Key,
+					"err", err,
+				)
 
 				return
 			}
 
-			putResults <- &replicaPutResult{
-				ReplicaName: replica.Name,
-				Version:     version,
+			putResults <- &nodePutResult{
+				NodeID:  replica.ID,
+				Version: version,
 			}
 		}(replica)
 	}
 
+	// To provide best-effort, we continue writing to replicas in the background even after
+	// we have received enough acknowledgements to satisfy the desired consistency level.
+	// The write context should not be cancelled until the timeout fires (or unless
+	// there is a critical error that makes the current write pointless).
 	go func() {
 		wg.Wait()
 		cancelWrite()
@@ -92,12 +125,11 @@ func (s *CoordinatorService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		close(putResults)
 	}()
 
-	// At this point we already have one ack from the primary...
-	numAcks := 1
+	// At this point we already have one ack from the local node...
+	acksLeft--
 
-	// ...which is enough to fulfill the ConsistencyLevelOne.
-	// The write will continue in the background, though.
-	if s.writeConsistency == consistency.LevelOne {
+	// ...which is enough to fulfill the consistency.One level.
+	if s.writeLevel == consistency.One {
 		return &proto.PutResponse{
 			Version: newVersion,
 		}, nil
@@ -105,16 +137,16 @@ func (s *CoordinatorService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 
 	for {
 		// Block until either:
-		// - We have enough acknowledgements from replicas to satisfy the consistency level.
-		// - We run out of replicas and haven’t got enough responses.
-		// - There is a critical error in the criterr channel.
+		//  * We have enough acknowledgements from replicas to satisfy the consistency level.
+		//  * We run out of replicas and haven’t got enough acknowledgements.
+		//  * A critical error has occured in the criterr channel.
 
 		select {
 		case r := <-putResults:
 			if r != nil {
-				numAcks++
+				acksLeft--
 
-				if numAcks == minAcks {
+				if acksLeft == 0 {
 					return &proto.PutResponse{
 						Version: newVersion,
 					}, nil
@@ -133,7 +165,7 @@ func (s *CoordinatorService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 }
 
-func put(ctx context.Context, replica clustering.Node, key string,
+func put(ctx context.Context, conn cluster.Client, key string,
 	value []byte, version vclock.Vector, primary bool) (vclock.Vector, error) {
 
 	req := &storagepb.PutRequest{
@@ -145,7 +177,7 @@ func put(ctx context.Context, replica clustering.Node, key string,
 		},
 	}
 
-	resp, err := replica.Put(ctx, req)
+	resp, err := conn.Put(ctx, req)
 	if err != nil {
 		return nil, err
 	}
