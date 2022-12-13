@@ -10,7 +10,6 @@ import (
 
 	"github.com/maxpoletaev/kv/cluster"
 	"github.com/maxpoletaev/kv/internal/grpcutil"
-	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
@@ -20,10 +19,6 @@ import (
 func (s *ReplicationService) validatePutRequest(req *proto.PutRequest) error {
 	if len(req.Key) == 0 {
 		return errMissingKey
-	}
-
-	if req.Version == nil {
-		return errMissingVersion
 	}
 
 	return nil
@@ -166,7 +161,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 }
 
 func put(ctx context.Context, conn cluster.Client, key string,
-	value []byte, version vclock.Vector, primary bool) (vclock.Vector, error) {
+	value []byte, version string, primary bool) (string, error) {
 
 	req := &storagepb.PutRequest{
 		Key:     key,
@@ -179,7 +174,7 @@ func put(ctx context.Context, conn cluster.Client, key string,
 
 	resp, err := conn.Put(ctx, req)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	return resp.Version, nil

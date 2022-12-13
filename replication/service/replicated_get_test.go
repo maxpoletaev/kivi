@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
@@ -18,8 +18,8 @@ func TestMergeValues(t *testing.T) {
 		"NoValues": {
 			values: nil,
 			wantResult: mergeResult{
+				Version: vclock.NewEncoded(),
 				Values:  nil,
-				Version: vclock.Vector{},
 			},
 		},
 		"SingleValue": {
@@ -27,7 +27,7 @@ func TestMergeValues(t *testing.T) {
 				{
 					NodeID: 1,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1}),
 					},
 				},
 			},
@@ -36,11 +36,11 @@ func TestMergeValues(t *testing.T) {
 					{
 						NodeID: 1,
 						VersionedValue: &storagepb.VersionedValue{
-							Version: vclock.Vector{1: 1},
+							Version: vclock.NewEncoded(vclock.V{1: 1}),
 						},
 					},
 				},
-				Version:       vclock.Vector{1: 1},
+				Version:       vclock.NewEncoded(vclock.V{1: 1}),
 				StaleReplicas: nil,
 			},
 		},
@@ -49,35 +49,35 @@ func TestMergeValues(t *testing.T) {
 				{
 					NodeID: 1,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 1, 2: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 1}),
 						Data:    []byte("older value"),
 					},
 				},
 				{
 					NodeID: 2,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 1, 2: 2},
+						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 						Data:    []byte("newer value"),
 					},
 				},
 				{
 					NodeID: 3,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 1, 2: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 1}),
 						Data:    []byte("older value"),
 					},
 				},
 				{
 					NodeID: 4,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 2, 2: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 2, 2: 1}),
 						Data:    []byte("newer concurrent value"),
 					},
 				},
 				{
 					NodeID: 5,
 					VersionedValue: &storagepb.VersionedValue{
-						Version: vclock.Vector{1: 1, 2: 2},
+						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 						Data:    []byte("newer value duplicate"),
 					},
 				},
@@ -87,19 +87,19 @@ func TestMergeValues(t *testing.T) {
 					{
 						NodeID: 2,
 						VersionedValue: &storagepb.VersionedValue{
-							Version: vclock.Vector{1: 1, 2: 2},
+							Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 							Data:    []byte("newer value"),
 						},
 					},
 					{
 						NodeID: 4,
 						VersionedValue: &storagepb.VersionedValue{
-							Version: vclock.Vector{1: 2, 2: 1},
+							Version: vclock.NewEncoded(vclock.V{1: 2, 2: 1}),
 							Data:    []byte("newer concurrent value"),
 						},
 					},
 				},
-				Version:       vclock.Vector{1: 2, 2: 2},
+				Version:       vclock.NewEncoded(vclock.V{1: 2, 2: 2}),
 				StaleReplicas: []membership.NodeID{1, 3},
 			},
 		},
@@ -107,8 +107,9 @@ func TestMergeValues(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			result := mergeValues(tt.values)
-			assert.Equal(t, tt.wantResult, result)
+			result, err := mergeVersions(tt.values)
+			require.NoError(t, err)
+			require.Equal(t, tt.wantResult, result)
 		})
 	}
 }

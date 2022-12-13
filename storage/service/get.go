@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/storage"
 	"github.com/maxpoletaev/kv/storage/proto"
 )
@@ -38,7 +39,7 @@ func toResponseValues(values []storage.StoredValue) []*proto.VersionedValue {
 
 	for _, value := range values {
 		versionedValues = append(versionedValues, &proto.VersionedValue{
-			Version: value.Version,
+			Version: vclock.MustEncode(value.Version),
 			Data:    value.Blob,
 		})
 	}

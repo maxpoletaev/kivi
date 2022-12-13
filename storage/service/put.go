@@ -14,14 +14,15 @@ import (
 )
 
 func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
-	version := vclock.Vector(req.Value.Version)
-
-	if version == nil {
-		version = make(vclock.Vector)
+	version, err := vclock.Decode(req.Value.Version)
+	if err != nil {
+		return nil, status.New(
+			codes.InvalidArgument, fmt.Sprintf("invalid version: %s", err),
+		).Err()
 	}
 
 	if req.Primary {
-		version.Increment(s.nodeID)
+		version.Update(s.nodeID)
 	}
 
 	value := storage.StoredValue{
@@ -29,7 +30,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 		Version: version,
 	}
 
-	err := s.storage.Put(req.Key, value)
+	err = s.storage.Put(req.Key, value)
 	if err != nil {
 		if errors.Is(err, storage.ErrObsoleteWrite) {
 			return nil, status.New(codes.AlreadyExists, "obsolete write").Err()
@@ -41,6 +42,6 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	return &proto.PutResponse{
-		Version: version,
+		Version: vclock.MustEncode(version),
 	}, nil
 }

@@ -9,7 +9,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
@@ -31,7 +30,7 @@ var (
 
 type nodePutResult struct {
 	NodeID  membership.NodeID
-	Version vclock.Vector
+	Version string
 }
 
 type nodeGetResult struct {

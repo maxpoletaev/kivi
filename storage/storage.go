@@ -15,7 +15,7 @@ var (
 )
 
 type StoredValue struct {
-	Version vclock.Vector
+	Version *vclock.Vector
 	Blob    []byte
 }
 

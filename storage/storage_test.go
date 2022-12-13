@@ -3,6 +3,7 @@ package storage
 import (
 	"testing"
 
+	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,12 +20,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: nil,
 			incomingValue: StoredValue{
 				Blob:    []byte("value"),
-				Version: map[uint32]uint64{1: 1},
+				Version: vclock.New(vclock.V{1: 1}),
 			},
 			wantResult: []StoredValue{
 				{
 					Blob:    []byte("value"),
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
 		},
@@ -32,17 +33,17 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []StoredValue{
 				{
 					Blob:    []byte("current value"),
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
 			incomingValue: StoredValue{
 				Blob:    []byte("new value"),
-				Version: map[uint32]uint64{1: 2},
+				Version: vclock.New(vclock.V{1: 2}),
 			},
 			wantResult: []StoredValue{
 				{
 					Blob:    []byte("new value"),
-					Version: map[uint32]uint64{1: 2},
+					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
 		},
@@ -50,25 +51,25 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []StoredValue{
 				{
 					Blob:    []byte("old value 1"),
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.New(vclock.V{1: 1}),
 				},
 				{
 					Blob:    []byte("old value 2"),
-					Version: map[uint32]uint64{2: 1},
+					Version: vclock.New(vclock.V{2: 1}),
 				},
 			},
 			incomingValue: StoredValue{
 				Blob:    []byte("new value 1"),
-				Version: map[uint32]uint64{1: 2},
+				Version: vclock.New(vclock.V{1: 2}),
 			},
 			wantResult: []StoredValue{
 				{
 					Blob:    []byte("old value 2"),
-					Version: map[uint32]uint64{2: 1},
+					Version: vclock.New(vclock.V{2: 1}),
 				},
 				{
 					Blob:    []byte("new value 1"),
-					Version: map[uint32]uint64{1: 2},
+					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
 		},
@@ -76,21 +77,21 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []StoredValue{
 				{
 					Blob:    []byte("old value 1"),
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.New(vclock.V{1: 1}),
 				},
 				{
 					Blob:    []byte("old value 2"),
-					Version: map[uint32]uint64{2: 1},
+					Version: vclock.New(vclock.V{2: 1}),
 				},
 			},
 			incomingValue: StoredValue{
 				Blob:    []byte("new value"),
-				Version: map[uint32]uint64{1: 2, 2: 1},
+				Version: vclock.New(vclock.V{1: 2, 2: 1}),
 			},
 			wantResult: []StoredValue{
 				{
 					Blob:    []byte("new value"),
-					Version: map[uint32]uint64{1: 2, 2: 1},
+					Version: vclock.New(vclock.V{1: 2, 2: 1}),
 				},
 			},
 		},
@@ -98,12 +99,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []StoredValue{
 				{
 					Blob:    []byte("never value"),
-					Version: map[uint32]uint64{1: 2},
+					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
 			incomingValue: StoredValue{
 				Blob:    []byte("older value"),
-				Version: map[uint32]uint64{1: 1},
+				Version: vclock.New(vclock.V{1: 1}),
 			},
 			wantErr: ErrObsoleteWrite,
 		},
@@ -111,12 +112,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []StoredValue{
 				{
 					Blob:    []byte("value"),
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
 			incomingValue: StoredValue{
 				Blob:    []byte("value"),
-				Version: map[uint32]uint64{1: 1},
+				Version: vclock.New(vclock.V{1: 1}),
 			},
 			wantErr: ErrObsoleteWrite,
 		},

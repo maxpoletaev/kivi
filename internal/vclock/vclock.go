@@ -9,6 +9,7 @@ import (
 	"github.com/maxpoletaev/kv/internal/generic"
 )
 
+// Causality is a type that represents the causality relationship between two vectors.
 type Causality int
 
 const (
@@ -18,39 +19,106 @@ const (
 	Equal
 )
 
-type Vector map[uint32]uint64
-
-func New() Vector {
-	return make(Vector)
+func (c Causality) String() string {
+	switch c {
+	case Before:
+		return "Before"
+	case Concurrent:
+		return "Concurrent"
+	case After:
+		return "After"
+	case Equal:
+		return "Equal"
+	default:
+		return ""
+	}
 }
 
-func (vc Vector) Increment(id uint32) {
-	vc[id]++
+type V map[uint32]uint32
+
+// Vector represents a vector clock, which is a mapping of node IDs to clock values.
+// The clock value is a monotonically increasing counter that is incremented every time
+// the node makes an update. The clock value is used to determine the causality relationship
+// between two events. If the clock value of a node is greater than the clock value of
+// another node, it means that the first event happened after the second event.
+// The implementation uses a 32-bit unsigned integer to store the clock value,
+// which means that the clock value will roll over to zero after it reaches the maximum
+// value of 2^32-1. The implementation keeps track of such rollover events, so that
+// the causality relationship between two events can be determined even if the clock
+// value has rolled over.
+type Vector struct {
+	clocks    V
+	rollovers map[uint32]bool
 }
 
-func (vc Vector) Sub(other Vector) Vector {
-	keys := generic.MapKeys(vc, other)
-
-	newvec := make(Vector, len(keys))
-	for _, key := range keys {
-		newvec[key] = vc[key] - other[key]
+// New returns a new vector clock. If the given values are not empty, the new vector
+// clock is initialized with the given values. Otherwise, the new vector clock is
+// initialized with an empty map.
+func New(values ...V) *Vector {
+	if len(values) > 1 {
+		panic("too many arguments")
 	}
 
+	var clocks V
+	if len(values) == 1 {
+		clocks = values[0]
+	} else {
+		clocks = make(V)
+	}
+
+	return &Vector{
+		clocks:    clocks,
+		rollovers: make(map[uint32]bool, len(clocks)),
+	}
+}
+
+// Get returns the clock value for the given node ID.
+func (v *Vector) Get(id uint32) uint32 {
+	return v.clocks[id]
+}
+
+// Rollover inverts the rollover flag for the given node ID.
+func (v *Vector) Rollover(id uint32) {
+	v.rollovers[id] = !v.rollovers[id]
+}
+
+// Update increments the clock value for the given node ID.
+// If the clock value has rolled over, the rollover flag is inverted.
+func (vc *Vector) Update(id uint32) {
+	old := vc.clocks[id]
+	vc.clocks[id]++
+
+	if old > vc.clocks[id] {
+		// Clock value has rolled over.
+		vc.rollovers[id] = !vc.rollovers[id]
+	}
+}
+
+// Clone returns a copy of the vector clock. The copy is a deep copy,
+// so that the original vector clock can be modified without affecting
+// the copy.
+func (v *Vector) Clone() *Vector {
+	newvec := &Vector{
+		clocks:    make(map[uint32]uint32, len(v.clocks)),
+		rollovers: make(map[uint32]bool, len(v.rollovers)),
+	}
+
+	generic.MapCopy(v.clocks, newvec.clocks)
+	generic.MapCopy(v.rollovers, newvec.rollovers)
+
 	return newvec
 }
 
-func (v Vector) Clone() Vector {
-	newvec := make(Vector, len(v))
-	generic.MapCopy(v, newvec)
-	return newvec
-}
-
+// String returns a string representation of the vector clock.
+// The string representation is a comma-separated list of key=value pairs, where the
+// key is the node ID and the value is the clock value: {1=1, 2=2}. If the clock value
+// has rolled over, the value is prefixed with an exclamation mark: {1=1, 2=!2}.
 func (v Vector) String() string {
 	b := strings.Builder{}
 
 	b.WriteString("{")
 
-	keys := generic.MapKeys(v)
+	keys := generic.MapKeys(v.clocks)
 
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
@@ -63,7 +131,12 @@ func (v Vector) String() string {
 
 		b.WriteString(fmt.Sprint(key))
 		b.WriteString("=")
-		b.WriteString(fmt.Sprint(v[key]))
+
+		if v.rollovers[key] {
+			b.WriteString("!")
+		}
+
+		b.WriteString(fmt.Sprint(v.clocks[key]))
 	}
 
 	b.WriteString("}")
@@ -71,26 +144,48 @@ func (v Vector) String() string {
 	return b.String()
 }
 
+// Hash returns a 32-bit hash of the vector clock, which can be used
+// as a map key to quickly identify the two identical values without
+// having to compare the entire vector.
 func (v Vector) Hash() uint32 {
 	h := fnv.New32()
-
-	_, err := h.Write([]byte(v.String()))
-	if err != nil {
+	if _, err := h.Write([]byte(v.String())); err != nil {
 		return 0
 	}
 
 	return h.Sum32()
 }
 
-func Compare(a, b Vector) Causality {
+// Compare returns the causality relationship between two vectors.
+// Compare(a, b) == After means that a happened after b, and so on.
+// Comparing values that have rolled over is tricky, so the implementation
+// uses the following rules: if the clock value of a node is greater than
+// the clock value of another node, and the rollout flags are different,
+// it means that the value has wrapped around and we need to invert the
+// comparison. For example, if a clock value is 2^32-1 and the other clock
+// value is 0, and the rollout flags are different, it means that the clock
+// value of the first node has wrapped around and the second node has not.
+// In this case, the first node is considered to be less than the second node.
+func Compare(a, b *Vector) Causality {
 	var greater, less bool
 
-	for _, key := range generic.MapKeys(a, b) {
-		// FIXME: handle overflow
-		if a[key] > b[key] {
-			greater = true
-		} else if a[key] < b[key] {
-			less = true
+	for _, key := range generic.MapKeys(a.clocks, b.clocks) {
+		// If the rollout flags are different, it means that the value
+		// has wrapped around and we need to invert the comparison.
+		wrapped := a.rollovers[key] != b.rollovers[key]
+
+		if a.clocks[key] > b.clocks[key] {
+			if !wrapped {
+				greater = true
+			} else {
+				less = true
+			}
+		} else if a.clocks[key] < b.clocks[key] {
+			if !wrapped {
+				less = true
+			} else {
+				greater = true
+			}
 		}
 	}
 
@@ -106,12 +201,30 @@ func Compare(a, b Vector) Causality {
 	}
 }
 
-func Merge(a, b Vector) Vector {
-	keys := generic.MapKeys(a, b)
+// IsEqual returns true if the two vectors are equal.
+func IsEqual(a, b *Vector) bool {
+	return Compare(a, b) == Equal
+}
 
-	clock := make(Vector, len(keys))
+// Merge returns a new vector that is the result of merging two vectors.
+// The merge operation is commutative and associative, so that
+// Merge(a, Merge(b, c)) == Merge(Merge(a, b), c).
+func Merge(a, b *Vector) *Vector {
+	keys := generic.MapKeys(a.clocks, b.clocks)
+
+	clock := &Vector{
+		clocks:    make(map[uint32]uint32, len(keys)),
+		rollovers: make(map[uint32]bool, len(keys)),
+	}
+
 	for _, key := range keys {
-		clock[key] = generic.Max(a[key], b[key])
+		wrapped := a.rollovers[key] != b.rollovers[key]
+
+		if !wrapped {
+			clock.clocks[key] = generic.Max(a.clocks[key], b.clocks[key])
+		} else {
+			clock.clocks[key] = generic.Min(a.clocks[key], b.clocks[key])
+		}
 	}
 
 	return clock

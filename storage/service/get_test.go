@@ -28,7 +28,7 @@ func TestGet(t *testing.T) {
 			setupBackend: func(b *storagemock.MockBackend) {
 				b.EXPECT().Get("key").Return([]storage.StoredValue{
 					{
-						Version: vclock.Vector{1: 1},
+						Version: vclock.New(vclock.V{1: 1}),
 						Blob:    []byte("value"),
 					},
 				}, nil)
@@ -38,7 +38,7 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, len(res.Value))
 				assert.Equal(t, []byte("value"), res.Value[0].Data)
-				assert.Equal(t, map[uint32]uint64{1: 1}, res.Value[0].Version)
+				assert.Equal(t, vclock.New(vclock.V{1: 1}), vclock.MustDecode(res.Value[0].Version))
 			},
 		},
 		"FoundMultipleValues": {
@@ -46,11 +46,11 @@ func TestGet(t *testing.T) {
 				b.EXPECT().Get("key").Return(
 					[]storage.StoredValue{
 						{
-							Version: vclock.Vector{1: 1},
+							Version: vclock.New(vclock.V{1: 1}),
 							Blob:    []byte("value 1"),
 						},
 						{
-							Version: vclock.Vector{2: 1},
+							Version: vclock.New(vclock.V{2: 1}),
 							Blob:    []byte("value 2"),
 						},
 					}, nil,
@@ -61,9 +61,9 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 2, len(res.Value))
 				assert.Equal(t, []byte("value 1"), res.Value[0].Data)
-				assert.Equal(t, map[uint32]uint64{1: 1}, res.Value[0].Version)
+				assert.Equal(t, vclock.New(vclock.V{1: 1}), vclock.MustDecode(res.Value[0].Version))
 				assert.Equal(t, []byte("value 2"), res.Value[1].Data)
-				assert.Equal(t, map[uint32]uint64{2: 1}, res.Value[1].Version)
+				assert.Equal(t, vclock.New(vclock.V{2: 1}), vclock.MustDecode(res.Value[1].Version))
 			},
 		},
 		"NotFound": {

@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package pb;
+
+option go_package = "github.com/maxpoletaev/kv/internal/vlcock/pb";
+
+message VectorClock {
+    map<uint32, uint32> clocks = 1;
+    map<uint32, bool> rollovers = 2;
+}

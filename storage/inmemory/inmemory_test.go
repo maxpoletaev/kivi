@@ -13,7 +13,12 @@ import (
 
 func TestGet(t *testing.T) {
 	lst := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
-	lst.Insert("key", []storage.StoredValue{{Version: make(vclock.Vector), Blob: []byte("value")}})
+	lst.Insert("key", []storage.StoredValue{
+		{
+			Version: vclock.New(),
+			Blob:    []byte("value"),
+		},
+	})
 
 	memstore := newWithData(lst)
 	values, err := memstore.Get("key")
@@ -36,7 +41,7 @@ func TestPut_NewValue(t *testing.T) {
 	lst := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
 
 	version := vclock.New()
-	version.Increment(99)
+	version.Update(99)
 
 	memstore := newWithData(lst)
 	err := memstore.Put("key", storage.StoredValue{
@@ -51,7 +56,7 @@ func TestPut_NewValue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Len(t, listValues, 1)
 	assert.Equal(t, []byte("value"), listValues[0].Blob)
-	assert.Equal(t, uint64(1), listValues[0].Version[99])
+	assert.Equal(t, uint32(1), listValues[0].Version.Get(99))
 }
 
 // TestPut_NewVersion verifies the case when there is already a value in the store
@@ -59,16 +64,16 @@ func TestPut_NewValue(t *testing.T) {
 func TestPut_NewVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
 
-	version := make(vclock.Vector)
-	version.Increment(1)
+	version := vclock.New()
+	version.Update(1)
 
 	list.Insert("key", []storage.StoredValue{{
 		Blob:    []byte("value"),
 		Version: version.Clone(),
 	}})
 
-	version.Increment(1)
-	version.Increment(2)
+	version.Update(1)
+	version.Update(2)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.StoredValue{
@@ -92,16 +97,16 @@ func TestPut_NewVersion(t *testing.T) {
 func TestPut_ConflictingVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
 
-	version := make(vclock.Vector)
-	version.Increment(1)
+	version := vclock.New()
+	version.Update(1)
 
 	list.Insert("key", []storage.StoredValue{{
 		Blob:    []byte("value"),
 		Version: version.Clone(),
 	}})
 
-	conflictingVersion := make(vclock.Vector)
-	conflictingVersion.Increment(2)
+	conflictingVersion := vclock.New()
+	conflictingVersion.Update(2)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.StoredValue{
@@ -126,17 +131,17 @@ func TestPut_ConflictingVersion(t *testing.T) {
 func TestPutFails_ObsoleteVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
 
-	version := make(vclock.Vector)
-	version.Increment(1)
-	version.Increment(1)
+	version := vclock.New()
+	version.Update(1)
+	version.Update(1)
 
 	list.Insert("key", []storage.StoredValue{{
 		Blob:    []byte("newer value"),
 		Version: version.Clone(),
 	}})
 
-	olderVersion := make(vclock.Vector)
-	olderVersion.Increment(1)
+	olderVersion := vclock.New()
+	olderVersion.Update(1)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.StoredValue{
@@ -153,8 +158,8 @@ func TestPutFails_ObsoleteVersion(t *testing.T) {
 func TestPutFails_SameVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.StoredValue](skiplist.StringComparator)
 
-	version := make(vclock.Vector)
-	version.Increment(1)
+	version := vclock.New()
+	version.Update(1)
 
 	list.Insert("key", []storage.StoredValue{{
 		Blob:    []byte("value"),

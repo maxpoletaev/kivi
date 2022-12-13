@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	clustermock "github.com/maxpoletaev/kv/cluster/mock"
+	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
@@ -35,29 +36,29 @@ func TestReplicatedPut(t *testing.T) {
 					Key:     "key",
 					Primary: true,
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{},
+						Version: vclock.NewEncoded(),
 						Data:    []byte("value"),
 					},
 				}).Return(&storagepb.PutResponse{
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
 				conn2 := clustermock.NewMockClient(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{1: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1}),
 						Data:    []byte("value"),
 					},
 				}).Return(&storagepb.PutResponse{
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
 				conn3 := clustermock.NewMockClient(ctrl)
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{1: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1}),
 						Data:    []byte("value"),
 					},
 				}).Return(nil, assert.AnError).MaxTimes(1)
@@ -76,11 +77,11 @@ func TestReplicatedPut(t *testing.T) {
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
-				Version: map[uint32]uint64{},
+				Version: vclock.NewEncoded(),
 				Value:   &proto.Value{Data: []byte("value")},
 			},
 			want: &proto.PutResponse{
-				Version: map[uint32]uint64{1: 1},
+				Version: vclock.NewEncoded(vclock.V{1: 1}),
 			},
 		},
 		"TwoOfThreeNodesInQuorumFail": {
@@ -91,18 +92,18 @@ func TestReplicatedPut(t *testing.T) {
 					Key:     "key",
 					Primary: true,
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{},
+						Version: vclock.NewEncoded(),
 						Data:    []byte("value"),
 					},
 				}).Return(&storagepb.PutResponse{
-					Version: map[uint32]uint64{1: 1},
+					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
 				conn2 := clustermock.NewMockClient(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{1: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1}),
 						Data:    []byte("value"),
 					},
 				}).Return(nil, assert.AnError).MaxTimes(1)
@@ -111,7 +112,7 @@ func TestReplicatedPut(t *testing.T) {
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
-						Version: map[uint32]uint64{1: 1},
+						Version: vclock.NewEncoded(vclock.V{1: 1}),
 						Data:    []byte("value"),
 					},
 				}).Return(nil, assert.AnError).MaxTimes(1)
@@ -130,7 +131,7 @@ func TestReplicatedPut(t *testing.T) {
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
-				Version: map[uint32]uint64{},
+				Version: vclock.NewEncoded(),
 				Value:   &proto.Value{Data: []byte("value")},
 			},
 			wantCode: codes.Unavailable,
@@ -148,7 +149,7 @@ func TestReplicatedPut(t *testing.T) {
 			req: &proto.PutRequest{
 				Key:     "key",
 				Value:   &proto.Value{Data: []byte("value")},
-				Version: map[uint32]uint64{1: 1},
+				Version: vclock.NewEncoded(vclock.V{1: 1}),
 			},
 			wantCode: codes.FailedPrecondition,
 			wantErr:  errNotEnoughReplicas,
@@ -171,7 +172,7 @@ func TestReplicatedPut(t *testing.T) {
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
-				Version: map[uint32]uint64{},
+				Version: vclock.NewEncoded(),
 				Value:   &proto.Value{Data: []byte("value")},
 			},
 			wantCode: codes.Internal,

@@ -9,7 +9,7 @@ message GetRequest {
 }
 
 message VersionedValue {
-    map<uint32, uint64> version = 1;
+    string version = 1;
     bytes data = 2;
 }
 
@@ -24,7 +24,7 @@ message PutRequest {
 }
 
 message PutResponse {
-    map<uint32, uint64> version = 1;
+    string version = 1;
 }
 
 service StorageService {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/go-kit/log/level"
@@ -125,7 +126,10 @@ readloop:
 	}
 
 	// Discard all outdated values and keep only the latest conflicting ones.
-	mergedValues := mergeValues(receivedValues)
+	mergedValues, err := mergeVersions(receivedValues)
+	if err != nil {
+		return nil, err
+	}
 
 	// Replicas that did not retuned any value or returned an outdated value should be repaired.
 	repairSet := set.FromSlice(mergedValues.StaleReplicas).And(emptyReplicas)
@@ -203,53 +207,70 @@ readloop:
 }
 
 type mergeResult struct {
+	Version       string
 	Values        []nodeValue
-	Version       vclock.Vector
 	StaleReplicas []membership.NodeID
 }
 
-func mergeValues(values []nodeValue) mergeResult {
-	mergedVersion := make(vclock.Vector)
-	for _, v := range values {
-		mergedVersion = vclock.Merge(mergedVersion, v.Version)
+func mergeVersions(values []nodeValue) (mergeResult, error) {
+	valueVersion := make([]*vclock.Vector, len(values))
+
+	// Keep decoded version for each value.
+	for i, v := range values {
+		var ver *vclock.Vector
+		var err error
+
+		if ver, err = vclock.Decode(v.Version); err != nil {
+			return mergeResult{}, fmt.Errorf("invalid version: %w", err)
+		}
+
+		valueVersion[i] = ver
+	}
+
+	// Merge all versions into one.
+	mergedVersion := vclock.New()
+	for i := 0; i < len(values); i++ {
+		mergedVersion = vclock.Merge(mergedVersion, valueVersion[i])
 	}
 
 	if len(values) < 2 {
 		return mergeResult{
+			Version: vclock.MustEncode(mergedVersion),
 			Values:  values,
-			Version: mergedVersion,
-		}
+		}, nil
 	}
 
 	var staleReplicas []membership.NodeID
 
-	uniqueValues := make(map[uint32]nodeValue)
+	uniqueValues := make(map[string]nodeValue)
 
 	// Find out the highest version.
-	highestVer := values[0].Version
-	for _, v := range values[1:] {
-		if vclock.Compare(highestVer, v.Version) == vclock.Before {
-			highestVer = v.Version
+	highestVer := valueVersion[0]
+	for i := 1; i < len(values); i++ {
+		if vclock.Compare(highestVer, valueVersion[i]) == vclock.Before {
+			highestVer = valueVersion[i]
 		}
 	}
 
-	for _, v := range values {
+	for i := 0; i < len(values); i++ {
+		value := values[i]
+
 		// Ignore the values that clearly precedes the highest version.
-		if vclock.Compare(v.Version, highestVer) == vclock.Before {
-			staleReplicas = append(staleReplicas, v.NodeID)
+		// Keep track of the replicas that returned outdated values.
+		if vclock.Compare(valueVersion[i], highestVer) == vclock.Before {
+			staleReplicas = append(staleReplicas, value.NodeID)
 			continue
 		}
 
-		// Keep unique values only, based on version hash.
-		h := vclock.Vector(v.Version).Hash()
-		if _, ok := uniqueValues[h]; !ok {
-			uniqueValues[h] = v
+		// Keep unique values only, based on the version.
+		if _, ok := uniqueValues[value.Version]; !ok {
+			uniqueValues[value.Version] = value
 		}
 	}
 
 	return mergeResult{
+		Version:       vclock.MustEncode(mergedVersion),
 		Values:        generic.MapValues(uniqueValues),
-		Version:       mergedVersion,
 		StaleReplicas: staleReplicas,
-	}
+	}, nil
 }

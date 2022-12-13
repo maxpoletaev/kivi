@@ -1,6 +1,7 @@
 package vclock
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,19 +9,19 @@ import (
 
 func TestVector_String(t *testing.T) {
 	tests := map[string]struct {
-		vector     Vector
+		vector     *Vector
 		wantString string
 	}{
 		"EmptyVector": {
-			vector:     Vector{},
+			vector:     New(),
 			wantString: "{}",
 		},
 		"SingleValue": {
-			vector:     Vector{1: 10},
+			vector:     New(V{1: 10}),
 			wantString: "{1=10}",
 		},
 		"MultipleValues": {
-			vector:     Vector{1: 10, 3: 20, 2: 5, 0: 1},
+			vector:     New(V{1: 10, 3: 20, 2: 5, 0: 1}),
 			wantString: "{0=1, 1=10, 2=5, 3=20}",
 		},
 	}
@@ -35,28 +36,28 @@ func TestVector_String(t *testing.T) {
 
 func TestCompare(t *testing.T) {
 	tests := map[string]struct {
-		a        Vector
-		b        Vector
+		a        *Vector
+		b        *Vector
 		expected Causality
 	}{
 		"Before": {
-			a:        Vector{0: 1, 1: 1, 2: 1},
-			b:        Vector{0: 2, 1: 1, 2: 1},
+			a:        New(V{0: 1, 1: 1, 2: 1}),
+			b:        New(V{0: 2, 1: 1, 2: 1}),
 			expected: Before,
 		},
 		"After": {
-			a:        Vector{0: 3, 1: 2, 2: 1},
-			b:        Vector{0: 2, 1: 1, 2: 1},
+			a:        New(V{0: 3, 1: 2, 2: 1}),
+			b:        New(V{0: 2, 1: 1, 2: 1}),
 			expected: After,
 		},
 		"Equal": {
-			a:        Vector{0: 1, 1: 1},
-			b:        Vector{0: 1, 1: 1, 2: 0},
+			a:        New(V{0: 1, 1: 1}),
+			b:        New(V{0: 1, 1: 1, 2: 0}),
 			expected: Equal,
 		},
 		"Concurrent": {
-			a:        Vector{0: 1, 1: 0},
-			b:        Vector{0: 0, 1: 1},
+			a:        New(V{0: 1, 1: 0}),
+			b:        New(V{0: 0, 1: 1}),
 			expected: Concurrent,
 		},
 	}
@@ -69,15 +70,35 @@ func TestCompare(t *testing.T) {
 	}
 }
 
+func TestCompare_WithRollout(t *testing.T) {
+	a := New(V{1: math.MaxUint32 - 1})
+	b := New(V{1: math.MaxUint32})
+	assert.Equal(t, Compare(a, b), Before)
+
+	a.Update(1)
+	assert.Equal(t, Compare(a, b), Equal)
+
+	a.Update(1) // Overflows, but should still be greater than b.
+	assert.Equal(t, uint32(0), a.clocks[1])
+	assert.Equal(t, Compare(a, b), After)
+}
+
 func TestMerge(t *testing.T) {
-	result := Merge(
-		Vector{1: 10, 2: 5},
-		Vector{1: 5, 2: 10, 3: 100},
+	got := Merge(
+		New(V{1: 10, 2: 5}),
+		New(V{1: 5, 2: 10, 3: 100}),
 	)
 
-	expected := Vector{
-		1: 10, 2: 10, 3: 100,
-	}
+	want := New(V{1: 10, 2: 10, 3: 100})
+	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
+}
 
-	assert.Equal(t, expected, result)
+func TestMerge_WithRollout(t *testing.T) {
+	a := New(V{1: math.MaxUint32, 2: 1})
+	b := New(V{1: math.MaxUint32, 2: 2})
+	a.Update(1)
+
+	got := Merge(a, b)
+	want := New(V{1: 0, 2: 2})
+	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }
