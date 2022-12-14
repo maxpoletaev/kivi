@@ -24,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MembershipServiceClient interface {
 	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
-	Expell(ctx context.Context, in *ExpellRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	Expel(ctx context.Context, in *ExpelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	Members(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MembersResponse, error)
 }
 
@@ -45,9 +45,9 @@ func (c *membershipServiceClient) Join(ctx context.Context, in *JoinRequest, opt
 	return out, nil
 }
 
-func (c *membershipServiceClient) Expell(ctx context.Context, in *ExpellRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *membershipServiceClient) Expel(ctx context.Context, in *ExpelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/membership.MembershipService/Expell", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/membership.MembershipService/Expel", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (c *membershipServiceClient) Members(ctx context.Context, in *emptypb.Empty
 // for forward compatibility
 type MembershipServiceServer interface {
 	Join(context.Context, *JoinRequest) (*JoinResponse, error)
-	Expell(context.Context, *ExpellRequest) (*emptypb.Empty, error)
+	Expel(context.Context, *ExpelRequest) (*emptypb.Empty, error)
 	Members(context.Context, *emptypb.Empty) (*MembersResponse, error)
 	mustEmbedUnimplementedMembershipServiceServer()
 }
@@ -80,8 +80,8 @@ type UnimplementedMembershipServiceServer struct {
 func (UnimplementedMembershipServiceServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
 }
-func (UnimplementedMembershipServiceServer) Expell(context.Context, *ExpellRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Expell not implemented")
+func (UnimplementedMembershipServiceServer) Expel(context.Context, *ExpelRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Expel not implemented")
 }
 func (UnimplementedMembershipServiceServer) Members(context.Context, *emptypb.Empty) (*MembersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Members not implemented")
@@ -117,20 +117,20 @@ func _MembershipService_Join_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MembershipService_Expell_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExpellRequest)
+func _MembershipService_Expel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExpelRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MembershipServiceServer).Expell(ctx, in)
+		return srv.(MembershipServiceServer).Expel(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/membership.MembershipService/Expell",
+		FullMethod: "/membership.MembershipService/Expel",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MembershipServiceServer).Expell(ctx, req.(*ExpellRequest))
+		return srv.(MembershipServiceServer).Expel(ctx, req.(*ExpelRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -165,8 +165,8 @@ var MembershipService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MembershipService_Join_Handler,
 		},
 		{
-			MethodName: "Expell",
-			Handler:    _MembershipService_Expell_Handler,
+			MethodName: "Expel",
+			Handler:    _MembershipService_Expel_Handler,
 		},
 		{
 			MethodName: "Members",

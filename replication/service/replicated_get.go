@@ -244,20 +244,20 @@ func mergeVersions(values []nodeValue) (mergeResult, error) {
 
 	uniqueValues := make(map[string]nodeValue)
 
-	// Find out the highest version.
-	highestVer := valueVersion[0]
+	// Identify the highest version among all values.
+	highest := valueVersion[0]
 	for i := 1; i < len(values); i++ {
-		if vclock.Compare(highestVer, valueVersion[i]) == vclock.Before {
-			highestVer = valueVersion[i]
+		if vclock.Compare(highest, valueVersion[i]) == vclock.Before {
+			highest = valueVersion[i]
 		}
 	}
 
 	for i := 0; i < len(values); i++ {
 		value := values[i]
 
-		// Ignore the values that clearly precedes the highest version.
+		// Ignore the values that clearly precede the highest version.
 		// Keep track of the replicas that returned outdated values.
-		if vclock.Compare(valueVersion[i], highestVer) == vclock.Before {
+		if vclock.Compare(valueVersion[i], highest) == vclock.Before {
 			staleReplicas = append(staleReplicas, value.NodeID)
 			continue
 		}

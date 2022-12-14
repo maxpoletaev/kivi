@@ -7,5 +7,5 @@ import "github.com/maxpoletaev/kv/membership"
 type MemberRegistry interface {
 	Members() []membership.Member
 	Add(...membership.Member) error
-	Expell(membership.NodeID) error
+	Expel(membership.NodeID) error
 }

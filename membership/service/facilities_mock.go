@@ -52,18 +52,18 @@ func (mr *MockMemberRegistryMockRecorder) Add(arg0 ...interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockMemberRegistry)(nil).Add), arg0...)
 }
 
-// Expell mocks base method.
-func (m *MockMemberRegistry) Expell(arg0 membership.NodeID) error {
+// Expel mocks base method.
+func (m *MockMemberRegistry) Expel(arg0 membership.NodeID) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Expell", arg0)
+	ret := m.ctrl.Call(m, "Expel", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Expell indicates an expected call of Expell.
-func (mr *MockMemberRegistryMockRecorder) Expell(arg0 interface{}) *gomock.Call {
+// Expel indicates an expected call of Expel.
+func (mr *MockMemberRegistryMockRecorder) Expel(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expell", reflect.TypeOf((*MockMemberRegistry)(nil).Expell), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Expel", reflect.TypeOf((*MockMemberRegistry)(nil).Expel), arg0)
 }
 
 // Members mocks base method.
