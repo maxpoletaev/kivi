@@ -116,8 +116,8 @@ func TestQueue(t *testing.T) {
 		"PushPopWithOverflow": {
 			prepareFunc: func(q *queue.OrderedQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: math.MaxUint64})
-				q.Push(&proto.GossipMessage{SeqNumber: 1})
-				q.Push(&proto.GossipMessage{SeqNumber: 0})
+				q.Push(&proto.GossipMessage{SeqNumber: 1, SeqRollover: true})
+				q.Push(&proto.GossipMessage{SeqNumber: 0, SeqRollover: true})
 			},
 			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
 				require.Equal(t, 3, q.Len())

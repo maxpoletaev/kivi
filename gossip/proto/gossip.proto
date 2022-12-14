@@ -5,7 +5,7 @@ option go_package = "github.com/maxpoletaev/kv/gossip/proto";
 message GossipMessage {
     uint32 peer_id = 1;
     uint64 seq_number = 2;
-    bool seq_overflow = 3;
+    bool seq_rollover = 3;
     bytes payload = 4;
     uint32 ttl = 5;
     repeated uint32 seen_by = 6;

@@ -6,7 +6,6 @@ import (
 	"math"
 	"net/netip"
 	"sync"
-	"sync/atomic"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -15,6 +14,7 @@ import (
 	"github.com/maxpoletaev/kv/gossip/queue"
 	"github.com/maxpoletaev/kv/gossip/transport"
 	"github.com/maxpoletaev/kv/internal/generic"
+	"github.com/maxpoletaev/kv/internal/rolling"
 )
 
 // Transport is the underlying transport protocol used to deliver peer-to-peer
@@ -52,7 +52,7 @@ type Gossiper struct {
 
 	gossipFactor int
 	messageTTL   uint32
-	lastSeqNum   uint64
+	lastSeqNum   *rolling.Counter[uint64]
 	wg           sync.WaitGroup
 
 	// Peers is the registry of known peers, to which messages will be gossiped.
@@ -100,6 +100,7 @@ func newGossiper(conf *Config) *Gossiper {
 		delegate:     conf.Delegate,
 		logger:       conf.Logger,
 		messageTTL:   conf.MessageTTL,
+		lastSeqNum:   rolling.NewCounter[uint64](),
 		peers:        peers,
 	}
 }
@@ -263,10 +264,6 @@ func (g *Gossiper) listenMessages() {
 // Shutdown stops the gossiper and waits until the last received message
 // is processed. Once stopped, it cannot be started again.
 func (g *Gossiper) Shutdown() error {
-	// FIXME: Before closing the transport, we must ensure that all ongoing
-	// 	broadcasts are finished. At the moment, closing the transport may stop
-	// 	broadcast process in the middle and some messages may be gossiped only
-	// 	to a part of the peers.
 	if err := g.transport.Close(); err != nil {
 		return fmt.Errorf("failed to close transport: %w", err)
 	}
@@ -336,13 +333,14 @@ func (g *Gossiper) Unregister(id PeerID) bool {
 // predictable environments, keeping the message size within 512 bytes
 // is recommended to avoid packet fragmentation.
 func (g *Gossiper) Broadcast(payload []byte) error {
-	seqNumber := atomic.AddUint64(&g.lastSeqNum, 1)
+	seqNumber, rollover := g.lastSeqNum.Inc()
 
 	msg := &proto.GossipMessage{
-		PeerId:    uint32(g.peerID),
-		Ttl:       g.initialTTL(),
-		SeqNumber: seqNumber,
-		Payload:   payload,
+		PeerId:      uint32(g.peerID),
+		Ttl:         g.initialTTL(),
+		SeqNumber:   seqNumber,
+		SeqRollover: rollover,
+		Payload:     payload,
 	}
 
 	return g.gossip(msg)
