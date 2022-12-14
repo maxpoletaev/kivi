@@ -63,14 +63,14 @@ func Decode(s string) (*Vector, error) {
 		clocks = make(V)
 	}
 
-	rollouts := vc.Rollovers
-	if rollouts == nil {
-		rollouts = make(map[uint32]bool)
+	rollovers := vc.Rollovers
+	if rollovers == nil {
+		rollovers = make(map[uint32]bool)
 	}
 
 	return &Vector{
 		clocks:    clocks,
-		rollovers: rollouts,
+		rollovers: rollovers,
 	}, nil
 }
 

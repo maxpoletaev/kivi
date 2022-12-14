@@ -70,7 +70,7 @@ func TestCompare(t *testing.T) {
 	}
 }
 
-func TestCompare_WithRollout(t *testing.T) {
+func TestCompare_WithRollover(t *testing.T) {
 	a := New(V{1: math.MaxUint32 - 1})
 	b := New(V{1: math.MaxUint32})
 	assert.Equal(t, Compare(a, b), Before)
@@ -93,12 +93,21 @@ func TestMerge(t *testing.T) {
 	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }
 
-func TestMerge_WithRollout(t *testing.T) {
+func TestMerge_WithRollover(t *testing.T) {
 	a := New(V{1: math.MaxUint32, 2: 1})
 	b := New(V{1: math.MaxUint32, 2: 2})
 	a.Update(1)
+	a.Update(1)
 
 	got := Merge(a, b)
-	want := New(V{1: 0, 2: 2})
+	want := New(V{1: 1, 2: 2})
+	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
+
+	// Ensure that the newly produced vector correctly keeps the info aboutrollovers.
+	// The value in the vector c is larger but do not have the rollover flag set, so
+	// in the merge we shold still get {1=1, 2=2}.
+	c := New(V{1: math.MaxUint32})
+	got = Merge(got, c)
+	want = New(V{1: 1, 2: 2})
 	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }

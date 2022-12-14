@@ -160,17 +160,17 @@ func (v Vector) Hash() uint32 {
 // Compare(a, b) == After means that a happened after b, and so on.
 // Comparing values that have rolled over is tricky, so the implementation
 // uses the following rules: if the clock value of a node is greater than
-// the clock value of another node, and the rollout flags are different,
+// the clock value of another node, and the rollover flags are different,
 // it means that the value has wrapped around and we need to invert the
 // comparison. For example, if a clock value is 2^32-1 and the other clock
-// value is 0, and the rollout flags are different, it means that the clock
+// value is 0, and the rollover flags are different, it means that the clock
 // value of the first node has wrapped around and the second node has not.
 // In this case, the first node is considered to be less than the second node.
 func Compare(a, b *Vector) Causality {
 	var greater, less bool
 
 	for _, key := range generic.MapKeys(a.clocks, b.clocks) {
-		// If the rollout flags are different, it means that the value
+		// If the rollover flags are different, it means that the value
 		// has wrapped around and we need to invert the comparison.
 		wrapped := a.rollovers[key] != b.rollovers[key]
 
@@ -218,12 +218,23 @@ func Merge(a, b *Vector) *Vector {
 	}
 
 	for _, key := range keys {
-		wrapped := a.rollovers[key] != b.rollovers[key]
-
-		if !wrapped {
-			clock.clocks[key] = generic.Max(a.clocks[key], b.clocks[key])
+		// TODO: this is a bit ugly, but it works.
+		if a.rollovers[key] == b.rollovers[key] {
+			if a.clocks[key] > b.clocks[key] {
+				clock.clocks[key] = a.clocks[key]
+				clock.rollovers[key] = a.rollovers[key]
+			} else {
+				clock.clocks[key] = b.clocks[key]
+				clock.rollovers[key] = b.rollovers[key]
+			}
 		} else {
-			clock.clocks[key] = generic.Min(a.clocks[key], b.clocks[key])
+			if a.clocks[key] < b.clocks[key] {
+				clock.clocks[key] = a.clocks[key]
+				clock.rollovers[key] = a.rollovers[key]
+			} else {
+				clock.clocks[key] = b.clocks[key]
+				clock.rollovers[key] = b.rollovers[key]
+			}
 		}
 	}
 

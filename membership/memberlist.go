@@ -130,7 +130,7 @@ func (c *Memberlist) Add(members ...Member) error {
 	return em.Ret()
 }
 
-func (c *Memberlist) Expell(id NodeID) error {
+func (c *Memberlist) Expel(id NodeID) error {
 	event := &MemberLeft{
 		ID:       id,
 		SourceID: c.selfID,
