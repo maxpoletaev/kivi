@@ -2,7 +2,6 @@ package vclock
 
 import (
 	"fmt"
-	"hash/fnv"
 	"sort"
 	"strings"
 
@@ -144,18 +143,6 @@ func (v Vector) String() string {
 	return b.String()
 }
 
-// Hash returns a 32-bit hash of the vector clock, which can be used
-// as a map key to quickly identify the two identical values without
-// having to compare the entire vector.
-func (v Vector) Hash() uint32 {
-	h := fnv.New32()
-	if _, err := h.Write([]byte(v.String())); err != nil {
-		return 0
-	}
-
-	return h.Sum32()
-}
-
 // Compare returns the causality relationship between two vectors.
 // Compare(a, b) == After means that a happened after b, and so on.
 // Comparing values that have rolled over is tricky, so the implementation
@@ -222,18 +209,26 @@ func Merge(a, b *Vector) *Vector {
 		if a.rollovers[key] == b.rollovers[key] {
 			if a.clocks[key] > b.clocks[key] {
 				clock.clocks[key] = a.clocks[key]
-				clock.rollovers[key] = a.rollovers[key]
+				if rollover, ok := a.rollovers[key]; ok {
+					clock.rollovers[key] = rollover
+				}
 			} else {
 				clock.clocks[key] = b.clocks[key]
-				clock.rollovers[key] = b.rollovers[key]
+				if rollover, ok := b.rollovers[key]; ok {
+					clock.rollovers[key] = rollover
+				}
 			}
 		} else {
 			if a.clocks[key] < b.clocks[key] {
 				clock.clocks[key] = a.clocks[key]
-				clock.rollovers[key] = a.rollovers[key]
+				if rollover, ok := a.rollovers[key]; ok {
+					clock.rollovers[key] = rollover
+				}
 			} else {
 				clock.clocks[key] = b.clocks[key]
-				clock.rollovers[key] = b.rollovers[key]
+				if rollover, ok := b.rollovers[key]; ok {
+					clock.rollovers[key] = rollover
+				}
 			}
 		}
 	}
