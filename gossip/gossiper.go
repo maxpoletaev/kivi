@@ -11,39 +11,25 @@ import (
 	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kv/gossip/proto"
-	"github.com/maxpoletaev/kv/gossip/queue"
 	"github.com/maxpoletaev/kv/gossip/transport"
 	"github.com/maxpoletaev/kv/internal/generic"
 	"github.com/maxpoletaev/kv/internal/rolling"
 )
 
-// Transport is the underlying transport protocol used to deliver peer-to-peer
-// messages from one node to another.
-type Transport interface {
-	// WriteTo writes a message to the network address.
-	WriteTo(*proto.GossipMessage, *netip.AddrPort) error
-
-	// ReadFrom reads message from the network and stores into the given message.
-	// This will block until a message is received or the transport is closed.
-	ReadFrom(*proto.GossipMessage) error
-
-	// Close closes the underlying transport connection. After that, no messages
-	// can be read or written to the transport and transport.ErrClosed is returned.
-	Close() error
-}
-
 // PeerID is a uinque 32-bit peer identifier.
 type PeerID uint32
 
-// remotePeer represents a remote peer node.
 type remotePeer struct {
 	ID    PeerID
 	Addr  netip.AddrPort
-	Queue *queue.OrderedQueue
+	Queue *MessageQueue
 }
 
 type peerMap map[PeerID]*remotePeer
 
+// Gossiper is a peer-to-peer gossip protocol implementation. It is responsible
+// for maintaining a list of known peers and exchanging messages with them. All
+// received messages are passed to the delegate for processing.
 type Gossiper struct {
 	peerID    PeerID
 	delegate  Delegate
@@ -295,7 +281,7 @@ func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
 	newMap[id] = &remotePeer{
 		ID:    id,
 		Addr:  addrPort,
-		Queue: queue.New(),
+		Queue: NewQueue(),
 	}
 
 	g.peers.Store(newMap)

@@ -1,4 +1,4 @@
-package queue_test
+package gossip
 
 import (
 	"math"
@@ -8,19 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/maxpoletaev/kv/gossip/proto"
-	"github.com/maxpoletaev/kv/gossip/queue"
 )
 
 func TestQueue(t *testing.T) {
 	type test struct {
-		prepareFunc func(q *queue.OrderedQueue)
-		assertFunc  func(t *testing.T, q *queue.OrderedQueue)
+		prepareFunc func(q *MessageQueue)
+		assertFunc  func(t *testing.T, q *MessageQueue)
 	}
 
 	tests := map[string]test{
 		"PushToAnEmptyQueue": {
-			prepareFunc: func(q *queue.OrderedQueue) {},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {},
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				msg := &proto.GossipMessage{SeqNumber: 100}
 				pushed := q.Push(msg)
 
@@ -29,10 +28,10 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PushWhenMessageAlreadyReceived": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: 100})
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				pushed := q.Push(&proto.GossipMessage{SeqNumber: 100})
 
 				assert.Equal(t, 1, q.Len())
@@ -40,11 +39,11 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PushWhenMessageAlreadyDelivered": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: 100})
 				q.PopNext()
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				pushed := q.Push(&proto.GossipMessage{SeqNumber: 100})
 
 				assert.Equal(t, 0, q.Len())
@@ -52,11 +51,11 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PushWhenNewerMessageAlreadyDelivered": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: 100})
 				q.PopNext()
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				pushed := q.Push(&proto.GossipMessage{SeqNumber: 99})
 
 				assert.Equal(t, 0, q.Len())
@@ -64,7 +63,7 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PopAfterUnorderedPush": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: 2})
 				q.Push(&proto.GossipMessage{SeqNumber: 3})
 				q.Push(&proto.GossipMessage{SeqNumber: 1})
@@ -74,7 +73,7 @@ func TestQueue(t *testing.T) {
 				q.Push(&proto.GossipMessage{SeqNumber: 1})
 				q.Push(&proto.GossipMessage{SeqNumber: 2})
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				require.Equal(t, 3, q.Len())
 
 				msg1 := q.PopNext()
@@ -91,19 +90,19 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PopFromEmptyQueue": {
-			prepareFunc: func(q *queue.OrderedQueue) {},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {},
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				msg := q.PopNext()
 
 				assert.Nil(t, msg)
 			},
 		},
 		"PopPreviousMessageNotReceived": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: 1})
 				q.Push(&proto.GossipMessage{SeqNumber: 3})
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				msg1 := q.PopNext()
 				msg2 := q.PopNext()
 
@@ -114,12 +113,12 @@ func TestQueue(t *testing.T) {
 			},
 		},
 		"PushPopWithOverflow": {
-			prepareFunc: func(q *queue.OrderedQueue) {
+			prepareFunc: func(q *MessageQueue) {
 				q.Push(&proto.GossipMessage{SeqNumber: math.MaxUint64})
 				q.Push(&proto.GossipMessage{SeqNumber: 1, SeqRollover: true})
 				q.Push(&proto.GossipMessage{SeqNumber: 0, SeqRollover: true})
 			},
-			assertFunc: func(t *testing.T, q *queue.OrderedQueue) {
+			assertFunc: func(t *testing.T, q *MessageQueue) {
 				require.Equal(t, 3, q.Len())
 
 				msg1 := q.PopNext()
@@ -139,10 +138,8 @@ func TestQueue(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			q := queue.New()
-
+			q := NewQueue()
 			tt.prepareFunc(q)
-
 			tt.assertFunc(t, q)
 		})
 	}

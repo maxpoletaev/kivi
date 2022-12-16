@@ -1,4 +1,4 @@
-package queue
+package gossip
 
 import (
 	"math"
@@ -8,9 +8,9 @@ import (
 	"github.com/maxpoletaev/kv/internal/heap"
 )
 
-// OrderedQueue is a message queue that guarantees delivery order.
+// MessageQueue is a message queue that guarantees delivery order.
 // It is safe to read and write from multiple threads concurrently.
-type OrderedQueue struct {
+type MessageQueue struct {
 	mut       sync.RWMutex
 	pq        *heap.Heap[*proto.GossipMessage]
 	waiting   map[uint64]struct{}
@@ -19,8 +19,8 @@ type OrderedQueue struct {
 	started   bool
 }
 
-func New() *OrderedQueue {
-	q := &OrderedQueue{
+func NewQueue() *MessageQueue {
+	q := &MessageQueue{
 		waiting: make(map[uint64]struct{}),
 		pq: heap.New(func(a, b *proto.GossipMessage) bool {
 			wrapped := a.SeqRollover != b.SeqRollover
@@ -33,7 +33,7 @@ func New() *OrderedQueue {
 
 // Len returns the current number of currently buffered messages. A non-zero result
 // does not mean that there is a message that is ready to be poped from the queue.
-func (q *OrderedQueue) Len() int {
+func (q *MessageQueue) Len() int {
 	q.mut.RLock()
 	defer q.mut.RUnlock()
 
@@ -41,7 +41,7 @@ func (q *OrderedQueue) Len() int {
 }
 
 // isDeliverable returns true if the message is ready to be delivered/removed from the queue.
-func (q *OrderedQueue) isDeliverable(msg *proto.GossipMessage) bool {
+func (q *MessageQueue) isDeliverable(msg *proto.GossipMessage) bool {
 	if !q.started {
 		return true
 	}
@@ -53,8 +53,8 @@ func (q *OrderedQueue) isDeliverable(msg *proto.GossipMessage) bool {
 	return q.delivered == math.MaxUint64 && msg.SeqNumber == 0
 }
 
-// beenDelivered returns true if the message has been already delivered.
-func (q *OrderedQueue) beenDelivered(msg *proto.GossipMessage) bool {
+// wasDelivered returns true if the message was already delivered.
+func (q *MessageQueue) wasDelivered(msg *proto.GossipMessage) bool {
 	if !q.started {
 		return false
 	}
@@ -69,12 +69,12 @@ func (q *OrderedQueue) beenDelivered(msg *proto.GossipMessage) bool {
 // Push adds a new message into the queue. Messages can be pushed in any order.
 // However, messages that are already in the queue or have been already delivered
 // will not be added.
-func (q *OrderedQueue) Push(msg *proto.GossipMessage) bool {
+func (q *MessageQueue) Push(msg *proto.GossipMessage) bool {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
 	// Skip messages that are already in the queue or have been already delivered.
-	if _, queued := q.waiting[msg.SeqNumber]; queued || q.beenDelivered(msg) {
+	if _, queued := q.waiting[msg.SeqNumber]; queued || q.wasDelivered(msg) {
 		return false
 	}
 
@@ -90,7 +90,7 @@ func (q *OrderedQueue) Push(msg *proto.GossipMessage) bool {
 // The first call to PopNext will return the message with the lowest sequence number
 // that is currently in the queue. Subsequent calls will return the next message
 // in the sequence.
-func (q *OrderedQueue) PopNext() *proto.GossipMessage {
+func (q *MessageQueue) PopNext() *proto.GossipMessage {
 	q.mut.Lock()
 	defer q.mut.Unlock()
 
