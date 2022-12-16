@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	maxPayloadSize    = 1500 // implied by MTU
-	receiveBufferSize = 1 * 1024 * 1024
+	maxPayloadSize    = 1500            // implied by MTU
+	receiveBufferSize = 1 * 1024 * 1024 // 1MB
+	retryInitialDelay = 30 * time.Millisecond
+	retryMaxDelay     = 10 * time.Second
 )
 
 var (
@@ -26,28 +28,18 @@ var (
 	ErrMaxSizeExceeded = errors.New("max payload size exceeded")
 )
 
+// Addressable is an interface for types that can be converted to UDP address.
 type Addressable interface {
 	UDPAddr() *net.UDPAddr
 }
 
-type packet struct {
-	len  int
-	body []byte
-	from net.Addr
-}
-
-func (p *packet) Body() []byte {
-	return p.body[:p.len]
-}
-
+// UDPTransport is a transport that uses UDP as the underlying protocol.
 type UDPTransport struct {
 	Logger log.Logger
 
-	packetPool *sync.Pool
-	conn       *net.UDPConn
-	received   chan *packet
-	done       chan struct{}
-	closed     int32
+	bufPool *sync.Pool
+	conn    *net.UDPConn
+	closed  int32
 }
 
 // Create starts a UDP listener on the given address.
@@ -65,78 +57,23 @@ func Create(bindAddr *netip.AddrPort) (*UDPTransport, error) {
 
 	pool := &sync.Pool{
 		New: func() any {
-			return &packet{
-				body: make([]byte, maxPayloadSize),
-			}
+			buf := make([]byte, maxPayloadSize)
+			return &buf
 		},
 	}
 
 	t := &UDPTransport{
-		conn:       conn,
-		packetPool: pool,
-		received:   make(chan *packet),
-		done:       make(chan struct{}),
+		conn:    conn,
+		bufPool: pool,
 	}
-
-	go t.runLoop()
 
 	return t, nil
 }
 
-func (t *UDPTransport) runLoop() {
-	const (
-		initialDelay = 30 * time.Millisecond
-		maxDelay     = 10 * time.Second
-	)
-
-	delay := initialDelay
-
-	for {
-		dgram := t.packetPool.Get().(*packet)
-
-		n, addr, err := t.conn.ReadFromUDP(dgram.body)
-
-		if err != nil {
-			if atomic.LoadInt32(&t.closed) == 1 {
-				break
-			}
-
-			level.Error(t.Logger).Log("msg", "failed to read from udp", "err", err)
-
-			t.packetPool.Put(dgram)
-
-			time.Sleep(delay)
-
-			delay *= delay
-			if delay > maxDelay {
-				delay = maxDelay
-			}
-
-			continue
-		}
-
-		delay = initialDelay
-
-		if n == 0 {
-			level.Warn(t.Logger).Log("msg", "received empty udp packet", "from", addr)
-			t.packetPool.Put(dgram)
-			continue
-		}
-
-		dgram.len = n
-		dgram.from = addr
-
-		t.received <- dgram
-	}
-
-	close(t.received)
-
-	close(t.done)
-}
-
 // Close stops the consumer and closes the underlying UDP socket. Once closed,
-// the transport cannot be reused. It blocks until the last read has completed.
-// It is safe to call Close multiple times.
+// the transport cannot be reused. It is safe to call Close multiple times.
+// Closing while a read or write is in progress is safe and will cause
+// the read or write to return ErrClosed.
 func (t *UDPTransport) Close() error {
 	if atomic.CompareAndSwapInt32(&t.closed, 0, 1) {
 		if err := t.conn.Close(); err != nil {
@@ -144,26 +81,66 @@ func (t *UDPTransport) Close() error {
 		}
 	}
 
-	<-t.done
-
 	return nil
 }
 
+// ReadFrom reads a message from the underlying UDP socket. If the socket is
+// closed, ReadFrom returns ErrClosed. It blocks until a message is received
+// or the socket is closed.
 func (t *UDPTransport) ReadFrom(msg *proto.GossipMessage) error {
-	dgram := <-t.received
-	if dgram == nil {
-		return ErrClosed
+	var (
+		n    int
+		err  error
+		addr net.Addr
+	)
+
+	retryDelay := retryInitialDelay
+
+	bufPtr := t.bufPool.Get().(*[]byte)
+	defer t.bufPool.Put(bufPtr)
+	buf := (*bufPtr)[:]
+
+	for {
+		n, addr, err = t.conn.ReadFromUDP(buf)
+
+		if err != nil {
+			if atomic.LoadInt32(&t.closed) == 1 {
+				return ErrClosed
+			}
+
+			level.Error(t.Logger).Log("msg", "failed to read from udp", "err", err)
+
+			time.Sleep(retryDelay)
+
+			// Exponential backoff.
+			retryDelay *= retryDelay
+			if retryDelay > retryMaxDelay {
+				retryDelay = retryMaxDelay
+			}
+
+			continue
+		}
+
+		if n == 0 {
+			level.Warn(t.Logger).Log("msg", "received empty udp packet", "from", addr)
+			continue
+		}
+
+		retryDelay = retryInitialDelay
+
+		break
 	}
 
-	defer t.packetPool.Put(dgram)
-
-	if err := protobuf.Unmarshal(dgram.Body(), msg); err != nil {
+	if err := protobuf.Unmarshal(buf[:n], msg); err != nil {
 		return fmt.Errorf("failed to unmarshal gossip message: %w", err)
 	}
 
 	return nil
 }
 
+// WriteTo writes a message to the given address. If the socket is closed,
+// WriteTo returns ErrClosed. It blocks until the message is sent or the
+// socket is closed.
 func (t *UDPTransport) WriteTo(msg *proto.GossipMessage, addr *netip.AddrPort) error {
 	payload, err := protobuf.Marshal(msg)
 	if err != nil {
