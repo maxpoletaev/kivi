@@ -12,12 +12,23 @@ import (
 
 	"github.com/maxpoletaev/kv/gossip/proto"
 	"github.com/maxpoletaev/kv/gossip/transport"
+	"github.com/maxpoletaev/kv/internal/bloom"
 	"github.com/maxpoletaev/kv/internal/generic"
 	"github.com/maxpoletaev/kv/internal/rolling"
 )
 
 // PeerID is a uinque 32-bit peer identifier.
 type PeerID uint32
+
+// Bytes returns the byte representation of the PeerID.
+func (p PeerID) Bytes() []byte {
+	return []byte{
+		byte(0xff & p),
+		byte(0xff & (p >> 8)),
+		byte(0xff & (p >> 16)),
+		byte(0xff & (p >> 24)),
+	}
+}
 
 type remotePeer struct {
 	ID    PeerID
@@ -31,18 +42,17 @@ type peerMap map[PeerID]*remotePeer
 // for maintaining a list of known peers and exchanging messages with them. All
 // received messages are passed to the delegate for processing.
 type Gossiper struct {
-	peerID    PeerID
-	delegate  Delegate
-	logger    log.Logger
-	transport Transport
-
+	peerID       PeerID
+	delegate     Delegate
+	logger       log.Logger
+	transport    Transport
 	gossipFactor int
+	bloomFilterK int
 	messageTTL   uint32
 	lastSeqNum   *rolling.Counter[uint64]
 	wg           sync.WaitGroup
-
-	peersMut sync.RWMutex
-	peers    peerMap
+	peersMut     sync.RWMutex
+	peers        peerMap
 }
 
 // Start initializes the gossiper struct with the given configuration
@@ -83,6 +93,7 @@ func newGossiper(conf *Config) *Gossiper {
 		logger:       conf.Logger,
 		messageTTL:   conf.MessageTTL,
 		lastSeqNum:   rolling.NewCounter[uint64](),
+		bloomFilterK: conf.BloomFilterK,
 		peers:        make(peerMap),
 	}
 }
@@ -102,10 +113,10 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 	if msg.Ttl > 0 {
 		level.Debug(l).Log("msg", "scheduled for rebroadcast", "ttl", msg.Ttl)
 
-		// Keep track of peers that have seen the message in order to avoid recursion.
-		// TODO: probably should make it configurable as it may affect message size
-		//	on large ttls. Or maybe use bloom filter.
-		msg.SeenBy = append(msg.SeenBy, uint32(g.peerID))
+		// Keep track of peers that have seen this message, to avoid recursion.
+		bf := bloom.New(msg.SeenBy, g.bloomFilterK)
+		bf.Add(g.peerID.Bytes())
+		msg.SeenBy = bf.Value()
 
 		msg.Ttl--
 
@@ -158,10 +169,7 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 }
 
 func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
-	seenBy := make(map[PeerID]bool, len(msg.SeenBy))
-	for _, peerID := range msg.SeenBy {
-		seenBy[PeerID(peerID)] = true
-	}
+	seenBy := bloom.New(msg.SeenBy, g.bloomFilterK)
 
 	var lastErr error
 
@@ -178,16 +186,18 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 			break
 		}
 
-		p := knownPeers[id]
-		if seenBy[p.ID] {
+		peer := knownPeers[id]
+
+		// Skip peers that have already seen this message.
+		if seenBy.Check(peer.ID.Bytes()) {
 			continue
 		}
 
 		sentCount++
 
-		err := g.transport.WriteTo(msg, &p.Addr)
+		err := g.transport.WriteTo(msg, &peer.Addr)
 		if err != nil {
-			level.Error(g.logger).Log("msg", "failed to sent a message", "to", p.Addr)
+			level.Error(g.logger).Log("msg", "failed to sent a message", "to", peer.Addr)
 
 			if lastErr == nil {
 				lastErr = err
@@ -320,6 +330,10 @@ func (g *Gossiper) Broadcast(payload []byte) error {
 		SeqRollover: rollover,
 		Payload:     payload,
 	}
+
+	bf := bloom.New(msg.SeenBy, g.bloomFilterK)
+	bf.Add(g.peerID.Bytes())
+	msg.SeenBy = bf.Value()
 
 	return g.gossip(msg)
 }

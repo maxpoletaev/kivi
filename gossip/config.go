@@ -36,6 +36,10 @@ type Config struct {
 	// Logger is go-kit logger used to record debug messages and non-critical
 	// errors while protocol execution. If not provided, it will be totally silent.
 	Logger log.Logger
+
+	// BloomFilterK is the number of hash functions used in the bloom filter,
+	// which is used to filter out redundant messages. The default value is 3.
+	BloomFilterK int
 }
 
 // DefaultConfig creates a Config with reasonable default values
@@ -46,5 +50,6 @@ func DefaultConfig() *Config {
 		BindAddr:     "0.0.0.0:1984",
 		Logger:       log.NewNopLogger(),
 		Delegate:     &NoopDelegate{},
+		BloomFilterK: 3,
 	}
 }
