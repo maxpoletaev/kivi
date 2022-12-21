@@ -2,61 +2,28 @@ package gossip
 
 import (
 	"bytes"
+	"fmt"
 	"math/rand"
 	"net/netip"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 )
-
-type delegateMock struct {
-	mut       sync.Mutex
-	received  [][]byte
-	delivered [][]byte
-}
-
-func (d *delegateMock) Receive(payload []byte) error {
-	d.mut.Lock()
-	d.received = append(d.received, payload)
-	d.mut.Unlock()
-
-	return nil
-}
-
-func (d *delegateMock) GetReceived() [][]byte {
-	d.mut.Lock()
-	received := d.received
-	d.mut.Unlock()
-	return received
-}
-
-func (d *delegateMock) Deliver(payload []byte) error {
-	d.mut.Lock()
-	d.delivered = append(d.delivered, payload)
-	d.mut.Unlock()
-
-	return nil
-}
-
-func (d *delegateMock) GetDelivered() [][]byte {
-	d.mut.Lock()
-	delivered := d.delivered
-	d.mut.Unlock()
-	return delivered
-}
 
 type virtualPeer struct {
 	ID       PeerID
 	Addr     netip.AddrPort
 	Gossiper *Gossiper
-	Delegate *delegateMock
+	Delegate *MockDelegate
 }
 
 func createTestCluster(n int) ([]*virtualPeer, error) {
 	logger := log.NewLogfmtLogger(log.NewSyncWriter(os.Stdout))
+	logger = level.NewFilter(logger, level.AllowError())
+
 	nodes := make([]*virtualPeer, 0)
 	ok := true
 
@@ -70,7 +37,7 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 	}()
 
 	for id := 1; id <= n; id++ {
-		delegate := &delegateMock{}
+		delegate := &MockDelegate{}
 
 		ip := netip.AddrFrom4([4]byte{127, 0, 0, 1})
 		addr := netip.AddrPortFrom(ip, uint16(4000+id))
@@ -127,17 +94,10 @@ func TestGossiper(t *testing.T) {
 		}
 	}()
 
-	messages := [][]byte{
-		[]byte("1"),
-		[]byte("2"),
-		[]byte("3"),
-		[]byte("4"),
-		[]byte("5"),
-		[]byte("6"),
-		[]byte("7"),
-		[]byte("8"),
-		[]byte("9"),
-		[]byte("10"),
+	// Generate 100 messages.
+	var messages [][]byte
+	for i := 0; i < 100; i++ {
+		messages = append(messages, []byte(fmt.Sprintf("%d", i)))
 	}
 
 	// Node to be used for broadcast. The protocol guarantess that all messages

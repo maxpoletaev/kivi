@@ -41,9 +41,8 @@ type Gossiper struct {
 	lastSeqNum   *rolling.Counter[uint64]
 	wg           sync.WaitGroup
 
-	// Peers is the registry of known peers, to which messages will be gossiped.
-	// Implemented as a map wrapped into atomic.Value to provide lock-free reads.
-	peers *generic.Atomic[peerMap]
+	peersMut sync.RWMutex
+	peers    peerMap
 }
 
 // Start initializes the gossiper struct with the given configuration
@@ -76,9 +75,6 @@ func Start(conf *Config) (*Gossiper, error) {
 }
 
 func newGossiper(conf *Config) *Gossiper {
-	peers := &generic.Atomic[peerMap]{}
-	peers.Store(make(peerMap))
-
 	return &Gossiper{
 		peerID:       conf.PeerID,
 		gossipFactor: conf.GossipFactor,
@@ -87,8 +83,17 @@ func newGossiper(conf *Config) *Gossiper {
 		logger:       conf.Logger,
 		messageTTL:   conf.MessageTTL,
 		lastSeqNum:   rolling.NewCounter[uint64](),
-		peers:        peers,
+		peers:        make(peerMap),
 	}
+}
+
+func (g *Gossiper) getPeers() peerMap {
+	g.peersMut.RLock()
+	peers := make(peerMap, len(g.peers))
+	generic.MapCopy(g.peers, peers)
+	g.peersMut.RUnlock()
+
+	return peers
 }
 
 func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
@@ -120,7 +125,7 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 		return // ignore our own messages
 	}
 
-	knownPeers := g.peers.Load()
+	knownPeers := g.getPeers()
 
 	peer, ok := knownPeers[peerID]
 	if !ok {
@@ -162,7 +167,7 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 
 	var sentCount, failedCount int
 
-	knownPeers := g.peers.Load()
+	knownPeers := g.getPeers()
 
 	peerIDs := generic.MapKeys(knownPeers)
 
@@ -205,9 +210,11 @@ func (g *Gossiper) initialTTL() uint32 {
 		return g.messageTTL
 	}
 
-	peers := g.peers.Load()
+	g.peersMut.RLock()
+	peerCount := len(g.peers)
+	g.peersMut.RUnlock()
 
-	return autoTTL(len(peers), g.gossipFactor)
+	return autoTTL(peerCount, g.gossipFactor)
 }
 
 // StartListener starts the background listener process.
@@ -261,30 +268,23 @@ func (g *Gossiper) Shutdown() error {
 
 // Register adds new peer for broadcasting messages to.
 func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
-	g.peers.Lock()
-	defer g.peers.Unlock()
-
 	addrPort, err := netip.ParseAddrPort(addr)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse peer address: %w", err)
 	}
 
-	oldMap := g.peers.Load()
-	if _, ok := oldMap[id]; ok {
+	g.peersMut.Lock()
+	defer g.peersMut.Unlock()
+
+	if _, ok := g.peers[id]; ok {
 		return false, nil
 	}
 
-	newMap := make(peerMap, len(oldMap)+1)
-
-	generic.MapCopy(oldMap, newMap)
-
-	newMap[id] = &remotePeer{
+	g.peers[id] = &remotePeer{
 		ID:    id,
 		Addr:  addrPort,
 		Queue: NewQueue(),
 	}
-
-	g.peers.Store(newMap)
 
 	level.Debug(g.logger).Log("msg", "new peer registered", "id", id, "addr", addr)
 
@@ -293,22 +293,14 @@ func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
 
 // Unregister removes peer from the list of known peers.
 func (g *Gossiper) Unregister(id PeerID) bool {
-	g.peers.Lock()
-	defer g.peers.Unlock()
+	g.peersMut.Lock()
+	defer g.peersMut.Unlock()
 
-	oldMap := g.peers.Load()
-	if _, ok := oldMap[id]; !ok {
+	if _, ok := g.peers[id]; !ok {
 		return false
 	}
 
-	newMap := make(peerMap, len(oldMap)-1)
-	for k := range oldMap {
-		if k != id {
-			newMap[k] = oldMap[k]
-		}
-	}
-
-	g.peers.Store(newMap)
+	delete(g.peers, id)
 
 	return true
 }
