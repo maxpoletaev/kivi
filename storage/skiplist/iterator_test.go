@@ -12,6 +12,7 @@ func TestIterator(t *testing.T) {
 	node.next[0].next[0] = &listNode[int, bool]{key: 3}
 	node.next[0].next[0].next[0] = &listNode[int, bool]{key: 4}
 	node.next[0].next[0].next[0].next[0] = &listNode[int, bool]{key: 5}
+	node.next[0].next[0].next[0].next[0].next[0] = &listNode[int, bool]{key: 5, marked: 1}
 
 	intPtr := func(n int) *int { return &n }
 
@@ -43,10 +44,9 @@ func TestIterator(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			cmp := OrderedComparator[int]
-
 			sequence := make([]int, 0)
-			it := newIterator(tt.node, tt.level, cmp, tt.stopAt)
+
+			it := newIterator(tt.node, tt.level, IntComparator, tt.stopAt)
 
 			for it.HasNext() {
 				key, _ := it.Next()

@@ -2,8 +2,8 @@ package skiplist
 
 import (
 	"errors"
-	"fmt"
 	"math/rand"
+	"sync/atomic"
 )
 
 const (
@@ -11,54 +11,62 @@ const (
 	branchFactor = 4
 )
 
+// ErrNotFound is returned when a key is not found in the list.
 var ErrNotFound = errors.New("not found")
 
+// Comparator is a function that compares two keys.
+// It returns a negative number if a < b, 0 if a == b, and a positive number if a > b.
 type Comparator[K comparable] func(a, b K) int
 
-type listNodes[K comparable, V any] [maxHeight]*listNode[K, V]
-
-type listNode[K comparable, V any] struct {
-	key   K
-	value V
-	next  listNodes[K, V]
-}
-
+// Skiplist is a generic concurrent lock-free skiplist implementation.
 type Skiplist[K comparable, V any] struct {
-	head    *listNode[K, V]
-	compare Comparator[K]
-	height  int
-	size    int
+	head        *listNode[K, V]
+	compareKeys Comparator[K]
+	height      int32
+	size        int32
 }
 
+// New returns a new Skiplist. The comparator is used to compare keys.
 func New[K comparable, V any](comparator Comparator[K]) *Skiplist[K, V] {
 	head := &listNode[K, V]{}
 
 	return &Skiplist[K, V]{
-		compare: comparator,
-		head:    head,
+		compareKeys: comparator,
+		head:        head,
 	}
 }
 
+func (l *Skiplist[K, V]) loadHeight() int {
+	return int(atomic.LoadInt32(&l.height))
+}
+
+func (l *Skiplist[K, V]) casHeigth(oldHeight, newHeight int) bool {
+	return atomic.CompareAndSwapInt32(&l.height, int32(oldHeight), int32(newHeight))
+}
+
+// Height returns the height of the list.
 func (l *Skiplist[K, V]) Height() int {
-	return l.height
+	return l.loadHeight()
 }
 
+// Size returns the number of key-value pairs in the list.
 func (l *Skiplist[K, V]) Size() int {
-	return l.size
+	return int(atomic.LoadInt32(&l.size))
 }
 
-func (l *Skiplist[K, V]) findGreaterOrEqual(key K, searchPath *listNodes[K, V]) *listNode[K, V] {
-	if l.height == 0 {
+func (l *Skiplist[K, V]) findLess(key K, searchPath *listNodes[K, V]) *listNode[K, V] {
+	height := l.loadHeight()
+	if height == 0 {
 		return nil
 	}
 
-	level := l.height - 1
+	level := height - 1
 	node := l.head
 
 	for {
-		next := node.next[level]
+		next := node.loadNext(level)
 
-		if next != nil && l.compare(key, next.key) >= 0 {
+		if next != nil && l.compareKeys(key, next.key) > 0 {
 			node = next
 			continue
 		}
@@ -74,64 +82,147 @@ func (l *Skiplist[K, V]) findGreaterOrEqual(key K, searchPath *listNodes[K, V]) 
 		level--
 	}
 
-	if node == l.head || l.compare(key, node.key) > 0 {
-		node = node.next[0]
-	}
-
 	return node
 }
 
+// Insert inserts a new key-value pair into the list. If the key already exists, the value is updated.
 func (l *Skiplist[K, V]) Insert(key K, value V) {
-	var searchPath listNodes[K, V]
+	height := l.Height()
+	newheight := randomHeight()
 
-	node := l.findGreaterOrEqual(key, &searchPath)
-
-	if node != nil && l.compare(key, node.key) == 0 {
-		node.value = value
-		return
+	if newheight > height {
+		if !l.casHeigth(height, newheight) {
+			newheight = height
+		}
 	}
 
-	newNode := &listNode[K, V]{key: key, value: value}
-	newHeight := randomHeight()
+	newnode := &listNode[K, V]{key: key}
+	newnode.storeValue(value)
 
-	if newHeight > l.height {
-		for i := l.height; i < newHeight; i++ {
-			searchPath[i] = l.head
+loop:
+	for {
+		var searchPath listNodes[K, V]
+
+		l.findLess(key, &searchPath)
+
+		for level := height; level < newheight; level++ {
+			searchPath[level] = l.head
 		}
 
-		l.height = newHeight
+		node := searchPath[0].loadNext(0)
+
+		// If the key already exists, just update the value.
+		if node != nil && l.compareKeys(key, node.key) == 0 {
+			node.storeValue(value)
+			return
+		}
+
+		for level := 0; level < newheight; level++ {
+			next := searchPath[level].loadNext(level)
+			newnode.storeNext(level, next)
+		}
+
+		prev := searchPath[0]
+		next := prev.loadNext(0)
+
+		// Insert to the base level first. If it fails, we need to start over.
+		if !prev.casNext(0, next, newnode) {
+			continue loop
+		}
+
+		// Update the upper levels. Repeat until we succeed.
+		for level := 1; level < newheight; level++ {
+			for {
+				prev := searchPath[level]
+				next := prev.loadNext(level)
+
+				// Update the next pointer if it's still the same as when we
+				// started. Otherwise, search again for the insertion point.
+				if !prev.casNext(level, next, newnode) {
+					l.findLess(key, &searchPath)
+					continue
+				}
+
+				break
+			}
+		}
+
+		break
 	}
 
-	for i := 0; i < newHeight; i++ {
-		newNode.next[i] = searchPath[i].next[i]
-		searchPath[i].next[i] = newNode
-	}
-
-	l.size++
+	atomic.AddInt32(&l.size, 1)
 }
 
+// Remove removes the key-value pair with the given key from the list.
+// It returns true if the key was found. Note that the node is not physically
+// removed from the list. Instead, it is marked as deleted and will be removed
+// once loadNext() is called on the previous node, which happens during findLess() call.
+// This is done to avoid ABA problems.
+func (l *Skiplist[K, V]) Remove(key K) bool {
+	var searchPath listNodes[K, V]
+
+	l.findLess(key, &searchPath)
+
+	prev := searchPath[0]
+	if prev == nil {
+		return false
+	}
+
+	node := prev.loadNext(0)
+	if node == nil || l.compareKeys(key, node.key) != 0 {
+		return false
+	}
+
+	node.setMarked()
+
+	atomic.AddInt32(&l.size, -1)
+
+	l.findLess(key, nil) // triggers marked node cleanup
+
+	return true
+}
+
+// Scan returns an iterator that scans the list from the beginning.
+// Note that the list may change while the iterator is in use.
 func (l *Skiplist[K, V]) Scan() *Iterator[K, V] {
-	return newIterator(l.head.next[0], 0, l.compare, nil)
+	return newIterator(l.head.loadNext(0), 0, l.compareKeys, nil)
 }
 
+// ScanFrom returns an iterator that scans the list from the given key.
+// Note that the list may change while the iterator is in use.
 func (l *Skiplist[K, V]) ScanFrom(key K) *Iterator[K, V] {
-	node := l.findGreaterOrEqual(key, nil)
-	return newIterator(node, 0, l.compare, nil)
+	var node *listNode[K, V]
+	if prev := l.findLess(key, nil); prev != nil {
+		node = prev.loadNext(0)
+	}
+
+	return newIterator(node, 0, l.compareKeys, nil)
 }
 
+// ScanRange returns an iterator that scans the list from the given start key to the given end key.
+// Note that the list may change while the iterator is in use.
 func (l *Skiplist[K, V]) ScanRange(start, end K) *Iterator[K, V] {
-	node := l.findGreaterOrEqual(start, nil)
-	return newIterator(node, 0, l.compare, &end)
+	var node *listNode[K, V]
+	if prev := l.findLess(start, nil); prev != nil {
+		node = prev.loadNext(0)
+	}
+
+	return newIterator(node, 0, l.compareKeys, &end)
 }
 
+// Get returns the value for the given key. If the key is not found, ErrNotFound is returned.
 func (l *Skiplist[K, V]) Get(key K) (ret V, err error) {
-	node := l.findGreaterOrEqual(key, nil)
+	var node *listNode[K, V]
 
-	if node == nil || l.compare(key, node.key) != 0 {
+	if prev := l.findLess(key, nil); prev != nil {
+		node = prev.loadNext(0)
+	}
+
+	if node == nil || l.compareKeys(key, node.key) != 0 {
 		return ret, ErrNotFound
 	}
 
-	return node.value, nil
+	return node.loadValue(), nil
 }
 
 func randomHeight() int {
@@ -142,45 +233,4 @@ func randomHeight() int {
 	}
 
 	return height
-}
-
-// construct is a helper to simplify skiplist construction during tests.
-func construct[K comparable, V any](keys [][]K, keyComparator Comparator[K], defaultValue V) *Skiplist[K, V] {
-	nodes := make(map[K]*listNode[K, V], 0)
-	head := &listNode[K, V]{}
-	size := 0
-
-	if len(keys) > 0 {
-		size = len(keys[0])
-
-		for _, key := range keys[0] {
-			nodes[key] = &listNode[K, V]{key: key, value: defaultValue}
-		}
-	}
-
-	for level := 0; level < len(keys); level++ {
-		tail := head.next[level]
-
-		for _, key := range keys[level] {
-			node := nodes[key]
-			if node == nil {
-				panic(fmt.Sprintf("invalid list: node %v is defined at level 0 but missing from level %d", key, level))
-			}
-
-			if tail == nil {
-				head.next[level] = node
-				tail = node
-			} else {
-				tail.next[level] = node
-				tail = node
-			}
-		}
-	}
-
-	return &Skiplist[K, V]{
-		head:    head,
-		size:    size,
-		height:  len(keys),
-		compare: keyComparator,
-	}
 }

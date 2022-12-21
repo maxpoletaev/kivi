@@ -1,16 +1,128 @@
 package skiplist
 
 import (
-	"math/rand"
-	"sync"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestMakeSkiplist(t *testing.T) {
-	list := construct([][]int{
+// buildList is a helper to simplify skiplist construction during tests.
+func buildList[K comparable, V any](keys [][]K, keyComparator Comparator[K], defaultValue V) *Skiplist[K, V] {
+	nodes := make(map[K]*listNode[K, V], 0)
+	head := &listNode[K, V]{}
+	size := 0
+
+	if len(keys) > 0 {
+		size = len(keys[0])
+
+		for _, key := range keys[0] {
+			node := &listNode[K, V]{key: key}
+			node.storeValue(defaultValue)
+			nodes[key] = node
+		}
+	}
+
+	for level := 0; level < len(keys); level++ {
+		tail := head.next[level]
+
+		for _, key := range keys[level] {
+			node := nodes[key]
+			if node == nil {
+				panic(fmt.Sprintf("invalid list: node %v is defined at level 0 but missing from level %d", key, level))
+			}
+
+			if tail == nil {
+				head.next[level] = node
+				tail = node
+			} else {
+				tail.next[level] = node
+				tail = node
+			}
+		}
+	}
+
+	return &Skiplist[K, V]{
+		head:        head,
+		size:        int32(size),
+		height:      int32(len(keys)),
+		compareKeys: keyComparator,
+	}
+}
+
+// dumpListNodes returns a copy of the skiplist's internal state, for testing.
+func dumpListNodes[K comparable, V any](l *Skiplist[K, V]) [][]*listNode[K, V] {
+	height := l.Height()
+
+	levels := make([][]*listNode[K, V], height)
+
+	for level := 0; level < height; level++ {
+		node := l.head.loadNext(level)
+
+		for node != nil {
+			levels[level] = append(levels[level], node)
+			node = node.loadNext(level)
+		}
+	}
+
+	return levels
+}
+
+func validateInternalState[K comparable, V any](t *testing.T, list *Skiplist[K, V]) {
+	t.Helper()
+
+	var hasErrors bool
+
+	listDump := dumpListNodes(list)
+
+	for i := 1; i < len(listDump); i++ {
+		if len(listDump[i]) > len(listDump[i-1]) {
+			t.Errorf("level %d has more keys than level %d", i, i-1)
+			hasErrors = true
+		}
+	}
+
+	for level, nodes := range listDump {
+		keyCount := make(map[K]int)
+		for _, node := range nodes {
+			keyCount[node.key]++
+		}
+
+		// Ensure no duplicate keys on each level.
+		for key, count := range keyCount {
+			if count > 1 {
+				t.Errorf("duplicate key %v at level %d (repeats %d times)", key, level, count)
+				hasErrors = true
+			}
+		}
+
+		// Ensure keys are in the right order on each level.
+		for i := 1; i < len(nodes); i++ {
+			if list.compareKeys(nodes[i].key, nodes[i-1].key) < 0 {
+				t.Errorf("wrong key order at level %d: %v < %v", level, nodes[i].key, nodes[i-1].key)
+				hasErrors = true
+			}
+		}
+	}
+
+	if hasErrors {
+		fmt.Println("skiplist dump:")
+
+		for levels, nodes := range listDump {
+			keys := make([]K, len(nodes))
+			for i, node := range nodes {
+				keys[i] = node.key
+			}
+
+			fmt.Printf("    L%d: %v\n", levels, keys)
+		}
+	}
+}
+
+func TestBuildList(t *testing.T) {
+	list := buildList([][]int{
 		{1, 2, 3, 4, 5, 6},
 		{1, 3, 5},
 		{1, 5},
@@ -42,163 +154,116 @@ func TestMakeSkiplist(t *testing.T) {
 	// Ensure thre links are correct between the third and second levels.
 	assert.Equal(t, 3, list.head.next[2].next[1].key)
 	assert.Nil(t, list.head.next[2].next[2].next[1])
+
+	validateInternalState(t, list)
 }
 
 func TestMakeSkiplistFails(t *testing.T) {
 	assert.PanicsWithValue(t, "invalid list: node 3 is defined at level 0 but missing from level 1", func() {
-		construct([][]int{
+		buildList([][]int{
 			{1, 2, 4, 5},
 			{1, 3, 4},
 		}, IntComparator, false)
 	})
 }
 
-func TestSkiplist_findGreaterOrEqual(t *testing.T) {
-	type test struct {
-		list          [][]int
-		keyToFind     int
-		expectedFound int
-		wantNil       bool
-		wantSentinel  bool
-	}
-
-	tests := map[string]test{
-		"EqualInTheMiddleMultilevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 5, 6, 7},
-				{1, 4, 6},
-				{1, 6},
-				{1},
-			},
-			keyToFind:     5,
-			expectedFound: 5,
-		},
-		"EqualInTheMiddleSingleLevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 5, 6, 7},
-			},
-			keyToFind:     4,
-			expectedFound: 4,
-		},
-		"EqualAtTheBeginningSingleLevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 5, 6, 7},
-			},
-			keyToFind:     1,
-			expectedFound: 1,
-		},
-		"EqualAtTheBeginningMultilevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 5, 6, 7},
-				{1, 4, 6},
-				{1, 6},
-				{1},
-			},
-			keyToFind:     1,
-			expectedFound: 1,
-		},
-		"EqualAtTheEndMultilevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 5, 6, 7},
-				{1, 4, 6},
-				{1, 6},
-				{1},
-			},
-			keyToFind:     7,
-			expectedFound: 7,
-		},
-		"EqualSingleValueList": {
-			list: [][]int{
-				{10},
-			},
-			keyToFind:     10,
-			expectedFound: 10,
-		},
-		"GreaterInTheMiddleMultilevel": {
+func TestSkiplist_findLess(t *testing.T) {
+	table := map[string]struct {
+		list           [][]int
+		key            int
+		wantHead       bool
+		wantNil        bool
+		wantKey        int
+		wantSearchPath []int
+	}{
+		"LessInTheMiddle": {
 			list: [][]int{
 				{1, 2, 3, 4, 6, 7, 8, 9, 10},
-				{1, 4, 6, 9},
-				{1, 6},
+				{1, 3, 6, 9},
+				{1, 3},
 				{1},
 			},
-			keyToFind:     5,
-			expectedFound: 6,
+			key:            5,
+			wantKey:        4,
+			wantSearchPath: []int{4, 3, 3, 1},
 		},
-		"GreaterAtTheEndMultiLevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 6, 7, 8, 10},
-				{1, 4, 6},
-				{1, 6},
-				{1},
-			},
-			keyToFind:     9,
-			expectedFound: 10,
-		},
-		"KeyIsGreatherThanTheLastElementMultiLevel": {
-			list: [][]int{
-				{1, 2, 3, 4, 6, 7, 8, 10},
-				{1, 4, 6},
-				{1, 6},
-				{1},
-			},
-			keyToFind: 11,
-			wantNil:   true,
-		},
-		"KeyIsLessThanTheFirstElementMultiLevel": {
+		"LessAtTheEnd": {
 			list: [][]int{
 				{1, 2, 3, 4, 6, 7, 8, 9, 10},
-				{1, 4, 6, 9},
-				{1, 6},
+				{1, 3, 6, 9},
+				{1, 3},
 				{1},
 			},
-			keyToFind:     0,
-			expectedFound: 1,
+			key:            11,
+			wantKey:        10,
+			wantSearchPath: []int{10, 9, 3, 1},
+		},
+		"LessAtTheBeginning": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:            1,
+			wantHead:       true,
+			wantSearchPath: []int{0, 0, 0, 0},
 		},
 		"EmptyList": {
-			list:      [][]int{},
-			keyToFind: 1,
-			wantNil:   true,
+			list:           [][]int{},
+			key:            1,
+			wantNil:        true,
+			wantSearchPath: []int{},
+		},
+		"SingleNodeList": {
+			list: [][]int{
+				{1},
+			},
+			key:            10,
+			wantKey:        1,
+			wantSearchPath: []int{1},
+		},
+		"LessInTheMiddleSingleLevel": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+			},
+			key:            5,
+			wantKey:        4,
+			wantSearchPath: []int{4},
 		},
 	}
 
-	for name, tt := range tests {
+	for name, tt := range table {
 		t.Run(name, func(t *testing.T) {
-			list := construct(tt.list, IntComparator, false)
+			var searchPath listNodes[int, bool]
 
-			found := list.findGreaterOrEqual(tt.keyToFind, nil)
+			list := buildList(tt.list, IntComparator, false)
+			found := list.findLess(tt.key, &searchPath)
 
 			if tt.wantNil {
-				require.Nil(t, found)
+				require.Nil(t, found, "node found")
+				return
+			} else if tt.wantHead {
+				require.Equal(t, list.head, found)
 				return
 			}
 
-			if tt.wantSentinel {
-				require.NotNil(t, found)
-				return
+			require.NotNil(t, found, "node not found")
+			assert.Equal(t, tt.wantKey, found.key, "wrong node returned")
+
+			pathKeys := make([]int, 0, maxHeight)
+			for _, node := range searchPath {
+				if node == nil {
+					break
+				}
+				pathKeys = append(pathKeys, node.key)
 			}
 
-			require.NotNil(t, found)
-			assert.Equal(t, tt.expectedFound, found.key, "wrong node returned")
+			assert.Equal(t, tt.wantSearchPath, pathKeys, "wrong search path")
+
+			validateInternalState(t, list)
 		})
 	}
-}
-
-func TestSkiplist_findGreaterOrEqual_WithSearchPath(t *testing.T) {
-	list := construct([][]int{
-		{1, 2, 3, 4, 6, 7, 8, 9, 10},
-		{1, 4, 6, 9},
-		{1, 6},
-		{1},
-	}, IntComparator, false)
-
-	var searchPath listNodes[int, bool]
-
-	list.findGreaterOrEqual(9, &searchPath)
-
-	assert.Equal(t, 1, searchPath[3].key)
-	assert.Equal(t, 6, searchPath[2].key)
-	assert.Equal(t, 9, searchPath[1].key)
-	assert.Equal(t, 9, searchPath[0].key)
 }
 
 func TestSkiplist_Insert(t *testing.T) {
@@ -211,7 +276,7 @@ func TestSkiplist_Insert(t *testing.T) {
 	}
 
 	tests := map[string]test{
-		"InsertWithExistingKeyReplacement": {
+		"InsertInTheMiddleWithReplacement": {
 			initialKeys: [][]int{
 				{1, 2, 3, 4, 5},
 				{1, 3},
@@ -226,6 +291,21 @@ func TestSkiplist_Insert(t *testing.T) {
 				assert.Equal(t, "new value", value)
 			},
 		},
+		"InsertAtTheStartWithReplacement": {
+			initialKeys: [][]int{
+				{1, 2, 3, 4, 5},
+				{1, 3},
+				{1},
+			},
+			insertValue: "new value",
+			insertKeys:  []int{1},
+			wantKeys:    []int{1, 2, 3, 4, 5},
+			assertFunc: func(t *testing.T, l *Skiplist[int, string]) {
+				value, err := l.Get(1)
+				require.NoError(t, err)
+				assert.Equal(t, "new value", value)
+			},
+		},
 		"InsertSingleValueIntoEmptyList": {
 			initialKeys: [][]int{},
 			insertKeys:  []int{10},
@@ -233,7 +313,7 @@ func TestSkiplist_Insert(t *testing.T) {
 			wantKeys:    []int{10},
 			assertFunc: func(t *testing.T, l *Skiplist[int, string]) {
 				require.Equal(t, 10, l.head.next[0].key)
-				require.Equal(t, "value", l.head.next[0].value)
+				require.Equal(t, "value", l.head.next[0].loadValue())
 			},
 		},
 		"InsertMultipleSortedValuesIntoEmptyListWithoutRebalancing": {
@@ -287,8 +367,12 @@ func TestSkiplist_Insert(t *testing.T) {
 	}
 
 	for name, tt := range tests {
+		if strings.HasPrefix(name, "_") {
+			continue
+		}
+
 		t.Run(name, func(t *testing.T) {
-			list := construct(tt.initialKeys, IntComparator, "")
+			list := buildList(tt.initialKeys, IntComparator, "")
 
 			for _, key := range tt.insertKeys {
 				list.Insert(key, tt.insertValue)
@@ -305,6 +389,106 @@ func TestSkiplist_Insert(t *testing.T) {
 			assert.Equal(t, tt.wantKeys, actualKeys)
 
 			tt.assertFunc(t, list)
+		})
+	}
+}
+
+func TestSkiplist_Remove(t *testing.T) {
+	type test struct {
+		prepareFunc func(l *Skiplist[int, string])
+		removeKeys  []int
+		wantKeys    []int
+	}
+
+	tests := map[string]test{
+		"RemoveFromEmptyList": {
+			prepareFunc: func(l *Skiplist[int, string]) {},
+			removeKeys:  []int{1},
+			wantKeys:    []int{},
+		},
+		"RemoveSingleValue": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+			},
+			removeKeys: []int{1},
+			wantKeys:   []int{},
+		},
+		"RemoveMultipleValues": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+				l.Insert(2, "value")
+				l.Insert(3, "value")
+				l.Insert(4, "value")
+				l.Insert(5, "value")
+			},
+			removeKeys: []int{1, 3, 5},
+			wantKeys:   []int{2, 4},
+		},
+		"RemoveValuesFromTheMiddleOfTheList": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+				l.Insert(2, "value")
+				l.Insert(3, "value")
+				l.Insert(4, "value")
+				l.Insert(5, "value")
+			},
+			removeKeys: []int{2, 4},
+			wantKeys:   []int{1, 3, 5},
+		},
+		"RemoveValuesFromTheStartOfTheList": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+				l.Insert(2, "value")
+				l.Insert(3, "value")
+				l.Insert(4, "value")
+				l.Insert(5, "value")
+			},
+			removeKeys: []int{1, 2},
+			wantKeys:   []int{3, 4, 5},
+		},
+		"RemoveValuesFromTheEndOfTheList": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+				l.Insert(2, "value")
+				l.Insert(3, "value")
+				l.Insert(4, "value")
+				l.Insert(5, "value")
+			},
+			removeKeys: []int{4, 5},
+			wantKeys:   []int{1, 2, 3},
+		},
+		"RemoveNonExistingValue": {
+			prepareFunc: func(l *Skiplist[int, string]) {
+				l.Insert(1, "value")
+				l.Insert(2, "value")
+				l.Insert(3, "value")
+				l.Insert(4, "value")
+				l.Insert(5, "value")
+			},
+			removeKeys: []int{6},
+			wantKeys:   []int{1, 2, 3, 4, 5},
+		},
+	}
+
+	for name, tt := range tests {
+
+		t.Run(name, func(t *testing.T) {
+			list := New[int, string](IntComparator)
+
+			tt.prepareFunc(list)
+
+			for _, key := range tt.removeKeys {
+				list.Remove(key)
+			}
+
+			actualKeys := make([]int, 0, list.Size())
+
+			for iter := list.Scan(); iter.HasNext(); {
+				key, _ := iter.Next()
+				actualKeys = append(actualKeys, key)
+			}
+
+			assert.Equal(t, tt.wantKeys, actualKeys)
 		})
 	}
 }
@@ -357,43 +541,4 @@ func TestSkiplist_Scan(t *testing.T) {
 			assert.Equal(t, tt.wantSequence, actualSeq)
 		})
 	}
-}
-
-func TestSkiplist_DataRaces(t *testing.T) {
-	run := make(chan bool)
-	concurrency := 10
-
-	keys := make([]int, 0, concurrency)
-	for k := 0; k < concurrency; k++ {
-		keys = append(keys, k)
-	}
-
-	rand.Shuffle(len(keys), func(i, j int) {
-		keys[i], keys[j] = keys[j], keys[i]
-	})
-
-	wg := sync.WaitGroup{}
-	wg.Add(concurrency * 2)
-
-	list := New[int, bool](IntComparator)
-
-	// Simulate concurrent reads and writes.
-	for k := 0; k < concurrency; k++ {
-		go func(key int) {
-			<-run
-
-			list.Insert(key, true)
-			wg.Done()
-		}(k)
-
-		go func(key int) {
-			<-run
-
-			list.Get(key)
-			wg.Done()
-		}(k)
-	}
-
-	close(run)
-	wg.Wait()
 }

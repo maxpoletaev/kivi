@@ -1,5 +1,6 @@
 package skiplist
 
+// Iterator is an iterator over a Skiplist.
 type Iterator[K comparable, V any] struct {
 	next    *listNode[K, V]
 	compare Comparator[K]
@@ -18,23 +19,25 @@ func newIterator[K comparable, V any](node *listNode[K, V], level int,
 	}
 }
 
+// HasNext returns true if there are more items in the iterator.
 func (it *Iterator[K, V]) HasNext() bool {
 	return it.next != nil
 }
 
+// Next returns the next key-value pair in the iterator. It panics if there are
+// no more items, so HasNext should always be called before calling Next.
 func (it *Iterator[K, V]) Next() (key K, value V) {
 	if it.next == nil {
 		panic("no more items in the iterator")
 	}
 
 	node := it.next
-	next := node.next[it.level]
 
-	it.next = next
+	it.next = node.loadNext(it.level)
 
-	if it.stopAt != nil && it.compare(next.key, *it.stopAt) > 0 {
+	if it.stopAt != nil && it.compare(it.next.key, *it.stopAt) > 0 {
 		it.next = nil
 	}
 
-	return node.key, node.value
+	return node.key, node.loadValue()
 }
