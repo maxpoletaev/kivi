@@ -37,19 +37,19 @@ type Config struct {
 	// errors while protocol execution. If not provided, it will be totally silent.
 	Logger log.Logger
 
-	// BloomFilterK is the number of hash functions used in the bloom filter,
-	// which is used to filter out redundant messages. The default value is 3.
-	BloomFilterK int
+	// EnableBloomFilter enables bloom filter to reduce the number of redundant
+	// messages received by the node. It is enabled by default.
+	EnableBloomFilter bool
 }
 
 // DefaultConfig creates a Config with reasonable default values
 // that will not crash the program straight away.
 func DefaultConfig() *Config {
 	return &Config{
-		GossipFactor: 2,
-		BindAddr:     "0.0.0.0:1984",
-		Logger:       log.NewNopLogger(),
-		Delegate:     &NoopDelegate{},
-		BloomFilterK: 3,
+		GossipFactor:      2,
+		BindAddr:          "0.0.0.0:1984",
+		Logger:            log.NewNopLogger(),
+		Delegate:          &NoopDelegate{},
+		EnableBloomFilter: true,
 	}
 }

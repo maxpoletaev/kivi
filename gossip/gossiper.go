@@ -17,6 +17,11 @@ import (
 	"github.com/maxpoletaev/kv/internal/rolling"
 )
 
+const (
+	bloomFilterBits    = 128
+	bloomFilterHashers = 3
+)
+
 // PeerID is a uinque 32-bit peer identifier.
 type PeerID uint32
 
@@ -47,9 +52,9 @@ type Gossiper struct {
 	logger       log.Logger
 	transport    Transport
 	gossipFactor int
-	bloomFilterK int
 	messageTTL   uint32
 	lastSeqNum   *rolling.Counter[uint64]
+	enableBF     bool
 	wg           sync.WaitGroup
 	peersMut     sync.RWMutex
 	peers        peerMap
@@ -93,7 +98,7 @@ func newGossiper(conf *Config) *Gossiper {
 		logger:       conf.Logger,
 		messageTTL:   conf.MessageTTL,
 		lastSeqNum:   rolling.NewCounter[uint64](),
-		bloomFilterK: conf.BloomFilterK,
+		enableBF:     conf.EnableBloomFilter,
 		peers:        make(peerMap),
 	}
 }
@@ -113,10 +118,11 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 	if msg.Ttl > 0 {
 		level.Debug(l).Log("msg", "scheduled for rebroadcast", "ttl", msg.Ttl)
 
-		// Keep track of peers that have seen this message, to avoid recursion.
-		bf := bloom.New(msg.SeenBy, g.bloomFilterK)
-		bf.Add(g.peerID.Bytes())
-		msg.SeenBy = bf.Value()
+		if len(msg.SeenBy) > 0 {
+			// Keep track of peers that have seen this message.
+			bf := bloom.New(msg.SeenBy, bloomFilterHashers)
+			bf.Add(g.peerID.Bytes())
+		}
 
 		msg.Ttl--
 
@@ -169,17 +175,17 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 }
 
 func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
-	seenBy := bloom.New(msg.SeenBy, g.bloomFilterK)
-
 	var lastErr error
-
+	var seenBy *bloom.Filter
 	var sentCount, failedCount int
 
 	knownPeers := g.getPeers()
-
 	peerIDs := generic.MapKeys(knownPeers)
-
 	generic.Shuffle(peerIDs)
+
+	if len(msg.SeenBy) > 0 {
+		seenBy = bloom.New(msg.SeenBy, bloomFilterHashers)
+	}
 
 	for _, id := range peerIDs {
 		if sentCount >= g.gossipFactor {
@@ -189,7 +195,7 @@ func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
 		peer := knownPeers[id]
 
 		// Skip peers that have already seen this message.
-		if seenBy.Check(peer.ID.Bytes()) {
+		if seenBy != nil && seenBy.Check(peer.ID.Bytes()) {
 			continue
 		}
 
@@ -331,9 +337,11 @@ func (g *Gossiper) Broadcast(payload []byte) error {
 		Payload:     payload,
 	}
 
-	bf := bloom.New(msg.SeenBy, g.bloomFilterK)
-	bf.Add(g.peerID.Bytes())
-	msg.SeenBy = bf.Value()
+	if g.enableBF {
+		msg.SeenBy = make([]byte, (bloomFilterBits/8)+1)
+		bf := bloom.New(msg.SeenBy, bloomFilterHashers)
+		bf.Add(g.peerID.Bytes())
+	}
 
 	return g.gossip(msg)
 }

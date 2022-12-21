@@ -7,8 +7,8 @@ import (
 )
 
 func TestAddAndCheck(t *testing.T) {
-	var value uint64
-	bf := New(value, 3)
+	var value [10]byte
+	bf := New(value[:], 3)
 
 	bf.Add([]byte("hello"))
 	bf.Add([]byte("world"))
