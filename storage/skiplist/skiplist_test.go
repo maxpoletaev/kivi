@@ -266,6 +266,95 @@ func TestSkiplist_findLess(t *testing.T) {
 	}
 }
 
+func TestSkiplist_LessOrEqual(t *testing.T) {
+	tests := map[string]struct {
+		list      [][]int
+		key       int
+		wantFound bool
+		wantKey   int
+	}{
+		"LessInTheMiddle": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:       5,
+			wantKey:   4,
+			wantFound: true,
+		},
+		"LessAtTheEnd": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:       11,
+			wantKey:   10,
+			wantFound: true,
+		},
+		"LessAtTheBeginning": {
+			list: [][]int{
+				{2, 3, 4, 6, 7, 8, 9, 10},
+				{3, 6, 9},
+				{3},
+			},
+			key:       1,
+			wantFound: false,
+		},
+		"EqualInTheMiddle": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:       4,
+			wantKey:   4,
+			wantFound: true,
+		},
+		"EqualAtTheEnd": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:       10,
+			wantKey:   10,
+			wantFound: true,
+		},
+		"EqualAtTheBeginning": {
+			list: [][]int{
+				{1, 2, 3, 4, 6, 7, 8, 9, 10},
+				{1, 3, 6, 9},
+				{1, 3},
+				{1},
+			},
+			key:       1,
+			wantKey:   1,
+			wantFound: true,
+		},
+		"EmptyList": {
+			list:      [][]int{},
+			key:       1,
+			wantFound: false,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			list := buildList(tt.list, IntComparator, false)
+			key, _, found := list.LessOrEqual(tt.key)
+
+			require.Equal(t, tt.wantFound, found)
+			require.Equal(t, tt.wantKey, key, "wrong key returned: %d", key)
+		})
+	}
+}
+
 func TestSkiplist_Insert(t *testing.T) {
 	type test struct {
 		initialKeys [][]int
@@ -286,8 +375,8 @@ func TestSkiplist_Insert(t *testing.T) {
 			insertKeys:  []int{4},
 			wantKeys:    []int{1, 2, 3, 4, 5},
 			assertFunc: func(t *testing.T, l *Skiplist[int, string]) {
-				value, err := l.Get(4)
-				require.NoError(t, err)
+				value, found := l.Get(4)
+				require.True(t, found)
 				assert.Equal(t, "new value", value)
 			},
 		},
@@ -301,8 +390,8 @@ func TestSkiplist_Insert(t *testing.T) {
 			insertKeys:  []int{1},
 			wantKeys:    []int{1, 2, 3, 4, 5},
 			assertFunc: func(t *testing.T, l *Skiplist[int, string]) {
-				value, err := l.Get(1)
-				require.NoError(t, err)
+				value, found := l.Get(1)
+				require.True(t, found)
 				assert.Equal(t, "new value", value)
 			},
 		},

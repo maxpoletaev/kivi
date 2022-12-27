@@ -47,7 +47,7 @@ func TestSkiplistStress(t *testing.T) {
 
 	// Ensure all keys are present.
 	for _, key := range usedKeys.Values() {
-		if _, err := list.Get(key); err != nil {
+		if _, ok := list.Get(key); !ok {
 			t.Errorf("key %d not found", key)
 		}
 	}

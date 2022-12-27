@@ -9,114 +9,114 @@ import (
 
 func TestAddVersion(t *testing.T) {
 	type test struct {
-		currentValues []StoredValue
-		incomingValue StoredValue
-		wantResult    []StoredValue
+		currentValues []Value
+		incomingValue Value
+		wantResult    []Value
 		wantErr       error
 	}
 
 	tests := map[string]test{
 		"NoCurrentValues": {
 			currentValues: nil,
-			incomingValue: StoredValue{
-				Blob:    []byte("value"),
+			incomingValue: Value{
+				Data:    []byte("value"),
 				Version: vclock.New(vclock.V{1: 1}),
 			},
-			wantResult: []StoredValue{
+			wantResult: []Value{
 				{
-					Blob:    []byte("value"),
+					Data:    []byte("value"),
 					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
 		},
 		"IncomingValueOvertakesOneCurrentValue": {
-			currentValues: []StoredValue{
+			currentValues: []Value{
 				{
-					Blob:    []byte("current value"),
+					Data:    []byte("current value"),
 					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
-			incomingValue: StoredValue{
-				Blob:    []byte("new value"),
+			incomingValue: Value{
+				Data:    []byte("new value"),
 				Version: vclock.New(vclock.V{1: 2}),
 			},
-			wantResult: []StoredValue{
+			wantResult: []Value{
 				{
-					Blob:    []byte("new value"),
+					Data:    []byte("new value"),
 					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
 		},
 		"IncomingValueOvertakesOneOfCurrentValues": {
-			currentValues: []StoredValue{
+			currentValues: []Value{
 				{
-					Blob:    []byte("old value 1"),
+					Data:    []byte("old value 1"),
 					Version: vclock.New(vclock.V{1: 1}),
 				},
 				{
-					Blob:    []byte("old value 2"),
+					Data:    []byte("old value 2"),
 					Version: vclock.New(vclock.V{2: 1}),
 				},
 			},
-			incomingValue: StoredValue{
-				Blob:    []byte("new value 1"),
+			incomingValue: Value{
+				Data:    []byte("new value 1"),
 				Version: vclock.New(vclock.V{1: 2}),
 			},
-			wantResult: []StoredValue{
+			wantResult: []Value{
 				{
-					Blob:    []byte("old value 2"),
+					Data:    []byte("old value 2"),
 					Version: vclock.New(vclock.V{2: 1}),
 				},
 				{
-					Blob:    []byte("new value 1"),
+					Data:    []byte("new value 1"),
 					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
 		},
 		"IncomingValueOvertakesAllOfCurrentValues": {
-			currentValues: []StoredValue{
+			currentValues: []Value{
 				{
-					Blob:    []byte("old value 1"),
+					Data:    []byte("old value 1"),
 					Version: vclock.New(vclock.V{1: 1}),
 				},
 				{
-					Blob:    []byte("old value 2"),
+					Data:    []byte("old value 2"),
 					Version: vclock.New(vclock.V{2: 1}),
 				},
 			},
-			incomingValue: StoredValue{
-				Blob:    []byte("new value"),
+			incomingValue: Value{
+				Data:    []byte("new value"),
 				Version: vclock.New(vclock.V{1: 2, 2: 1}),
 			},
-			wantResult: []StoredValue{
+			wantResult: []Value{
 				{
-					Blob:    []byte("new value"),
+					Data:    []byte("new value"),
 					Version: vclock.New(vclock.V{1: 2, 2: 1}),
 				},
 			},
 		},
 		"IncomingValueIsOlderThanTheCurrentValue": {
-			currentValues: []StoredValue{
+			currentValues: []Value{
 				{
-					Blob:    []byte("never value"),
+					Data:    []byte("never value"),
 					Version: vclock.New(vclock.V{1: 2}),
 				},
 			},
-			incomingValue: StoredValue{
-				Blob:    []byte("older value"),
+			incomingValue: Value{
+				Data:    []byte("older value"),
 				Version: vclock.New(vclock.V{1: 1}),
 			},
 			wantErr: ErrObsoleteWrite,
 		},
 		"IncomingValueIsTheSameAsCurrentValue": {
-			currentValues: []StoredValue{
+			currentValues: []Value{
 				{
-					Blob:    []byte("value"),
+					Data:    []byte("value"),
 					Version: vclock.New(vclock.V{1: 1}),
 				},
 			},
-			incomingValue: StoredValue{
-				Blob:    []byte("value"),
+			incomingValue: Value{
+				Data:    []byte("value"),
 				Version: vclock.New(vclock.V{1: 1}),
 			},
 			wantErr: ErrObsoleteWrite,

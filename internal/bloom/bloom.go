@@ -2,6 +2,7 @@ package bloom
 
 import (
 	"hash"
+	"math"
 
 	"github.com/twmb/murmur3"
 )
@@ -33,6 +34,17 @@ func New(value []byte, k int) *Filter {
 		value:   value,
 		hashers: hashers,
 	}
+}
+
+// NewWithProbability returns a new Bloom filter with the given number of
+// expected elements and the probability of a false positive. The size of
+// the filter is calculated using the formula from the paper "Less Hashing,
+// Same Performance: Building a Better Bloom Filter" by Adam Kirsch and
+// Michael Mitzenmacher.
+func NewWithProbability(n int, p float64) (*Filter, int, int) {
+	m := int(-float64(n) * math.Log(p) / (math.Log(2) * math.Log(2)))
+	k := int(float64(m) / float64(n) * math.Log(2))
+	return New(make([]byte, m/8), k), m, k
 }
 
 // Add adds the data to the Bloom filter. The data is hashed k times and
@@ -72,4 +84,11 @@ func (bf *Filter) Check(data []byte) bool {
 	}
 
 	return true
+}
+
+// Value returns a copy of the byte slice that stores the bits.
+func (bf *Filter) Bytes() []byte {
+	value := make([]byte, len(bf.value))
+	copy(value, bf.value)
+	return value
 }

@@ -58,7 +58,7 @@ proto-mock:  ## generate protobuf mocks
 	mockgen -package proto -destination=replication/proto/replication_mock.pb.go github.com/maxpoletaev/kv/replication/proto CoordinatorServiceClient,CoordinatorServiceServer
 
 .PHONY: proto
-proto: proto-clean proto-gen proto-mock  ## re-generate protobuf files + mocks
+proto: proto-clean proto-gen proto-mock  ## re-generate protobuf files and mocks
 
 .PHONY: lint
 lint:  ## run linter

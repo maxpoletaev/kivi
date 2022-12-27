@@ -1,53 +1,52 @@
 package inmemory
 
 import (
-	"errors"
-
+	"github.com/maxpoletaev/kv/internal/lockmap"
 	"github.com/maxpoletaev/kv/storage"
 	"github.com/maxpoletaev/kv/storage/skiplist"
 )
 
-type inMemory struct {
-	data *skiplist.Skiplist[string, []storage.StoredValue]
+type InMemoryEngine struct {
+	data  *skiplist.Skiplist[string, []storage.Value]
+	locks *lockmap.Map[string]
 }
 
-func New() *inMemory {
-	return newWithData(skiplist.New[string, []storage.StoredValue](skiplist.StringComparator))
+func New() *InMemoryEngine {
+	return newWithData(skiplist.New[string, []storage.Value](skiplist.StringComparator))
 }
 
-func newWithData(data *skiplist.Skiplist[string, []storage.StoredValue]) *inMemory {
-	return &inMemory{data: data}
+func newWithData(data *skiplist.Skiplist[string, []storage.Value]) *InMemoryEngine {
+	return &InMemoryEngine{
+		locks: lockmap.New[string](),
+		data:  data,
+	}
 }
 
-func (s *inMemory) Get(key string) ([]storage.StoredValue, error) {
-	values, err := s.data.Get(key)
-	if err != nil {
-		if errors.Is(err, skiplist.ErrNotFound) {
-			return nil, storage.ErrNotFound
-		}
-
-		return nil, err
+func (s *InMemoryEngine) Get(key string) ([]storage.Value, error) {
+	values, found := s.data.Get(key)
+	if !found {
+		return nil, storage.ErrNotFound
 	}
 
 	return values, nil
 }
 
-func (s *inMemory) Put(key string, value storage.StoredValue) error {
-	values, err := s.data.Get(key)
-	if err != nil {
-		if errors.Is(err, skiplist.ErrNotFound) {
-			values = nil
-		} else {
-			return err
-		}
-	}
+func (s *InMemoryEngine) Put(key string, value storage.Value) error {
+	// Since we read the value before updating it, we need to lock the key to avoid
+	// loosing versions during concurrent updates of the same key. The skiplist
+	// itself is thread-safe, that is why we do not lock it in Get.
+	s.locks.Lock(key)
 
-	values, err = storage.AppendVersion(values, value)
+	values, _ := s.data.Get(key)
+
+	values, err := storage.AppendVersion(values, value)
 	if err != nil {
+		s.locks.Unlock(key)
 		return err
 	}
 
 	s.data.Insert(key, values)
+	s.locks.Unlock(key)
 
 	return nil
 }

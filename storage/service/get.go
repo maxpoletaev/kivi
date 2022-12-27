@@ -32,7 +32,7 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 	return resp, nil
 }
 
-func toResponseValues(values []storage.StoredValue) []*proto.VersionedValue {
+func toResponseValues(values []storage.Value) []*proto.VersionedValue {
 	versionedValues := make(
 		[]*proto.VersionedValue, 0, len(values),
 	)
@@ -40,7 +40,7 @@ func toResponseValues(values []storage.StoredValue) []*proto.VersionedValue {
 	for _, value := range values {
 		versionedValues = append(versionedValues, &proto.VersionedValue{
 			Version: vclock.MustEncode(value.Version),
-			Data:    value.Blob,
+			Data:    value.Data,
 		})
 	}
 

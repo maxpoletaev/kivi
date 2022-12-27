@@ -26,7 +26,8 @@ import (
 	"github.com/maxpoletaev/kv/replication/consistency"
 	replicationpb "github.com/maxpoletaev/kv/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kv/replication/service"
-	"github.com/maxpoletaev/kv/storage/inmemory"
+	"github.com/maxpoletaev/kv/storage/lsmtree"
+	"github.com/maxpoletaev/kv/storage/lsmtree/engine"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 	storagesvc "github.com/maxpoletaev/kv/storage/service"
 )
@@ -109,18 +110,27 @@ func main() {
 	connections := clusterpkg.NewConnRegistry(memberlist, dialer)
 	cluster := clusterpkg.New(localMember.ID, memberlist, connections, dialer)
 
-	grpcServer := grpc.NewServer()
+	lsmConfig := lsmtree.DefaultConfig()
+	lsmConfig.MaxMemtableRecords = args.memtableSize
+	lsmConfig.DataRoot = args.dataDirectory
+	lsmConfig.MmapDataFiles = true
+	lsmConfig.Logger = logger
 
-	storage := inmemory.New()
+	lsmt, err := lsmtree.New(lsmConfig)
+	if err != nil {
+		logger.Log("msg", "failed to initialize LSM-Tree storage", "err", err)
+		os.Exit(1)
+	}
+
+	storage := engine.New(lsmt)
+
+	grpcServer := grpc.NewServer()
 	storageService := storagesvc.New(storage, uint32(args.nodeID))
 	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
-
 	membershipService := membershipsvc.NewMembershipService(memberlist)
 	membershippb.RegisterMembershipServiceServer(grpcServer, membershipService)
-
 	replicationService := replicationsvc.New(cluster, logger, consistency.Quorum, consistency.Quorum)
 	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
-
 	faildetectorService := faildetectorsvc.New(cluster)
 	faildetectorpb.RegisterFailDetectorServiceServer(grpcServer, faildetectorService)
 

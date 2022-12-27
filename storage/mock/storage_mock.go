@@ -35,10 +35,10 @@ func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
 }
 
 // Get mocks base method.
-func (m *MockBackend) Get(key string) ([]storage.StoredValue, error) {
+func (m *MockBackend) Get(key string) ([]storage.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", key)
-	ret0, _ := ret[0].([]storage.StoredValue)
+	ret0, _ := ret[0].([]storage.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -50,7 +50,7 @@ func (mr *MockBackendMockRecorder) Get(key interface{}) *gomock.Call {
 }
 
 // Put mocks base method.
-func (m *MockBackend) Put(key string, value storage.StoredValue) error {
+func (m *MockBackend) Put(key string, value storage.Value) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", key, value)
 	ret0, _ := ret[0].(error)
@@ -101,11 +101,11 @@ func (mr *MockScanIteratorMockRecorder) HasNext() *gomock.Call {
 }
 
 // Next mocks base method.
-func (m *MockScanIterator) Next() (string, storage.StoredValue) {
+func (m *MockScanIterator) Next() (string, storage.Value) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
 	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(storage.StoredValue)
+	ret1, _ := ret[1].(storage.Value)
 	return ret0, ret1
 }
 

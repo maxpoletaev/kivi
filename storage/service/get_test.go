@@ -26,10 +26,10 @@ func TestGet(t *testing.T) {
 	tests := map[string]test{
 		"FoundSingleValue": {
 			setupBackend: func(b *storagemock.MockBackend) {
-				b.EXPECT().Get("key").Return([]storage.StoredValue{
+				b.EXPECT().Get("key").Return([]storage.Value{
 					{
 						Version: vclock.New(vclock.V{1: 1}),
-						Blob:    []byte("value"),
+						Data:    []byte("value"),
 					},
 				}, nil)
 			},
@@ -44,14 +44,14 @@ func TestGet(t *testing.T) {
 		"FoundMultipleValues": {
 			setupBackend: func(b *storagemock.MockBackend) {
 				b.EXPECT().Get("key").Return(
-					[]storage.StoredValue{
+					[]storage.Value{
 						{
 							Version: vclock.New(vclock.V{1: 1}),
-							Blob:    []byte("value 1"),
+							Data:    []byte("value 1"),
 						},
 						{
 							Version: vclock.New(vclock.V{2: 1}),
-							Blob:    []byte("value 2"),
+							Data:    []byte("value 2"),
 						},
 					}, nil,
 				)

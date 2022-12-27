@@ -1,7 +1,6 @@
 package skiplist
 
 import (
-	"errors"
 	"math/rand"
 	"sync/atomic"
 )
@@ -11,14 +10,12 @@ const (
 	branchFactor = 4
 )
 
-// ErrNotFound is returned when a key is not found in the list.
-var ErrNotFound = errors.New("not found")
-
 // Comparator is a function that compares two keys.
 // It returns a negative number if a < b, 0 if a == b, and a positive number if a > b.
 type Comparator[K comparable] func(a, b K) int
 
-// Skiplist is a generic concurrent lock-free skiplist implementation.
+// Skiplist is a generic skiplist implementation. It is lock-free and supports
+// mutiple concurrent readers and multiple concurrent writers at the same time.
 type Skiplist[K comparable, V any] struct {
 	head        *listNode[K, V]
 	compareKeys Comparator[K]
@@ -131,6 +128,7 @@ loop:
 		}
 
 		// Update the upper levels. Repeat until we succeed.
+		// TODO: this can be done in background.
 		for level := 1; level < newheight; level++ {
 			for {
 				prev := searchPath[level]
@@ -210,8 +208,8 @@ func (l *Skiplist[K, V]) ScanRange(start, end K) *Iterator[K, V] {
 	return newIterator(node, 0, l.compareKeys, &end)
 }
 
-// Get returns the value for the given key. If the key is not found, ErrNotFound is returned.
-func (l *Skiplist[K, V]) Get(key K) (ret V, err error) {
+// Contains returns true if the list contains the given key.
+func (l *Skiplist[K, V]) Contains(key K) bool {
 	var node *listNode[K, V]
 
 	if prev := l.findLess(key, nil); prev != nil {
@@ -219,10 +217,50 @@ func (l *Skiplist[K, V]) Get(key K) (ret V, err error) {
 	}
 
 	if node == nil || l.compareKeys(key, node.key) != 0 {
-		return ret, ErrNotFound
+		return false
 	}
 
-	return node.loadValue(), nil
+	return true
+}
+
+// Get returns the value for the given key. If the key is not found, ErrNotFound is returned.
+func (l *Skiplist[K, V]) Get(key K) (ret V, found bool) {
+	var node *listNode[K, V]
+
+	if prev := l.findLess(key, nil); prev != nil {
+		node = prev.loadNext(0)
+	}
+
+	if node == nil || l.compareKeys(key, node.key) != 0 {
+		return ret, false
+	}
+
+	return node.loadValue(), true
+}
+
+// GetLess returns the value for the key that is less than the given key.
+func (l *Skiplist[K, V]) LessOrEqual(key K) (retk K, retv V, found bool) {
+	node := l.findLess(key, nil)
+	if node == nil {
+		return retk, retv, false
+	}
+
+	for {
+		next := node.loadNext(0)
+
+		if next != nil && l.compareKeys(key, next.key) >= 0 {
+			node = next
+			continue
+		}
+
+		break
+	}
+
+	if node == l.head {
+		return retk, retv, false
+	}
+
+	return node.key, node.loadValue(), true
 }
 
 func randomHeight() int {

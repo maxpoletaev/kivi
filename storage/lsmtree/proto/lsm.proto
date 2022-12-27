@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package lsm;
+
+option go_package = "github.com/maxpoletaev/kv/storage/lsm/proto";
+
+message IndexEntry {
+    string key = 1;
+    int64 data_offset = 2;
+}
+
+message Value {
+    string version = 1;
+    bytes data = 2;
+}
+
+message DataEntry {
+    string key = 1;
+    bool tombstone = 2;
+    repeated Value values = 3;
+}

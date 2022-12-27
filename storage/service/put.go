@@ -25,8 +25,8 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 		version.Update(s.nodeID)
 	}
 
-	value := storage.StoredValue{
-		Blob:    req.Value.Data,
+	value := storage.Value{
+		Data:    req.Value.Data,
 		Version: version,
 	}
 

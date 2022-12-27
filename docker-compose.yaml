@@ -22,11 +22,14 @@ services:
         -grpc-local-addr=127.0.0.1:3000
         -gossip-bind-addr=0.0.0.0:4000
         -gossip-public-addr=172.24.2.1:4000
+        -data-dir=/data
     ports:
       - 3001:3000
     networks:
       kv_net:
         ipv4_address: 172.24.2.1
+    volumes:
+      - ./data/replica1:/data
 
   replica2:
     depends_on:
@@ -43,11 +46,14 @@ services:
         -gossip-bind-addr=0.0.0.0:4000
         -gossip-public-addr=172.24.2.2:4000
         -join-addr=replica1:3000
+        -data-dir=/data
     ports:
       - 3002:3000
     networks:
       kv_net:
         ipv4_address: 172.24.2.2
+    volumes:
+      - ./data/replica2:/data
 
   replica3:
     depends_on:
@@ -64,8 +70,11 @@ services:
         -gossip-bind-addr=0.0.0.0:4000
         -gossip-public-addr=172.24.2.3:4000
         -join-addr=replica2:3000
+        -data-dir=/data
     ports:
       - 3003:3000
     networks:
       kv_net:
         ipv4_address: 172.24.2.3
+    volumes:
+      - ./data/replica3:/data

@@ -8,11 +8,11 @@ import (
 type StorageService struct {
 	proto.UnimplementedStorageServiceServer
 
-	storage storage.Backend
+	storage storage.Engine
 	nodeID  uint32
 }
 
-func New(s storage.Backend, nodeID uint32) *StorageService {
+func New(s storage.Engine, nodeID uint32) *StorageService {
 	return &StorageService{
 		storage: s,
 		nodeID:  nodeID,

@@ -26,9 +26,9 @@ func TestPut(t *testing.T) {
 	tests := map[string]test{
 		"OkPrimary": {
 			setupBackend: func(b *mock.MockBackend) {
-				b.EXPECT().Put("key", storage.StoredValue{
+				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(vclock.V{100: 2, 200: 1}),
-					Blob:    []byte("value"),
+					Data:    []byte("value"),
 				}).Return(nil)
 			},
 			request: &proto.PutRequest{
@@ -48,9 +48,9 @@ func TestPut(t *testing.T) {
 		},
 		"OkNonPrimary": {
 			setupBackend: func(b *mock.MockBackend) {
-				b.EXPECT().Put("key", storage.StoredValue{
+				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(vclock.V{100: 1, 200: 1}),
-					Blob:    []byte("value"),
+					Data:    []byte("value"),
 				}).Return(nil)
 			},
 			request: &proto.PutRequest{
@@ -70,9 +70,9 @@ func TestPut(t *testing.T) {
 		},
 		"FailsObsoleteWrite": {
 			setupBackend: func(b *mock.MockBackend) {
-				b.EXPECT().Put("key", storage.StoredValue{
+				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(),
-					Blob:    []byte{},
+					Data:    []byte{},
 				}).Return(storage.ErrObsoleteWrite)
 			},
 			request: &proto.PutRequest{
@@ -90,9 +90,9 @@ func TestPut(t *testing.T) {
 		},
 		"FailsRandomError": {
 			setupBackend: func(b *mock.MockBackend) {
-				b.EXPECT().Put("key", storage.StoredValue{
+				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(),
-					Blob:    []byte{},
+					Data:    []byte{},
 				}).Return(assert.AnError)
 			},
 			request: &proto.PutRequest{
