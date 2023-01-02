@@ -111,7 +111,7 @@ func main() {
 	cluster := clusterpkg.New(localMember.ID, memberlist, connections, dialer)
 
 	lsmConfig := lsmtree.DefaultConfig()
-	lsmConfig.MaxMemtableRecords = args.memtableSize
+	lsmConfig.MaxMemtableSize = args.memtableSize
 	lsmConfig.DataRoot = args.dataDirectory
 	lsmConfig.MmapDataFiles = true
 	lsmConfig.Logger = logger

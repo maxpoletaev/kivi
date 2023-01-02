@@ -1,8 +1,6 @@
 package lsmtree
 
 import (
-	"io/fs"
-
 	"github.com/go-kit/log"
 )
 
@@ -13,12 +11,9 @@ type Config struct {
 	// DataRoot is the directory where the lsm-tree will be stored. Has no effect
 	// if DataFS is specified. Defaults to the current working directory.
 	DataRoot string
-	// DataFS is the filesystem where the lsm-tree will be stored. If not specified,
-	// the default filesystem will be used with DataRoot as the root.
-	DataFS fs.FS
-	// MaxMemtableRecords is the maximum number of entries in the memtable before
+	// MaxMemtableSize is the maximum number of entries in the memtable before
 	// it is flushed to disk. Defaults to 1000.
-	MaxMemtableRecords int
+	MaxMemtableSize int64
 	// BloomFilterBytes is the size of the bloom filter in bytes. Defaults to 128KB.
 	BloomFilterBytes int
 	// BloomFilterHashers is the number of hashers used in the bloom filter. Defaults to 10.
@@ -37,10 +32,10 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Logger:               log.NewNopLogger(),
-		BloomFilterBytes:     128 * 1024, // 128KB
-		SparseIndexGapBytes:  64 * 1024,  // 64KB
+		SparseIndexGapBytes:  64 * 1024, // 64KB
+		MaxMemtableSize:      1024,      // 1KB
 		MmapDataFiles:        false,
-		MaxMemtableRecords:   1000,
+		BloomFilterBytes:     128 * 1024, // 128KB
 		BloomFilterHashFuncs: 10,
 	}
 }

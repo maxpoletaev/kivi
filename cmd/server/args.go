@@ -14,7 +14,7 @@ type cliArgs struct {
 	dataDirectory    string
 	inMemory         bool
 	verbose          bool
-	memtableSize     int
+	memtableSize     int64
 }
 
 func parseCliArgs() cliArgs {
@@ -35,7 +35,7 @@ func parseCliArgs() cliArgs {
 	flag.BoolVar(&args.verbose, "verbose", false, "verbose mode")
 
 	flag.BoolVar(&args.inMemory, "in-memory", false, "use in-memory storage")
-	flag.IntVar(&args.memtableSize, "memtable-size", 1000, "max memtable size")
+	flag.Int64Var(&args.memtableSize, "memtable-size", 1000, "max memtable size")
 	flag.StringVar(&args.dataDirectory, "data-dir", "", "data directory")
 
 	flag.Parse()

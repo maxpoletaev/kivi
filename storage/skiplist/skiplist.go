@@ -128,7 +128,6 @@ loop:
 		}
 
 		// Update the upper levels. Repeat until we succeed.
-		// TODO: this can be done in background.
 		for level := 1; level < newheight; level++ {
 			for {
 				prev := searchPath[level]
@@ -155,7 +154,6 @@ loop:
 // It returns true if the key was found. Note that the node is not physically
 // removed from the list. Instead, it is marked as deleted and will be removed
 // once loadNext() is called on the previous node, which happens during findLess() call.
-// This is done to avoid ABA problems.
 func (l *Skiplist[K, V]) Remove(key K) bool {
 	var searchPath listNodes[K, V]
 
@@ -173,7 +171,9 @@ func (l *Skiplist[K, V]) Remove(key K) bool {
 
 	node.setMarked()
 
-	atomic.AddInt32(&l.size, -1)
+	if atomic.AddInt32(&l.size, -1) < 0 {
+		panic("skiplist: negative size")
+	}
 
 	l.findLess(key, nil) // triggers marked node cleanup
 

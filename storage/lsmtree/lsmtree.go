@@ -3,117 +3,94 @@ package lsmtree
 import (
 	"container/list"
 	"fmt"
-	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
 	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
 )
 
 type LSMTree struct {
-	mut             sync.RWMutex
-	memtable        *Memtable
-	ssTables        *list.List // *SSTable
-	flushQueue      *list.List // *Memtable
-	logger          log.Logger
-	dataRoot        string
-	flushInProgress uint32
-	sparseIndexGap  int64
-	mmapDataFiles   bool
-	maxMemtableSize int
-	bloomFilterSize int
-	bloomHashers    int
+	dataRoot   string
+	memtable   *Memtable
+	flushQueue *list.List // *Memtable
+	ssTables   *list.List // *SSTable
+	wg         sync.WaitGroup
+	mut        sync.RWMutex
+	logger     log.Logger
+	conf       Config
+	inFlush    int32
+	nextID     int
 }
 
 func New(conf Config) (*LSMTree, error) {
-	logger := log.With(conf.Logger, "component", "lsmtree")
+	logger := log.With(conf.Logger, "component", "lsm")
 	flushQueue := list.New()
-	ssTables := list.New()
+	sstables := list.New()
 
 	segments, err := listSegments(conf.DataRoot)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list segments: %w", err)
+		return nil, err
 	}
 
-	var memtable *Memtable
-
 	for _, seg := range segments {
-		if _, err := os.Stat(seg.WalFile()); !os.IsNotExist(err) {
-			logger.Log("msg", "restoring memtable from WAL", "wal", seg.WalFile())
-
-			mt, err := restoreMemtable(seg.ID, seg.WalFile())
-			if err != nil {
-				return nil, err
-			}
-
-			if memtable != nil {
-				flushQueue.PushBack(memtable)
-				memtable = mt
-			}
-
-			memtable = mt
-
+		if !seg.valid() {
+			level.Warn(logger).Log("msg", "invalid segment", "id", seg.id, "level", seg.level)
 			continue
 		}
 
-		logger.Log(
-			"msg", "loading SSTable",
-			"data", seg.DataFile(),
-			"mmap", conf.MmapDataFiles,
-		)
+		level.Info(logger).Log("msg", "loading segment", "id", seg.id, "level", seg.level)
 
-		loader := &SSTableLoader{
-			IndexFilePath:      seg.IndexFile(),
-			DataFilePath:       seg.DataFile(),
-			BloomFilePath:      seg.BloomFile(),
-			BloomFilterSize:    conf.BloomFilterBytes,
-			BloomFilterHashers: conf.BloomFilterHashFuncs,
-			MmapDataFile:       conf.MmapDataFiles,
-		}
-
-		sstable, err := loader.Load()
+		sst, err := OpenSSTable(TableOpts{
+			IndexPath:    seg.indexPath,
+			DataPath:     seg.dataPath,
+			BloomPath:    seg.bloomPath,
+			MmapDataFile: conf.MmapDataFiles,
+			BloomSize:    conf.BloomFilterBytes,
+			IndexGap:     conf.SparseIndexGapBytes,
+			BloomFuncs:   conf.BloomFilterHashFuncs,
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		ssTables.PushBack(sstable)
+		sstables.PushBack(sst)
 	}
 
-	if memtable == nil {
-		logger.Log("msg", "creating new segment")
+	wals, err := listWALs(conf.DataRoot)
+	if err != nil {
+		return nil, err
+	}
 
-		seg := NewSegment(0, conf.DataRoot)
-
-		mt, err := createMemtable(seg.ID, seg.WalFile())
+	for _, wal := range wals {
+		mt, err := RestoreMemtable(wal.path)
 		if err != nil {
 			return nil, err
 		}
 
-		memtable = mt
+		flushQueue.PushBack(mt)
+	}
+
+	var nextID int
+	if len(segments) > 0 {
+		nextID = segments[len(segments)-1].id + 1
 	}
 
 	lsm := &LSMTree{
+		dataRoot:   conf.DataRoot,
 		flushQueue: flushQueue,
-		memtable:   memtable,
-		ssTables:   ssTables,
+		ssTables:   sstables,
+		nextID:     nextID,
 		logger:     logger,
-
-		dataRoot:        conf.DataRoot,
-		mmapDataFiles:   conf.MmapDataFiles,
-		maxMemtableSize: conf.MaxMemtableRecords,
-		bloomFilterSize: conf.BloomFilterBytes,
-		bloomHashers:    conf.BloomFilterHashFuncs,
-		sparseIndexGap:  conf.SparseIndexGapBytes,
+		conf:       conf,
 	}
 
 	if flushQueue.Len() > 0 {
-		level.Info(logger).Log("msg", "flushing memtables")
-
-		// In case there are segments to be flushed, we wait for this to finish.
-		// This is ok to do synchronously here since we are only starting.
-		if err := lsm.flush(); err != nil {
+		if lsm.flush(); err != nil {
 			return nil, err
 		}
 	}
@@ -123,99 +100,95 @@ func New(conf Config) (*LSMTree, error) {
 
 func (lsm *LSMTree) flushIfNeeded() error {
 	lsm.mut.RLock()
-	currentLen := lsm.memtable.Len()
-	lsm.mut.RUnlock()
 
-	if currentLen >= lsm.maxMemtableSize {
-		lsm.mut.Lock()
-
-		// Check again, as it might have been flushed already.
-		if lsm.memtable.Len() < lsm.maxMemtableSize {
-			lsm.mut.Unlock()
-			return nil
-		}
-
-		nextID := lsm.memtable.ID() + 1
-
-		seg := NewSegment(nextID, lsm.dataRoot)
-
-		mt, err := createMemtable(seg.ID, seg.WalFile())
-		if err != nil {
-			lsm.mut.Unlock()
-			return err
-		}
-
-		lsm.flushQueue.PushBack(lsm.memtable)
-		lsm.memtable = mt
-		lsm.mut.Unlock()
-
-		// Fixme: potential goroutine leak here if we flush too often.
-		// We should probably use a channel to signal the flusher to start.
-		go func() {
-			if err := lsm.flush(); err != nil {
-				level.Error(lsm.logger).Log("msg", "failed to flush memtable", "err", err)
-			}
-		}()
+	if lsm.memtable == nil {
+		lsm.mut.RUnlock()
+		return nil
 	}
+
+	// If the memtable is not full, do nothing.
+	if lsm.memtable.Size() < lsm.conf.MaxMemtableSize {
+		lsm.mut.RUnlock()
+		return nil
+	}
+
+	lsm.mut.RUnlock()
+	lsm.mut.Lock()
+	defer lsm.mut.Unlock()
+
+	// Check again, in case the memtable was flushed by another goroutine.
+	if lsm.memtable.Size() < lsm.conf.MaxMemtableSize {
+		return nil
+	}
+
+	lsm.flushQueue.PushBack(lsm.memtable)
+
+	lsm.memtable = nil
+
+	lsm.wg.Add(1)
+
+	go func() {
+		defer lsm.wg.Done()
+
+		if err := lsm.flush(); err != nil {
+			level.Error(lsm.logger).Log("msg", "failed to flush memtable", "err", err)
+		}
+	}()
 
 	return nil
 }
 
 func (lsm *LSMTree) flush() error {
-	if !atomic.CompareAndSwapUint32(&lsm.flushInProgress, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&lsm.inFlush, 0, 1) {
 		return nil
 	}
 
+	lsm.mut.Lock()
+	defer lsm.mut.Unlock()
+
 	for lsm.flushQueue.Len() > 0 {
-		el := lsm.flushQueue.Front()
+		mt := lsm.flushQueue.Front().Value.(*Memtable)
+		lsm.flushQueue.Remove(lsm.flushQueue.Front())
 
-		mt := el.Value.(*Memtable)
-
-		seg := NewSegment(mt.ID(), lsm.dataRoot)
-
-		lsm.logger.Log("msg", "flushing segment", "id", mt.ID())
-
-		flusher := &SSTableFlusher{
-			IndexFilePath:      seg.IndexFile(),
-			DataFilePath:       seg.DataFile(),
-			BloomFilePath:      seg.BloomFile(),
-			SparseIndexGap:     lsm.sparseIndexGap,
-			BloomFilterSize:    lsm.bloomFilterSize,
-			BloomFilterHashers: lsm.bloomHashers,
+		if err := lsm.flushTable(mt); err != nil {
+			return err
 		}
-
-		// Flush the memtable to disk as an sstable.
-		if err := flusher.Flush(mt); err != nil {
-			return fmt.Errorf("failed to flush memtable: %w", err)
-		}
-
-		loader := &SSTableLoader{
-			IndexFilePath:      seg.IndexFile(),
-			DataFilePath:       seg.DataFile(),
-			BloomFilePath:      seg.BloomFile(),
-			BloomFilterSize:    lsm.bloomFilterSize,
-			BloomFilterHashers: lsm.bloomHashers,
-			MmapDataFile:       true,
-		}
-
-		// Load it back into memory as an sstable.
-		sstable, err := loader.Load()
-		if err != nil {
-			return fmt.Errorf("failed to load sstable: %w", err)
-		}
-
-		lsm.mut.Lock()
-
-		lsm.ssTables.PushBack(sstable)
-
-		lsm.flushQueue.Remove(el)
-
-		lsm.mut.Unlock()
-
-		mt.Discard()
 	}
 
-	atomic.StoreUint32(&lsm.flushInProgress, 0)
+	atomic.StoreInt32(&lsm.inFlush, 0)
+
+	return nil
+}
+
+func (lsm *LSMTree) flushTable(mt *Memtable) error {
+	level.Info(lsm.logger).Log("msg", "flushing segment", "level", lsm.nextID)
+
+	opts := TableOpts{
+		IndexPath:    filepath.Join(lsm.dataRoot, fmt.Sprintf("%05d.L0.index", lsm.nextID)),
+		DataPath:     filepath.Join(lsm.dataRoot, fmt.Sprintf("%05d.L0.data", lsm.nextID)),
+		BloomPath:    filepath.Join(lsm.dataRoot, fmt.Sprintf("%05d.L0.bloom", lsm.nextID)),
+		IndexGap:     lsm.conf.SparseIndexGapBytes,
+		MmapDataFile: lsm.conf.MmapDataFiles,
+		BloomSize:    lsm.conf.BloomFilterBytes,
+		BloomFuncs:   lsm.conf.BloomFilterHashFuncs,
+	}
+
+	// Flush the memtable to disk. This will close the memtable and remove the WAL file.
+	// As long as it's in the list, the memtable remains readable. At this point, the active
+	// memtable is already replaced with a new one, so no new writes will be added to this one.
+	if err := mt.Flush(opts); err != nil {
+		return err
+	}
+
+	// And open it back as an SSTable with the same options.
+	sst, err := OpenSSTable(opts)
+	if err != nil {
+		return err
+	}
+
+	lsm.ssTables.PushBack(sst)
+
+	lsm.nextID++
 
 	return nil
 }
@@ -224,43 +197,86 @@ func (lsm *LSMTree) Get(key string) (*proto.DataEntry, bool, error) {
 	lsm.mut.RLock()
 	defer lsm.mut.RUnlock()
 
-	// Search in the current memtable.
-	if value, found := lsm.memtable.Get(key); found {
-		return value, true, nil
-	}
-
-	// Search in the memtables that are waiting to be flushed, from newest to oldest.
-	for el := lsm.flushQueue.Back(); el != nil; el = el.Prev() {
-		mt := el.Value.(*Memtable)
-		if value, found := mt.Get(key); found {
-			return value, true, nil
+	// Check the active memtable first.
+	if lsm.memtable != nil {
+		if entry, found := lsm.memtable.Get(key); found {
+			return entry, true, nil
 		}
 	}
 
-	// Search in the sstables on disk, from newest to oldest.
+	// Check the memtables that are waiting to be flushed, from newest to oldest.
+	for el := lsm.flushQueue.Back(); el != nil; el = el.Prev() {
+		mt := el.Value.(*Memtable)
+
+		if entry, found := mt.Get(key); found {
+			return entry, true, nil
+		}
+	}
+
+	// Check the sstables on disk, from newest to oldest.
 	for el := lsm.ssTables.Back(); el != nil; el = el.Prev() {
 		sst := el.Value.(*SSTable)
 
-		if value, found, err := sst.Get(key); err != nil {
-			return nil, false, fmt.Errorf("failed to get key: %w", err)
+		if entry, found, err := sst.Get(key); err != nil {
+			return nil, false, err
 		} else if found {
-			return value, true, nil
+			return entry, true, nil
 		}
 	}
 
 	return nil, false, nil
 }
 
-func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
-	if err := lsm.flushIfNeeded(); err != nil {
-		return fmt.Errorf("failed to flush: %w", err)
+func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
+	lsm.mut.RLock()
+
+	if lsm.memtable != nil {
+		defer lsm.mut.RUnlock()
+
+		if err := lsm.memtable.Put(entry); err != nil {
+			return fmt.Errorf("failed to put entry: %w", err)
+		}
+
+		return nil
 	}
 
-	lsm.memtable.Put(entry)
+	lsm.mut.RUnlock()
+	lsm.mut.Lock()
+	defer lsm.mut.Unlock()
+
+	// If there is no active memtable, create one. We postpone this operation until the first
+	// write, so that we don't create an empty wal file if there are no writes at all.
+	if lsm.memtable == nil {
+		walName := fmt.Sprintf("%d.wal", time.Now().UnixMilli())
+
+		mt, err := CreateMemtable(filepath.Join(lsm.dataRoot, walName))
+		if err != nil {
+			return fmt.Errorf("failed to create memtable: %w", err)
+		}
+
+		lsm.memtable = mt
+	}
+
+	if err := lsm.memtable.Put(entry); err != nil {
+		return fmt.Errorf("failed to put entry: %w", err)
+	}
+
+	return nil
+}
+
+func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
+	if err := lsm.flushIfNeeded(); err != nil {
+		return err
+	}
+
+	if err := lsm.putToMem(entry); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (lsm *LSMTree) Close() error {
+	lsm.wg.Wait()
 	return nil
 }

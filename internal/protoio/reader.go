@@ -1,6 +1,7 @@
 package protoio
 
 import (
+	"fmt"
 	"io"
 
 	"google.golang.org/protobuf/proto"
@@ -31,7 +32,7 @@ func (r *Reader) readHeader(h *entryHeader) (int, error) {
 	}
 
 	if err := decodeHeader(h, buf); err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to decode header: %w", err)
 	}
 
 	r.offset += int64(read)
