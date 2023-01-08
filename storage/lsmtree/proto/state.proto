@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package lsm;
+
+option go_package = "github.com/maxpoletaev/kv/storage/lsm/proto";
+
+message MemtableInfo {
+    int64 id = 1;
+    string wal_file = 2;
+}
+
+message SSTableInfo {
+    int64 id = 1;
+    int32 level = 2;
+    int64 size = 3;
+    int64 num_records = 4;
+    string index_file = 5;
+    string data_file = 6;
+    string bloom_file = 7;
+    string meta_file = 8;
+}
+
+message SegmentCreated {
+    MemtableInfo memtable = 1;
+}
+
+message SegmentFlushed {
+    int64 memtable_id = 1;
+    SSTableInfo sstable = 2;
+}
+
+message SegmentsMerged {
+    repeated int64 old_sstable_ids = 1;
+    SSTableInfo new_sstable = 2;
+}
+
+enum StateChangeType {
+    SEGMENT_CREATED = 0;
+    SEGMENT_FLUSHED = 1;
+    SEGMENTS_MERGED = 2;
+}
+
+message StateLogEntry {
+    int64 timestamp = 1;
+    StateChangeType change_type = 2;
+    SegmentCreated segment_created = 3;
+    SegmentFlushed segment_flushed = 4;
+    SegmentsMerged segments_merged = 5;
+}

@@ -19,3 +19,15 @@ message DataEntry {
     bool tombstone = 2;
     repeated Value values = 3;
 }
+
+message TableMeta {
+    int64 num_entries = 1;
+    int32 level = 2;
+}
+
+message BloomFilter {
+    int32 num_bytes = 1;
+    int32 num_hashes = 2;
+    uint32 crc32 = 3;
+    bytes data = 4;
+}

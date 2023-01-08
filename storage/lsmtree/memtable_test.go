@@ -1,8 +1,8 @@
 package lsmtree
 
 import (
-	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/maxpoletaev/kv/internal/protoio"
@@ -12,20 +12,21 @@ import (
 )
 
 func TestCreateMemtable(t *testing.T) {
-	dir := t.TempDir()
-	walFilename := fmt.Sprintf("%s/1.wal", dir)
+	tempDir := t.TempDir()
 
-	mt, err := CreateMemtable(walFilename)
+	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
+	defer memt.CloseAndDiscard()
 
-	require.Equal(t, 0, mt.Len())
+	require.Equal(t, 0, memt.Len())
+	require.FileExists(t, filepath.Join(tempDir, memt.WALFile))
 }
 
-func TestMemtable_GetAfterRestore(t *testing.T) {
-	dir := t.TempDir()
-	walPath := fmt.Sprintf("%s/1.wal", dir)
+func TestOpenMemtable(t *testing.T) {
+	tempDir := t.TempDir()
 
-	walFile, err := os.OpenFile(walPath, os.O_CREATE|os.O_WRONLY, 0o644)
+	walFile, err := os.OpenFile(
+		filepath.Join(tempDir, "1.wal"), os.O_CREATE|os.O_WRONLY, 0o644)
 	require.NoError(t, err)
 	defer walFile.Close()
 
@@ -40,26 +41,30 @@ func TestMemtable_GetAfterRestore(t *testing.T) {
 		},
 	})
 
-	mt, err := RestoreMemtable(walPath)
+	memt, err := openMemtable(&MemtableInfo{
+		ID:      1,
+		WALFile: "1.wal",
+	}, tempDir)
 	require.NoError(t, err)
+	defer memt.CloseAndDiscard()
 
-	got, ok := mt.Get("key")
+	got, ok := memt.Get("key")
 	require.True(t, ok)
 
-	require.Equal(t, 1, mt.Len())
+	require.Equal(t, 1, memt.Len())
 	require.Equal(t, "key", got.Key)
 	require.Equal(t, 1, len(got.Values))
 	require.Equal(t, []byte("value"), got.Values[0].Data)
 }
 
-func TestMemtable_Put(t *testing.T) {
-	dir := t.TempDir()
+func TestMemtable_GetAfterPut(t *testing.T) {
+	tempDir := t.TempDir()
 
-	walFilename := fmt.Sprintf("%s/1.wal", dir)
-	mt, err := CreateMemtable(walFilename)
+	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
+	defer memt.CloseAndDiscard()
 
-	mt.Put(&proto.DataEntry{
+	memt.Put(&proto.DataEntry{
 		Key: "key",
 		Values: []*proto.Value{
 			{
@@ -69,7 +74,34 @@ func TestMemtable_Put(t *testing.T) {
 		},
 	})
 
-	file, err := os.OpenFile(walFilename, os.O_RDONLY, 0o644)
+	require.Equal(t, 1, memt.Len())
+
+	got, ok := memt.Get("key")
+	require.True(t, ok)
+	require.Equal(t, "key", got.Key)
+	require.Equal(t, 1, len(got.Values))
+	require.Equal(t, []byte("value"), got.Values[0].Data)
+}
+
+func TestMemtable_PutRecordedInWAL(t *testing.T) {
+	tempDir := t.TempDir()
+
+	memt, err := createMemtable(tempDir)
+	require.NoError(t, err)
+	defer memt.CloseAndDiscard()
+
+	memt.Put(&proto.DataEntry{
+		Key: "key",
+		Values: []*proto.Value{
+			{
+				Version: "",
+				Data:    []byte("value"),
+			},
+		},
+	})
+
+	file, err := os.OpenFile(
+		filepath.Join(tempDir, memt.WALFile), os.O_RDONLY, 0o644)
 	require.NoError(t, err)
 	defer file.Close()
 
@@ -80,7 +112,7 @@ func TestMemtable_Put(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, n > 0)
 
-	require.Equal(t, 1, mt.Len())
+	require.Equal(t, 1, memt.Len())
 	require.Equal(t, "key", entry.Key)
 	require.Equal(t, 1, len(entry.Values))
 	require.Equal(t, []byte("value"), entry.Values[0].Data)

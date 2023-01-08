@@ -2,10 +2,13 @@ package lsmtree
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
 	"os"
+	"path/filepath"
 
 	"golang.org/x/exp/mmap"
+	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kv/internal/bloom"
 	"github.com/maxpoletaev/kv/internal/opengroup"
@@ -22,9 +25,88 @@ type readerAtCloser interface {
 // SSTable is a sorted string table. It is a collection of key/value pairs
 // that are sorted by key. It is immutable, and is used to store data on disk.
 type SSTable struct {
+	*SSTableInfo
 	index       *skiplist.Skiplist[string, int64]
 	dataFile    readerAtCloser
 	bloomfilter *bloom.Filter
+}
+
+// OpenTable opens an SSTable from the given paths. All files must exist,
+// and the parameters of the bloom filter must match the parameters used
+// to create the SSTable.
+func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error) {
+	og := opengroup.New()
+	defer og.CloseAll()
+
+	indexFile := og.Open(filepath.Join(prefix, info.IndexFile), os.O_RDONLY, 0)
+	bloomFile := og.Open(filepath.Join(prefix, info.BloomFile), os.O_RDONLY, 0)
+
+	if err := og.Err(); err != nil {
+		return nil, fmt.Errorf("failed to open files: %w", err)
+	}
+
+	cmp := skiplist.StringComparator
+	index := skiplist.New[string, int64](cmp)
+	indexReader := protoio.NewReader(indexFile)
+
+	for {
+		var entry proto.IndexEntry
+
+		if _, err := indexReader.ReadNext(&entry); err != nil {
+			if err == io.EOF {
+				break
+			}
+
+			return nil, fmt.Errorf("failed to read index entry: %w", err)
+		}
+
+		index.Insert(entry.Key, entry.DataOffset)
+	}
+
+	bloomData, err := io.ReadAll(bloomFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read bloom filter: %w", err)
+	}
+
+	bf := &proto.BloomFilter{}
+	if err := protobuf.Unmarshal(bloomData, bf); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal bloom filter: %w", err)
+	}
+
+	if len(bf.Data) != int(bf.NumBytes) {
+		return nil, fmt.Errorf("invalid bloom filter size")
+	}
+
+	if bf.Crc32 > 0 && crc32.ChecksumIEEE(bf.Data) != bf.Crc32 {
+		return nil, fmt.Errorf("bloom filter checksum mismatch")
+	}
+
+	if useMmap {
+		dataFile, err := mmap.Open(filepath.Join(prefix, info.DataFile))
+		if err != nil {
+			return nil, fmt.Errorf("failed to mmap data file: %w", err)
+		}
+
+		return &SSTable{
+			SSTableInfo: info,
+			index:       index,
+			dataFile:    dataFile,
+			bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
+		}, nil
+	}
+
+	dataFile, err := os.OpenFile(
+		filepath.Join(prefix, info.DataFile), os.O_RDONLY, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open data file: %w", err)
+	}
+
+	return &SSTable{
+		SSTableInfo: info,
+		index:       index,
+		dataFile:    dataFile,
+		bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
+	}, nil
 }
 
 // Close closes the SSTable, freeing up any resources it is using.
@@ -38,46 +120,43 @@ func (ss *SSTable) Close() error {
 	return nil
 }
 
-func (ss *SSTable) Count() (count int) {
-	reader := protoio.NewReader(ss.dataFile)
+// Iterator returns an iterator over the SSTable.
+func (sst *SSTable) Iterator() *Iterator {
+	reader := protoio.NewReader(sst.dataFile)
 
-	for {
-		if err := reader.Skip(); err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			panic(fmt.Errorf("failed to skip entry: %w", err))
-		}
-
-		count++
+	next := &proto.DataEntry{}
+	if _, err := reader.ReadNext(next); err != nil {
+		next = nil
 	}
 
-	return count
+	return &Iterator{
+		reader: protoio.NewReader(sst.dataFile),
+		next:   next,
+	}
 }
 
 // Contains checks the underlying bloom filter to see if the key is in the SSTable.
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
-func (ss *SSTable) Contains(key string) bool {
-	return ss.bloomfilter.Check([]byte(key))
+func (sst *SSTable) Contains(key string) bool {
+	return sst.bloomfilter.Check([]byte(key))
 }
 
-func (ss *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
+func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// Check the bloom filter first, if it's not there, it's not in the SSTable.
-	if !ss.bloomfilter.Check([]byte(key)) {
+	if !sst.bloomfilter.Check([]byte(key)) {
 		return nil, false, nil
 	}
 
 	// Find the closest offset in the sparse index.
-	_, offset, found := ss.index.LessOrEqual(key)
+	_, offset, found := sst.index.LessOrEqual(key)
 	if !found {
 		return nil, false, nil
 	}
 
 	// We create a new reader for each get. It is important for the reader to use pread
 	// instead of read, so that we do not need to synchronize with other readers.
-	reader := protoio.NewReader(ss.dataFile)
+	reader := protoio.NewReader(sst.dataFile)
 	entry := &proto.DataEntry{}
 
 	// Scan through the data file until we find the key we're looking for, or we bump
@@ -108,76 +187,4 @@ func (ss *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	}
 
 	return entry, true, nil
-}
-
-type TableOpts struct {
-	IndexPath    string
-	DataPath     string
-	BloomPath    string
-	MmapDataFile bool
-	BloomSize    int
-	BloomFuncs   int
-	IndexGap     int64
-}
-
-// OpenSSTable opens an SSTable from the given paths. All files must exist,
-// and the parameters of the bloom filter must match the parameters used
-// to create the SSTable.
-func OpenSSTable(opts TableOpts) (*SSTable, error) {
-	og := opengroup.New()
-	defer og.CloseAll()
-
-	indexFile := og.Open(opts.IndexPath, os.O_RDONLY, 0)
-	bloomFile := og.Open(opts.BloomPath, os.O_RDONLY, 0)
-
-	if err := og.Err(); err != nil {
-		return nil, fmt.Errorf("failed to open files: %w", err)
-	}
-
-	cmp := skiplist.StringComparator
-	index := skiplist.New[string, int64](cmp)
-	indexReader := protoio.NewReader(indexFile)
-
-	for {
-		var entry proto.IndexEntry
-
-		if _, err := indexReader.ReadNext(&entry); err != nil {
-			if err == io.EOF {
-				break
-			}
-
-			return nil, fmt.Errorf("failed to read index entry: %w", err)
-		}
-
-		index.Insert(entry.Key, entry.DataOffset)
-	}
-
-	bloomData, err := io.ReadAll(bloomFile)
-	if err != nil || len(bloomData) != opts.BloomSize {
-		return nil, fmt.Errorf("failed to read bloom filter: %w", err)
-	}
-
-	if opts.MmapDataFile {
-		dataFile, err := mmap.Open(opts.DataPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to mmap data file: %w", err)
-		}
-
-		return &SSTable{
-			index:       index,
-			dataFile:    dataFile,
-			bloomfilter: bloom.New(bloomData, opts.BloomFuncs),
-		}, nil
-	}
-
-	dataFile, err := os.OpenFile(opts.DataPath, os.O_RDONLY, 0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open data file: %w", err)
-	}
-
-	return &SSTable{
-		index:       index,
-		dataFile:    dataFile,
-		bloomfilter: bloom.New(bloomData, opts.BloomFuncs),
-	}, nil
 }

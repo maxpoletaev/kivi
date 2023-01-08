@@ -193,6 +193,132 @@ func (x *DataEntry) GetValues() []*Value {
 	return nil
 }
 
+type TableMeta struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	NumEntries int64 `protobuf:"varint,1,opt,name=num_entries,json=numEntries,proto3" json:"num_entries,omitempty"`
+	Level      int32 `protobuf:"varint,2,opt,name=level,proto3" json:"level,omitempty"`
+}
+
+func (x *TableMeta) Reset() {
+	*x = TableMeta{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_storage_lsmtree_proto_lsm_proto_msgTypes[3]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *TableMeta) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TableMeta) ProtoMessage() {}
+
+func (x *TableMeta) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_lsmtree_proto_lsm_proto_msgTypes[3]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TableMeta.ProtoReflect.Descriptor instead.
+func (*TableMeta) Descriptor() ([]byte, []int) {
+	return file_storage_lsmtree_proto_lsm_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *TableMeta) GetNumEntries() int64 {
+	if x != nil {
+		return x.NumEntries
+	}
+	return 0
+}
+
+func (x *TableMeta) GetLevel() int32 {
+	if x != nil {
+		return x.Level
+	}
+	return 0
+}
+
+type BloomFilter struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	NumBytes  int32  `protobuf:"varint,1,opt,name=num_bytes,json=numBytes,proto3" json:"num_bytes,omitempty"`
+	NumHashes int32  `protobuf:"varint,2,opt,name=num_hashes,json=numHashes,proto3" json:"num_hashes,omitempty"`
+	Crc32     uint32 `protobuf:"varint,3,opt,name=crc32,proto3" json:"crc32,omitempty"`
+	Data      []byte `protobuf:"bytes,4,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (x *BloomFilter) Reset() {
+	*x = BloomFilter{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_storage_lsmtree_proto_lsm_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *BloomFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BloomFilter) ProtoMessage() {}
+
+func (x *BloomFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_lsmtree_proto_lsm_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BloomFilter.ProtoReflect.Descriptor instead.
+func (*BloomFilter) Descriptor() ([]byte, []int) {
+	return file_storage_lsmtree_proto_lsm_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *BloomFilter) GetNumBytes() int32 {
+	if x != nil {
+		return x.NumBytes
+	}
+	return 0
+}
+
+func (x *BloomFilter) GetNumHashes() int32 {
+	if x != nil {
+		return x.NumHashes
+	}
+	return 0
+}
+
+func (x *BloomFilter) GetCrc32() uint32 {
+	if x != nil {
+		return x.Crc32
+	}
+	return 0
+}
+
+func (x *BloomFilter) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 var File_storage_lsmtree_proto_lsm_proto protoreflect.FileDescriptor
 
 var file_storage_lsmtree_proto_lsm_proto_rawDesc = []byte{
@@ -211,11 +337,22 @@ var file_storage_lsmtree_proto_lsm_proto_rawDesc = []byte{
 	0x09, 0x74, 0x6f, 0x6d, 0x62, 0x73, 0x74, 0x6f, 0x6e, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x08,
 	0x52, 0x09, 0x74, 0x6f, 0x6d, 0x62, 0x73, 0x74, 0x6f, 0x6e, 0x65, 0x12, 0x22, 0x0a, 0x06, 0x76,
 	0x61, 0x6c, 0x75, 0x65, 0x73, 0x18, 0x03, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x6c, 0x73,
-	0x6d, 0x2e, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x42,
-	0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6d, 0x61,
-	0x78, 0x70, 0x6f, 0x6c, 0x65, 0x74, 0x61, 0x65, 0x76, 0x2f, 0x6b, 0x76, 0x2f, 0x73, 0x74, 0x6f,
-	0x72, 0x61, 0x67, 0x65, 0x2f, 0x6c, 0x73, 0x6d, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06,
-	0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x6d, 0x2e, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x06, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x73, 0x22,
+	0x42, 0x0a, 0x09, 0x54, 0x61, 0x62, 0x6c, 0x65, 0x4d, 0x65, 0x74, 0x61, 0x12, 0x1f, 0x0a, 0x0b,
+	0x6e, 0x75, 0x6d, 0x5f, 0x65, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x18, 0x01, 0x20, 0x01, 0x28,
+	0x03, 0x52, 0x0a, 0x6e, 0x75, 0x6d, 0x45, 0x6e, 0x74, 0x72, 0x69, 0x65, 0x73, 0x12, 0x14, 0x0a,
+	0x05, 0x6c, 0x65, 0x76, 0x65, 0x6c, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x05, 0x6c, 0x65,
+	0x76, 0x65, 0x6c, 0x22, 0x73, 0x0a, 0x0b, 0x42, 0x6c, 0x6f, 0x6f, 0x6d, 0x46, 0x69, 0x6c, 0x74,
+	0x65, 0x72, 0x12, 0x1b, 0x0a, 0x09, 0x6e, 0x75, 0x6d, 0x5f, 0x62, 0x79, 0x74, 0x65, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08, 0x6e, 0x75, 0x6d, 0x42, 0x79, 0x74, 0x65, 0x73, 0x12,
+	0x1d, 0x0a, 0x0a, 0x6e, 0x75, 0x6d, 0x5f, 0x68, 0x61, 0x73, 0x68, 0x65, 0x73, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x05, 0x52, 0x09, 0x6e, 0x75, 0x6d, 0x48, 0x61, 0x73, 0x68, 0x65, 0x73, 0x12, 0x14,
+	0x0a, 0x05, 0x63, 0x72, 0x63, 0x33, 0x32, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0d, 0x52, 0x05, 0x63,
+	0x72, 0x63, 0x33, 0x32, 0x12, 0x12, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x0c, 0x52, 0x04, 0x64, 0x61, 0x74, 0x61, 0x42, 0x2d, 0x5a, 0x2b, 0x67, 0x69, 0x74, 0x68,
+	0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x6d, 0x61, 0x78, 0x70, 0x6f, 0x6c, 0x65, 0x74, 0x61,
+	0x65, 0x76, 0x2f, 0x6b, 0x76, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2f, 0x6c, 0x73,
+	0x6d, 0x2f, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -230,11 +367,13 @@ func file_storage_lsmtree_proto_lsm_proto_rawDescGZIP() []byte {
 	return file_storage_lsmtree_proto_lsm_proto_rawDescData
 }
 
-var file_storage_lsmtree_proto_lsm_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_storage_lsmtree_proto_lsm_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_storage_lsmtree_proto_lsm_proto_goTypes = []interface{}{
-	(*IndexEntry)(nil), // 0: lsm.IndexEntry
-	(*Value)(nil),      // 1: lsm.Value
-	(*DataEntry)(nil),  // 2: lsm.DataEntry
+	(*IndexEntry)(nil),  // 0: lsm.IndexEntry
+	(*Value)(nil),       // 1: lsm.Value
+	(*DataEntry)(nil),   // 2: lsm.DataEntry
+	(*TableMeta)(nil),   // 3: lsm.TableMeta
+	(*BloomFilter)(nil), // 4: lsm.BloomFilter
 }
 var file_storage_lsmtree_proto_lsm_proto_depIdxs = []int32{
 	1, // 0: lsm.DataEntry.values:type_name -> lsm.Value
@@ -287,6 +426,30 @@ func file_storage_lsmtree_proto_lsm_proto_init() {
 				return nil
 			}
 		}
+		file_storage_lsmtree_proto_lsm_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*TableMeta); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_storage_lsmtree_proto_lsm_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*BloomFilter); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -294,7 +457,7 @@ func file_storage_lsmtree_proto_lsm_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_storage_lsmtree_proto_lsm_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -116,7 +116,7 @@ func main() {
 	lsmConfig.MmapDataFiles = true
 	lsmConfig.Logger = logger
 
-	lsmt, err := lsmtree.New(lsmConfig)
+	lsmt, err := lsmtree.Create(lsmConfig)
 	if err != nil {
 		logger.Log("msg", "failed to initialize LSM-Tree storage", "err", err)
 		os.Exit(1)

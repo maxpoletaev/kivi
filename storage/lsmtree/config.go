@@ -14,10 +14,11 @@ type Config struct {
 	// MaxMemtableSize is the maximum number of entries in the memtable before
 	// it is flushed to disk. Defaults to 1000.
 	MaxMemtableSize int64
-	// BloomFilterBytes is the size of the bloom filter in bytes. Defaults to 128KB.
-	BloomFilterBytes int
-	// BloomFilterHashers is the number of hashers used in the bloom filter. Defaults to 10.
-	BloomFilterHashFuncs int
+	// BloomFilterProbability is the probability of false positives in the bloom filter.
+	// It will be used to dynamically calculate the number of hash functions and the size
+	// of the bloom filter. Defaults to 0.01 which means that there is a 1% chance of
+	// false positives.
+	BloomFilterProbability float64
 	// SparseIndexGapBytes is the size of the gap in bytes between the index entries in the
 	// sparse index. Larger gaps result in smaller index files, but slower lookups. Defaults
 	// to 64KB.
@@ -31,11 +32,10 @@ type Config struct {
 
 func DefaultConfig() Config {
 	return Config{
-		Logger:               log.NewNopLogger(),
-		SparseIndexGapBytes:  64 * 1024, // 64KB
-		MaxMemtableSize:      1024,      // 1KB
-		MmapDataFiles:        false,
-		BloomFilterBytes:     128 * 1024, // 128KB
-		BloomFilterHashFuncs: 10,
+		Logger:                 log.NewNopLogger(),
+		SparseIndexGapBytes:    64 * 1024, // 64KB
+		MaxMemtableSize:        1024,      // 1KB
+		MmapDataFiles:          false,
+		BloomFilterProbability: 0.01,
 	}
 }

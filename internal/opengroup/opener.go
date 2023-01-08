@@ -55,3 +55,15 @@ func (o *Opener) CloseAll() error {
 
 	return errs.Ret()
 }
+
+func (o *Opener) RemoveAll() error {
+	errs := multierror.New[string]()
+
+	for name := range o.files {
+		if e := os.Remove(name); e != nil {
+			errs.Add(name, e)
+		}
+	}
+
+	return errs.Ret()
+}

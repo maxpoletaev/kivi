@@ -41,10 +41,10 @@ func New(value []byte, k int) *Filter {
 // the filter is calculated using the formula from the paper "Less Hashing,
 // Same Performance: Building a Better Bloom Filter" by Adam Kirsch and
 // Michael Mitzenmacher.
-func NewWithProbability(n int, p float64) (*Filter, int, int) {
+func NewWithProbability(n int, p float64) *Filter {
 	m := int(-float64(n) * math.Log(p) / (math.Log(2) * math.Log(2)))
 	k := int(float64(m) / float64(n) * math.Log(2))
-	return New(make([]byte, m/8), k), m, k
+	return New(make([]byte, m/8), k)
 }
 
 // Add adds the data to the Bloom filter. The data is hashed k times and
@@ -91,4 +91,12 @@ func (bf *Filter) Bytes() []byte {
 	value := make([]byte, len(bf.value))
 	copy(value, bf.value)
 	return value
+}
+
+func (bf *Filter) Size() int {
+	return len(bf.value)
+}
+
+func (bf *Filter) Hashes() int {
+	return len(bf.hashers)
 }
