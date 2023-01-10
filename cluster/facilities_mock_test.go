@@ -120,10 +120,10 @@ func (m *MockDialer) EXPECT() *MockDialerMockRecorder {
 }
 
 // DialContext mocks base method.
-func (m *MockDialer) DialContext(ctx context.Context, addr string) (Client, error) {
+func (m *MockDialer) DialContext(ctx context.Context, addr string) (Conn, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DialContext", ctx, addr)
-	ret0, _ := ret[0].(Client)
+	ret0, _ := ret[0].(Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

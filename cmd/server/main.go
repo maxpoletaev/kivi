@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -14,7 +15,7 @@ import (
 	"google.golang.org/grpc"
 
 	clusterpkg "github.com/maxpoletaev/kv/cluster"
-	"github.com/maxpoletaev/kv/cluster/nodeclient"
+	"github.com/maxpoletaev/kv/cluster/grpcclient"
 	"github.com/maxpoletaev/kv/faildetector"
 	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
 	faildetectorsvc "github.com/maxpoletaev/kv/faildetector/service"
@@ -70,7 +71,6 @@ func main() {
 	appctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stderr))
 	args := parseCliArgs()
-
 	defer cancel()
 
 	if !args.verbose {
@@ -82,8 +82,8 @@ func main() {
 	gossipConf.BindAddr = args.gossipBindAddr
 	gossipConf.Logger = logger
 
-	eventDelegate := broadcast.NewGossipEventDelegate()
-	gossipConf.Delegate = eventDelegate
+	eventReceiver := broadcast.NewReceiver()
+	gossipConf.Delegate = eventReceiver
 
 	// Start gossip publisher/listener process.
 	gossiper, err := gossip.Start(gossipConf)
@@ -92,11 +92,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Event publisher that uses gossip protocol to broadcast messages within the cluster.
-	eventBroadcaster := broadcast.New(gossiper)
-
+	rnd := rand.New(rand.NewSource(int64(args.nodeID)))
 	localMember := membership.Member{
 		ID:         membership.NodeID(args.nodeID),
+		RandID:     rnd.Uint32(),
 		Name:       args.nodeName,
 		GossipAddr: args.gossipPublicAddr,
 		ServerAddr: args.grpcPublicAddr,
@@ -104,11 +103,12 @@ func main() {
 		Version:    1,
 	}
 
-	memberlist := membership.New(localMember, logger, eventBroadcaster)
-
-	dialer := nodeclient.NewDialer()
+	dialer := grpcclient.NewDialer()
+	eventSender := broadcast.NewSender(gossiper)
+	memberlist := membership.New(localMember, logger, eventSender)
 	connections := clusterpkg.NewConnRegistry(memberlist, dialer)
-	cluster := clusterpkg.New(localMember.ID, memberlist, connections, dialer)
+	cluster := clusterpkg.New(localMember.ID, memberlist, connections)
+	memberlist.ConsumeEvents(eventReceiver.Chan())
 
 	lsmConfig := lsmtree.DefaultConfig()
 	lsmConfig.MaxMemtableSize = args.memtableSize
@@ -123,7 +123,6 @@ func main() {
 	}
 
 	storage := engine.New(lsmt)
-
 	grpcServer := grpc.NewServer()
 	storageService := storagesvc.New(storage, uint32(args.nodeID))
 	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
@@ -134,26 +133,15 @@ func main() {
 	faildetectorService := faildetectorsvc.New(cluster)
 	faildetectorpb.RegisterFailDetectorServiceServer(grpcServer, faildetectorService)
 
+	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
-
 	detector := faildetector.New(memberlist, connections, logger, faildetector.WithIndirectPingNodes(1))
-
-	wg := sync.WaitGroup{}
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		detector.RunLoop(appctx)
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-
-		for event := range eventDelegate.Events() {
-			memberlist.HandleEvent(event)
-		}
 	}()
 
 	wg.Add(1)
@@ -170,33 +158,51 @@ func main() {
 		}
 	}()
 
-	if len(args.joinAddr) != 0 {
-		for {
-			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
-			ctx := context.Background()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-			if err = cluster.JoinTo(ctx, []string{args.joinAddr}); err != nil {
-				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
+		for len(args.joinAddr) > 0 {
+			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
+			ctx, cancel := context.WithTimeout(appctx, 10*time.Second)
+
+			// Connect to the remote node in order to get the list of members.
+			remoteConn, err := dialer.DialContext(ctx, args.joinAddr)
+			if err != nil {
+				level.Error(logger).Log("msg", "failed to dial remote node", "err", err)
 				time.Sleep(3 * time.Second)
+				cancel()
 				continue
 			}
 
+			// At this point the local grpc server should be already listening, so SelfConn works.
+			if err := clusterpkg.JoinClusters(ctx, cluster.SelfConn(), remoteConn); err != nil {
+				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
+				time.Sleep(3 * time.Second)
+				cancel()
+				continue
+			}
+
+			cancel()
 			break
 		}
-	}
+	}()
 
 	wg.Add(1)
 	go func() {
 		<-interrupt
 		defer wg.Done()
+		level.Info(logger).Log("msg", "shutting down the server")
 
+		// Leave the cluster before shutting down the server.
 		if err := memberlist.Leave(); err != nil {
 			logger.Log("msg", "failed to leave the cluster", "err", err)
 		}
 
-		gossiper.Shutdown()
-		eventDelegate.Close()
 		grpcServer.GracefulStop()
+		eventReceiver.Close()
+		gossiper.Shutdown()
+		lsmt.Close()
 	}()
 
 	// Create a TCP listener for the GRPC server.
@@ -206,7 +212,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start the GRPC server.
+	// Start the GRPC server, which will block until the server is stopped.
 	if err := grpcServer.Serve(listener); err != nil {
 		logger.Log("msg", "failed to start grpc server", "err", err)
 		os.Exit(1)

@@ -74,7 +74,7 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 				continue
 			}
 
-			node.Gossiper.Register(other.ID, other.Addr.String())
+			node.Gossiper.AddPeer(other.ID, other.Addr.String())
 		}
 	}
 

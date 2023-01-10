@@ -34,6 +34,14 @@ func TestJoin(t *testing.T) {
 	// Members to be added to the remote cluster.
 	memberRepo.EXPECT().Members().Return([]membership.Member{
 		{
+			ID:         1,
+			Name:       "node1",
+			ServerAddr: "192.168.1.1:4000",
+			GossipAddr: "192.168.1.1:5000",
+			Status:     membership.StatusHealthy,
+			Version:    1,
+		},
+		{
 			ID:         2,
 			Name:       "node2",
 			ServerAddr: "192.168.1.2:4000",
@@ -44,7 +52,7 @@ func TestJoin(t *testing.T) {
 	})
 
 	resp, err := svc.Join(context.Background(), &proto.JoinRequest{
-		LocalMembers: []*proto.Member{
+		MembersToAdd: []*proto.Member{
 			{
 				Id:         1,
 				Name:       "node1",
@@ -57,9 +65,17 @@ func TestJoin(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-
+	require.Len(t, resp.Members, 2)
 	require.Equal(t, &proto.JoinResponse{
-		RemoteMembers: []*proto.Member{
+		Members: []*proto.Member{
+			{
+				Id:         1,
+				Name:       "node1",
+				ServerAddr: "192.168.1.1:4000",
+				GossipAddr: "192.168.1.1:5000",
+				Status:     proto.Status_Healthy,
+				Version:    1,
+			},
 			{
 				Id:         2,
 				Name:       "node2",
@@ -89,10 +105,9 @@ func TestJoinFails_AddError(t *testing.T) {
 	svc := NewMembershipService(memberRepo)
 
 	memberRepo.EXPECT().Add(gomock.Any()).Return(assert.AnError)
-	memberRepo.EXPECT().Members().Return([]membership.Member{})
 
 	_, err := svc.Join(context.Background(), &proto.JoinRequest{
-		LocalMembers: []*proto.Member{
+		MembersToAdd: []*proto.Member{
 			{
 				Id:         1,
 				Name:       "node1",

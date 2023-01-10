@@ -43,7 +43,7 @@ func validateJoinRequest(req *proto.JoinRequest) error {
 		return status.Newf(codes.InvalidArgument, "request is nil").Err()
 	}
 
-	for i, member := range req.LocalMembers {
+	for i, member := range req.MembersToAdd {
 		if err := validateMember(member); err != nil {
 			return status.Newf(
 				codes.InvalidArgument, "invalid member at index %d: %s", i, err,
@@ -59,19 +59,15 @@ func (s *MembershipService) Join(ctx context.Context, req *proto.JoinRequest) (*
 		return nil, err
 	}
 
-	// Local members to add to the remote cluster.
-	localMembersProto := membership.ToMembersProto(s.memberlist.Members())
-
-	// Remote members to add to the local cluster.
-	remoteMembers := membership.FromMembersProto(req.LocalMembers)
-
-	if err := s.memberlist.Add(remoteMembers...); err != nil {
+	membersToAdd := membership.FromProtoMembers(req.MembersToAdd)
+	if err := s.memberlist.Add(membersToAdd...); err != nil {
 		return nil, status.Newf(
 			codes.Internal, "failed to add members to the cluster: %s", err,
 		).Err()
 	}
 
+	localMembers := membership.ToProtoMembers(s.memberlist.Members())
 	return &proto.JoinResponse{
-		RemoteMembers: localMembersProto,
+		Members: localMembers,
 	}, nil
 }

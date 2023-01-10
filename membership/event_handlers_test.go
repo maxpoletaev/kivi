@@ -22,7 +22,7 @@ func TestHandleEvent_MemberJoined(t *testing.T) {
 		Version:    1,
 	}).Return(nil)
 
-	err := ml.HandleEvent(&MemberJoined{
+	err := ml.handleEvent(&MemberJoined{
 		ID:         10,
 		Name:       "node10",
 		ServerAddr: "127.0.0.1:4000",
@@ -56,7 +56,7 @@ func TestHandleEvent_MemberLeft(t *testing.T) {
 		Version:    1,
 	})
 
-	err := ml.HandleEvent(&MemberLeft{ID: 10})
+	err := ml.handleEvent(&MemberLeft{ID: 10})
 	require.NoError(t, err)
 
 	require.False(t, ml.HasMember(10))

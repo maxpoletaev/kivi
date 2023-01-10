@@ -19,11 +19,11 @@ type Memberlist struct {
 	mut      sync.RWMutex
 	selfID   NodeID
 	members  map[NodeID]Member
-	eventBus EventPub
+	eventBus EventSender
 	logger   log.Logger
 }
 
-func New(self Member, logger log.Logger, eb EventPub) *Memberlist {
+func New(self Member, logger log.Logger, eb EventSender) *Memberlist {
 	ml := &Memberlist{
 		selfID:   self.ID,
 		logger:   logger,
@@ -35,6 +35,14 @@ func New(self Member, logger log.Logger, eb EventPub) *Memberlist {
 	ml.members[self.ID] = self
 
 	return ml
+}
+
+func (c *Memberlist) ConsumeEvents(ch <-chan ClusterEvent) {
+	go func() {
+		for event := range ch {
+			c.handleEvent(event)
+		}
+	}()
 }
 
 // Members returns a list of known cluster members.
@@ -80,7 +88,7 @@ func (c *Memberlist) Add(members ...Member) error {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
-	em := multierror.New[NodeID]()
+	errs := multierror.New[NodeID]()
 
 	// Filter out the ones that we already know about.
 	newMembers := make([]Member, 0)
@@ -106,7 +114,7 @@ func (c *Memberlist) Add(members ...Member) error {
 		//   rely on periodic state synchronization (not implemented yet).
 
 		if err := c.eventBus.Broadcast(event); err != nil {
-			em.Add(m.ID, fmt.Errorf("failed to broadcast: %w", err))
+			errs.Add(m.ID, fmt.Errorf("failed to broadcast: %w", err))
 			continue
 		}
 	}
@@ -115,19 +123,19 @@ func (c *Memberlist) Add(members ...Member) error {
 	for i := range newMembers {
 		m := &newMembers[i]
 
-		if _, hasError := em.Get(m.ID); hasError {
+		if _, hasError := errs.Get(m.ID); hasError {
 			continue
 		}
 
 		if err := c.eventBus.RegisterReceiver(m); err != nil {
-			em.Add(m.ID, fmt.Errorf("failed to register receiver: %w", err))
+			errs.Add(m.ID, fmt.Errorf("failed to register receiver: %w", err))
 			continue
 		}
 
 		c.members[m.ID] = *m
 	}
 
-	return em.Ret()
+	return errs.Ret()
 }
 
 func (c *Memberlist) Expel(id NodeID) error {
@@ -222,7 +230,7 @@ func (c *Memberlist) SetStatus(id NodeID, status Status) (Status, error) {
 	return oldStatus, nil
 }
 
-func (c *Memberlist) HandleEvent(e ClusterEvent) error {
+func (c *Memberlist) handleEvent(e ClusterEvent) error {
 	var err error
 
 	switch event := e.(type) {

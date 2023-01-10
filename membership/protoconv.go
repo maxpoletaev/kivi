@@ -4,8 +4,8 @@ import (
 	"github.com/maxpoletaev/kv/membership/proto"
 )
 
-// ToStatusProto converts a Status to a proto.Status.
-func ToStatusProto(s Status) proto.Status {
+// ToProtoStatus converts a Status to a proto.Status.
+func ToProtoStatus(s Status) proto.Status {
 	switch s {
 	case StatusHealthy:
 		return proto.Status_Healthy
@@ -16,30 +16,30 @@ func ToStatusProto(s Status) proto.Status {
 	}
 }
 
-// ToMemberProto converts a Member to a proto.Member.
-func ToMemberProto(n *Member) *proto.Member {
+// ToProtoMember converts a Member to a proto.Member.
+func ToProtoMember(n *Member) *proto.Member {
 	return &proto.Member{
 		Id:         uint32(n.ID),
 		Name:       n.Name,
 		GossipAddr: n.GossipAddr,
 		ServerAddr: n.ServerAddr,
 		Version:    n.Version,
-		Status:     ToStatusProto(n.Status),
+		Status:     ToProtoStatus(n.Status),
 	}
 }
 
-// ToMembersProto converts a list of Member to a list of proto.Member.
-func ToMembersProto(members []Member) []*proto.Member {
+// ToProtoMembers converts a list of Member to a list of proto.Member.
+func ToProtoMembers(members []Member) []*proto.Member {
 	result := make([]*proto.Member, len(members))
 	for i, member := range members {
-		result[i] = ToMemberProto(&member)
+		result[i] = ToProtoMember(&member)
 	}
 
 	return result
 }
 
-// FromStatusProto converts a proto.Status to a Status.
-func FromStatusProto(s proto.Status) Status {
+// FromProtoStatus converts a proto.Status to a Status.
+func FromProtoStatus(s proto.Status) Status {
 	switch s {
 	case proto.Status_Healthy:
 		return StatusHealthy
@@ -50,30 +50,30 @@ func FromStatusProto(s proto.Status) Status {
 	}
 }
 
-// FromMemberProto converts a proto.Member to a Member.
-func FromMemberProto(n *proto.Member) Member {
+// FromProtoMember converts a proto.Member to a Member.
+func FromProtoMember(n *proto.Member) Member {
 	return Member{
 		ID:         NodeID(n.Id),
 		Name:       n.Name,
 		GossipAddr: n.GossipAddr,
 		ServerAddr: n.ServerAddr,
 		Version:    n.Version,
-		Status:     FromStatusProto(n.Status),
+		Status:     FromProtoStatus(n.Status),
 	}
 }
 
-// FromMembersProto converts a list of proto.Member to a list of Member.
-func FromMembersProto(members []*proto.Member) []Member {
+// FromProtoMembers converts a list of proto.Member to a list of Member.
+func FromProtoMembers(members []*proto.Member) []Member {
 	result := make([]Member, len(members))
 	for i, member := range members {
-		result[i] = FromMemberProto(member)
+		result[i] = FromProtoMember(member)
 	}
 
 	return result
 }
 
-// FromEventProto converts a proto.ClusterEvent to a ClusterEvent.
-func FromEventProto(pe *proto.ClusterEvent) ClusterEvent {
+// FromProtoEvent converts a proto.ClusterEvent to a ClusterEvent.
+func FromProtoEvent(pe *proto.ClusterEvent) ClusterEvent {
 	switch event := pe.Event.(type) {
 	case *proto.ClusterEvent_MemberJoined:
 		return &MemberJoined{
@@ -91,7 +91,7 @@ func FromEventProto(pe *proto.ClusterEvent) ClusterEvent {
 		return &MemberUpdated{
 			Version:  event.MemberUpdated.Version,
 			ID:       NodeID(event.MemberUpdated.MemberId),
-			Status:   FromStatusProto(event.MemberUpdated.Status),
+			Status:   FromProtoStatus(event.MemberUpdated.Status),
 			SourceID: NodeID(event.MemberUpdated.SourceMemberId),
 		}
 	default:
@@ -99,8 +99,8 @@ func FromEventProto(pe *proto.ClusterEvent) ClusterEvent {
 	}
 }
 
-// ToEventProto converts a ClusterEvent to a proto.ClusterEvent.
-func ToEventProto(e ClusterEvent) *proto.ClusterEvent {
+// ToProtoEvent converts a ClusterEvent to a proto.ClusterEvent.
+func ToProtoEvent(e ClusterEvent) *proto.ClusterEvent {
 	switch event := e.(type) {
 	case *MemberJoined:
 		return &proto.ClusterEvent{
@@ -129,7 +129,7 @@ func ToEventProto(e ClusterEvent) *proto.ClusterEvent {
 					Version:        event.Version,
 					MemberId:       uint32(event.ID),
 					SourceMemberId: uint32(event.SourceID),
-					Status:         ToStatusProto(event.Status),
+					Status:         ToProtoStatus(event.Status),
 				},
 			},
 		}

@@ -282,8 +282,8 @@ func (g *Gossiper) Shutdown() error {
 	return nil
 }
 
-// Register adds new peer for broadcasting messages to.
-func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
+// AddPeer adds new peer for broadcasting messages to.
+func (g *Gossiper) AddPeer(id PeerID, addr string) (bool, error) {
 	addrPort, err := netip.ParseAddrPort(addr)
 	if err != nil {
 		return false, fmt.Errorf("failed to parse peer address: %w", err)
@@ -307,8 +307,8 @@ func (g *Gossiper) Register(id PeerID, addr string) (bool, error) {
 	return true, nil
 }
 
-// Unregister removes peer from the list of known peers.
-func (g *Gossiper) Unregister(id PeerID) bool {
+// RemovePeer removes peer from the list of known peers.
+func (g *Gossiper) RemovePeer(id PeerID) bool {
 	g.peersMut.Lock()
 	defer g.peersMut.Unlock()
 

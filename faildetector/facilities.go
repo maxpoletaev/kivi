@@ -12,5 +12,5 @@ type memberRegistry interface {
 }
 
 type connectionRegistry interface {
-	Get(id membership.NodeID) (clusterpkg.Client, error)
+	Get(id membership.NodeID) (clusterpkg.Conn, error)
 }

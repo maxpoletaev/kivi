@@ -97,26 +97,29 @@ func (lsm *LSMTree) sheduleFlush() error {
 	// Reacquire the lock for writing, as we are goint to swap the memtable.
 	lsm.mut.RUnlock()
 	lsm.mut.Lock()
-	defer lsm.mut.Unlock()
 
 	// Check again, in case the memtable was flushed by another goroutine.
 	if lsm.memtable.Size() < lsm.conf.MaxMemtableSize {
+		lsm.mut.Unlock()
 		return nil
 	}
 
 	// Close the memtable to make it read-only.
 	if err := lsm.memtable.Close(); err != nil {
+		lsm.mut.Unlock()
 		return fmt.Errorf("failed to close memtable: %w", err)
 	}
 
 	// The active memtable is moved to the flush queue and will be flushed to disk in background.
 	lsm.flushQueue.PushBack(lsm.memtable)
 	lsm.memtable = nil
-	lsm.wg.Add(1)
+	lsm.mut.Unlock()
 
 	// Start a background goroutine to flush the memtable to disk, only
 	// if there is no other flush in progress.
 	if atomic.CompareAndSwapInt32(&lsm.inFlush, 0, 1) {
+		lsm.wg.Add(1)
+
 		go func() {
 			defer lsm.wg.Done()
 			defer atomic.StoreInt32(&lsm.inFlush, 0)
@@ -162,12 +165,14 @@ func (lsm *LSMTree) flushWaiting() error {
 		if err := func() error {
 			lsm.mut.Lock()
 			defer lsm.mut.Unlock()
+
 			if err := lsm.state.MemtableFlushed(memt.ID, sst.SSTableInfo); err != nil {
 				return fmt.Errorf("failed to log segment flushed: %w", err)
 			}
 
 			lsm.flushQueue.Remove(el)
 			lsm.ssTables.PushBack(sst)
+
 			return nil
 		}(); err != nil {
 			return err
@@ -246,12 +251,12 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 
 			if err := lsm.state.MemtableCreated(memt.MemtableInfo); err != nil {
 				lsm.mut.Unlock()
-				_ = memt.Close()
-				_ = memt.Discard()
+				_ = memt.CloseAndDiscard()
 				return fmt.Errorf("failed to log segment created: %w", err)
 			}
 
 			lsm.memtable = memt
+
 			lsm.mut.Unlock()
 		}
 	}

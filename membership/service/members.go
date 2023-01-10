@@ -10,7 +10,7 @@ import (
 )
 
 func (s *MembershipService) Members(ctx context.Context, _ *emptypb.Empty) (*proto.MembersResponse, error) {
-	members := membership.ToMembersProto(s.memberlist.Members())
+	members := membership.ToProtoMembers(s.memberlist.Members())
 
 	return &proto.MembersResponse{
 		Members: members,

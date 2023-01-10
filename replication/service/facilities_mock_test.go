@@ -36,10 +36,10 @@ func (m *MockCluster) EXPECT() *MockClusterMockRecorder {
 }
 
 // Conn mocks base method.
-func (m *MockCluster) Conn(arg0 membership.NodeID) (cluster.Client, error) {
+func (m *MockCluster) Conn(arg0 membership.NodeID) (cluster.Conn, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Conn", arg0)
-	ret0, _ := ret[0].(cluster.Client)
+	ret0, _ := ret[0].(cluster.Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -79,10 +79,10 @@ func (mr *MockClusterMockRecorder) Self() *gomock.Call {
 }
 
 // SelfConn mocks base method.
-func (m *MockCluster) SelfConn() cluster.Client {
+func (m *MockCluster) SelfConn() cluster.Conn {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SelfConn")
-	ret0, _ := ret[0].(cluster.Client)
+	ret0, _ := ret[0].(cluster.Conn)
 	return ret0
 }
 

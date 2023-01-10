@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestToStatusProto(t *testing.T) {
-	assert.Equal(t, proto.Status_Healthy, ToStatusProto(StatusHealthy))
-	assert.Equal(t, proto.Status_Faulty, ToStatusProto(StatusFaulty))
-	assert.Panics(t, func() { ToStatusProto(Status(-1)) })
+func TestToProtoStatus(t *testing.T) {
+	assert.Equal(t, proto.Status_Healthy, ToProtoStatus(StatusHealthy))
+	assert.Equal(t, proto.Status_Faulty, ToProtoStatus(StatusFaulty))
+	assert.Panics(t, func() { ToProtoStatus(Status(-1)) })
 }
 
-func TestToMemberProto(t *testing.T) {
+func TestToProtoMember(t *testing.T) {
 	m := &Member{
 		ID:         1,
 		Name:       "node1",
@@ -31,10 +31,10 @@ func TestToMemberProto(t *testing.T) {
 		ServerAddr: "127.0.0.1:4001",
 		Version:    1,
 		Status:     proto.Status_Healthy,
-	}, ToMemberProto(m))
+	}, ToProtoMember(m))
 }
 
-func TestToMembersProto(t *testing.T) {
+func TestToProtoMembers(t *testing.T) {
 	members := []Member{
 		{
 			ID:         1,
@@ -46,7 +46,7 @@ func TestToMembersProto(t *testing.T) {
 		},
 	}
 
-	result := ToMembersProto(members)
+	result := ToProtoMembers(members)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, &proto.Member{
 		Id:         1,
@@ -58,13 +58,13 @@ func TestToMembersProto(t *testing.T) {
 	}, result[0])
 }
 
-func TestFromStatusProto(t *testing.T) {
-	assert.Equal(t, StatusHealthy, FromStatusProto(proto.Status_Healthy))
-	assert.Equal(t, StatusFaulty, FromStatusProto(proto.Status_Faulty))
-	assert.Panics(t, func() { FromStatusProto(proto.Status(-1)) })
+func TestFromProtoStatus(t *testing.T) {
+	assert.Equal(t, StatusHealthy, FromProtoStatus(proto.Status_Healthy))
+	assert.Equal(t, StatusFaulty, FromProtoStatus(proto.Status_Faulty))
+	assert.Panics(t, func() { FromProtoStatus(proto.Status(-1)) })
 }
 
-func TestFromMemberProto(t *testing.T) {
+func TestFromProtoMember(t *testing.T) {
 	m := &proto.Member{
 		Id:         1,
 		Name:       "node1",
@@ -81,10 +81,10 @@ func TestFromMemberProto(t *testing.T) {
 		ServerAddr: "127.0.0.1:4001",
 		Version:    1,
 		Status:     StatusHealthy,
-	}, FromMemberProto(m))
+	}, FromProtoMember(m))
 }
 
-func TestFromMembersProto(t *testing.T) {
+func TestFromProtoMembers(t *testing.T) {
 	members := []*proto.Member{
 		{
 			Id:         1,
@@ -96,7 +96,7 @@ func TestFromMembersProto(t *testing.T) {
 		},
 	}
 
-	result := FromMembersProto(members)
+	result := FromProtoMembers(members)
 	assert.Equal(t, 1, len(result))
 	assert.Equal(t, Member{
 		ID:         1,
@@ -108,7 +108,7 @@ func TestFromMembersProto(t *testing.T) {
 	}, result[0])
 }
 
-func TestFromEventProto_MemberJoined(t *testing.T) {
+func TestFromProtoEvent_MemberJoined(t *testing.T) {
 	e := &proto.ClusterEvent{
 		Event: &proto.ClusterEvent_MemberJoined{
 			MemberJoined: &proto.MemberJoinedEvent{
@@ -120,7 +120,7 @@ func TestFromEventProto_MemberJoined(t *testing.T) {
 		},
 	}
 
-	event, ok := FromEventProto(e).(*MemberJoined)
+	event, ok := FromProtoEvent(e).(*MemberJoined)
 	require.True(t, ok)
 
 	assert.Equal(t, MemberJoined{
@@ -131,7 +131,7 @@ func TestFromEventProto_MemberJoined(t *testing.T) {
 	}, *event)
 }
 
-func TestFromEventProto_MemberLeft(t *testing.T) {
+func TestFromProtoEvent_MemberLeft(t *testing.T) {
 	e := &proto.ClusterEvent{
 		Event: &proto.ClusterEvent_MemberLeft{
 			MemberLeft: &proto.MemberLeftEvent{
@@ -141,7 +141,7 @@ func TestFromEventProto_MemberLeft(t *testing.T) {
 		},
 	}
 
-	event, ok := FromEventProto(e).(*MemberLeft)
+	event, ok := FromProtoEvent(e).(*MemberLeft)
 	require.True(t, ok)
 
 	assert.Equal(t, MemberLeft{
@@ -150,7 +150,7 @@ func TestFromEventProto_MemberLeft(t *testing.T) {
 	}, *event)
 }
 
-func TestFromEventProto_MemberUpdated(t *testing.T) {
+func TestFromProtoEvent_MemberUpdated(t *testing.T) {
 	e := &proto.ClusterEvent{
 		Event: &proto.ClusterEvent_MemberUpdated{
 			MemberUpdated: &proto.MemberUpdatedEvent{
@@ -162,7 +162,7 @@ func TestFromEventProto_MemberUpdated(t *testing.T) {
 		},
 	}
 
-	event, ok := FromEventProto(e).(*MemberUpdated)
+	event, ok := FromProtoEvent(e).(*MemberUpdated)
 	require.True(t, ok)
 
 	assert.Equal(t, MemberUpdated{
@@ -173,7 +173,7 @@ func TestFromEventProto_MemberUpdated(t *testing.T) {
 	}, *event)
 }
 
-func TestToEventProto_MemberJoined(t *testing.T) {
+func TestToProtoEvent_MemberJoined(t *testing.T) {
 	e := &MemberJoined{
 		ID:         1,
 		Name:       "node1",
@@ -190,10 +190,10 @@ func TestToEventProto_MemberJoined(t *testing.T) {
 				ServerAddr: "127.0.0.1:4001",
 			},
 		},
-	}, ToEventProto(e))
+	}, ToProtoEvent(e))
 }
 
-func TestToEventProto_MemberLeft(t *testing.T) {
+func TestToProtoEvent_MemberLeft(t *testing.T) {
 	e := &MemberLeft{
 		ID:       1,
 		SourceID: 2,
@@ -206,10 +206,10 @@ func TestToEventProto_MemberLeft(t *testing.T) {
 				SourceMemberId: 2,
 			},
 		},
-	}, ToEventProto(e))
+	}, ToProtoEvent(e))
 }
 
-func TestToEventProto_MemberUpdated(t *testing.T) {
+func TestToProtoEvent_MemberUpdated(t *testing.T) {
 	e := &MemberUpdated{
 		ID:       1,
 		SourceID: 2,
@@ -226,5 +226,5 @@ func TestToEventProto_MemberUpdated(t *testing.T) {
 				Status:         proto.Status_Faulty,
 			},
 		},
-	}, ToEventProto(e))
+	}, ToProtoEvent(e))
 }

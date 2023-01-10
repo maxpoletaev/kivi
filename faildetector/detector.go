@@ -16,6 +16,19 @@ import (
 	"github.com/maxpoletaev/kv/membership"
 )
 
+// errNotEnoughIndirectNodes is returned when there are not enough alive intermediate
+// nodes to perform indirect ping. It probably means one of the following:
+//
+//  1. We are the one who is faulty. In this case we will be marked faulty by other nodes,
+//     but from our perspective we are still healthy and everyone else is dead.
+//
+//  2. There are just not enough nodes in the cluster. Say, we have 3 nodes and one of them
+//     is faulty. In this case we will be able to ping only one node, but we need two to
+//     perform indirect ping.
+//
+// In both cases the algorithm should be able make progress and recover from the situation,
+// so in case we are not able to perform indirect ping due to this error, the node will still
+// be marked as healthy or faulty depending on the result of direct ping.
 var errNotEnoughIndirectNodes = fmt.Errorf("not enough indirect nodes")
 
 type Detector struct {

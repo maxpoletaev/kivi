@@ -71,17 +71,11 @@ func openMemtable(info *MemtableInfo, prefix string) (*Memtable, error) {
 		entries.Insert(entry.Key, entry)
 	}
 
-	// Seek to the end of the file to append new entries.
-	offset, err := walFile.Seek(0, io.SeekEnd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to seek wal file: %w", err)
-	}
-
 	return &Memtable{
 		MemtableInfo: info,
 		entries:      entries,
-		dataSize:     offset,
 		walFile:      walFile,
+		dataSize:     reader.Offset(),
 		walWriter:    protoio.NewWriter(walFile),
 	}, nil
 }

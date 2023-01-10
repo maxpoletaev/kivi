@@ -43,10 +43,22 @@ func (c *Memberlist) handleMemberLeft(event *MemberLeft) error {
 		return nil
 	}
 
+	// Node is expeled from the cluster by another node.
+	if member.ID == c.selfID {
+		for _, member := range c.members {
+			if member.ID != c.selfID {
+				c.eventBus.UnregisterReceiver(&member)
+			}
+		}
+
+		// Reset the list of members to only contain the local node.
+		c.members = make(map[NodeID]Member, 1)
+		c.members[member.ID] = member
+		return nil
+	}
+
 	delete(c.members, event.ID)
-
 	c.eventBus.UnregisterReceiver(&member)
-
 	level.Debug(c.logger).Log("msg", "member left", "name", member.Name)
 
 	return nil

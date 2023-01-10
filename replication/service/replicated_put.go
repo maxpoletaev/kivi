@@ -30,7 +30,6 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 
 	members := s.cluster.Members()
-
 	acksLeft := s.writeLevel.N(len(members))
 
 	if countAlive(members) < acksLeft {
@@ -38,10 +37,8 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 
 	criterr := make(chan error, 1)
-
 	localMember := s.cluster.Self()
 	localConn := s.cluster.SelfConn()
-
 	putResults := make(chan *nodePutResult, len(members))
 
 	// Initial write goes to the local node which increments the verstion vector.
@@ -160,7 +157,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 }
 
-func put(ctx context.Context, conn cluster.Client, key string,
+func put(ctx context.Context, conn cluster.Conn, key string,
 	value []byte, version string, primary bool) (string, error) {
 
 	req := &storagepb.PutRequest{

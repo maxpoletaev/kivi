@@ -1,4 +1,4 @@
-package nodeclient
+package grpcclient
 
 import (
 	"context"
@@ -13,17 +13,17 @@ import (
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
-// GRPCDialer is a factory for creating GRPC connections to cluster members.
-type GRPCDialer struct{}
+// GrpcDialer is a factory for creating GRPC connections to cluster members.
+type GrpcDialer struct{}
 
 // NewDialer creates a new GRPCDialer.
-func NewDialer() *GRPCDialer {
-	return &GRPCDialer{}
+func NewDialer() *GrpcDialer {
+	return &GrpcDialer{}
 }
 
 // DialContext creates a new GRPC connection to the given address. It will block until the
 // connection is established and ready or the context is canceled.
-func (d *GRPCDialer) DialContext(ctx context.Context, addr string) (cluster.Client, error) {
+func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (cluster.Conn, error) {
 	creds := insecure.NewCredentials()
 
 	grpcConn, err := grpc.DialContext(
@@ -40,7 +40,7 @@ func (d *GRPCDialer) DialContext(ctx context.Context, addr string) (cluster.Clie
 	membershipClient := membershippb.NewMembershipServiceClient(grpcConn)
 	storageClient := storagepb.NewStorageServiceClient(grpcConn)
 
-	c := &Conn{
+	c := &GrpcClient{
 		faildetectorClient: faildetectorClient,
 		membershipClient:   membershipClient,
 		storageClient:      storageClient,

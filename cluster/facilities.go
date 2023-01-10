@@ -18,5 +18,5 @@ type MemberRegistry interface {
 
 // Dialer is used to create new connections to the cluster members.
 type Dialer interface {
-	DialContext(ctx context.Context, addr string) (Client, error)
+	DialContext(ctx context.Context, addr string) (Conn, error)
 }

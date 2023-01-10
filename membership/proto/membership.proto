@@ -21,11 +21,11 @@ message Member {
 }
 
 message JoinRequest {
-    repeated Member local_members = 1;
+    repeated Member members_to_add = 1;
 }
 
 message JoinResponse {
-    repeated Member remote_members = 1;
+    repeated Member members = 1;
 }
 
 message MembersResponse {

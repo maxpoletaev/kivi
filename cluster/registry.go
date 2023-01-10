@@ -12,7 +12,7 @@ import (
 
 type ConnRegistry struct {
 	mut            sync.RWMutex
-	connections    map[membership.NodeID]Client
+	connections    map[membership.NodeID]Conn
 	inProgress     generic.SyncMap[membership.NodeID, chan struct{}]
 	members        MemberRegistry
 	connectTimeout time.Duration
@@ -21,14 +21,14 @@ type ConnRegistry struct {
 
 func NewConnRegistry(members MemberRegistry, dialer Dialer) *ConnRegistry {
 	return &ConnRegistry{
-		connections:    make(map[membership.NodeID]Client),
+		connections:    make(map[membership.NodeID]Conn),
 		connectTimeout: 5 * time.Second,
 		members:        members,
 		dialer:         dialer,
 	}
 }
 
-func (r *ConnRegistry) get(id membership.NodeID) (Client, bool) {
+func (r *ConnRegistry) get(id membership.NodeID) (Conn, bool) {
 	r.mut.RLock()
 
 	conn, ok := r.connections[id]
@@ -61,7 +61,7 @@ func (r *ConnRegistry) get(id membership.NodeID) (Client, bool) {
 	return conn, ok
 }
 
-func (r *ConnRegistry) connect(id membership.NodeID) (Client, error) {
+func (r *ConnRegistry) connect(id membership.NodeID) (Conn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.connectTimeout)
 	defer cancel()
 
@@ -154,7 +154,7 @@ func (r *ConnRegistry) CollectGarbage() {
 
 // Get returns a connection to the member with the given ID. If the connection
 // is not present, it attempts to dial the member and create a new connection.
-func (r *ConnRegistry) Get(id membership.NodeID) (Client, error) {
+func (r *ConnRegistry) Get(id membership.NodeID) (Conn, error) {
 	if conn, ok := r.get(id); ok {
 		return conn, nil
 	}
@@ -164,7 +164,7 @@ func (r *ConnRegistry) Get(id membership.NodeID) (Client, error) {
 
 // Add adds a connection to the registry. If a connection to the member with
 // the same ID already exists, the old connection is closed.
-func (r *ConnRegistry) Put(id membership.NodeID, conn Client) {
+func (r *ConnRegistry) Put(id membership.NodeID, conn Conn) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 

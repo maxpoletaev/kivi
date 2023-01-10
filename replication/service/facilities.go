@@ -10,6 +10,6 @@ import (
 type Cluster interface {
 	Self() membership.Member
 	Members() []membership.Member
-	SelfConn() cluster.Client
-	Conn(membership.NodeID) (cluster.Client, error)
+	SelfConn() cluster.Conn
+	Conn(membership.NodeID) (cluster.Conn, error)
 }

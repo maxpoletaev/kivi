@@ -10,8 +10,8 @@ import (
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
-// Client is an interface to interact with a remote cluster member.
-type Client interface {
+// Conn is an interface to interact with a remote cluster member.
+type Conn interface {
 	Join(ctx context.Context, req *membershippb.JoinRequest) (*membershippb.JoinResponse, error)
 	Members(ctx context.Context) (*membershippb.MembersResponse, error)
 	Get(ctx context.Context, req *storagepb.GetRequest) (*storagepb.GetResponse, error)

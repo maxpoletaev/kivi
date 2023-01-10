@@ -87,7 +87,7 @@ func TestRegistry_GetConcurrent(t *testing.T) {
 	dialer := NewMockDialer(ctrl)
 	dialer.EXPECT().DialContext(
 		gomock.Any(), "192.168.10.1:8000",
-	).DoAndReturn(func(ctx context.Context, addr string) (Client, error) {
+	).DoAndReturn(func(ctx context.Context, addr string) (Conn, error) {
 		time.Sleep(100 * time.Millisecond) // Simulate network latency.
 		conn := mock.NewMockClient(ctrl)
 		conn.EXPECT().IsClosed().Return(false).AnyTimes()
@@ -96,7 +96,7 @@ func TestRegistry_GetConcurrent(t *testing.T) {
 
 	concurrency := 10
 	registry := NewConnRegistry(memberRepo, dialer)
-	connections := make([]Client, concurrency)
+	connections := make([]Conn, concurrency)
 	errs := make([]error, concurrency)
 
 	wg := sync.WaitGroup{}
