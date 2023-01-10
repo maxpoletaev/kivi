@@ -7,9 +7,11 @@ import (
 	"github.com/maxpoletaev/kv/membership"
 )
 
-type Cluster interface {
+type Memberlist interface {
 	Self() membership.Member
 	Members() []membership.Member
-	SelfConn() clust.Conn
-	Conn(membership.NodeID) (clust.Conn, error)
+}
+
+type ConnRegistry interface {
+	Get(membership.NodeID) (clust.Conn, error)
 }

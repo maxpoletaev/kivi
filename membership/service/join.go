@@ -6,7 +6,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/membership/proto"
 )
 
@@ -59,14 +58,14 @@ func (s *MembershipService) Join(ctx context.Context, req *proto.JoinRequest) (*
 		return nil, err
 	}
 
-	membersToAdd := membership.FromProtoMembers(req.MembersToAdd)
+	membersToAdd := fromProtoMembers(req.MembersToAdd)
 	if err := s.memberlist.Add(membersToAdd...); err != nil {
 		return nil, status.Newf(
 			codes.Internal, "failed to add members to the cluster: %s", err,
 		).Err()
 	}
 
-	localMembers := membership.ToProtoMembers(s.memberlist.Members())
+	localMembers := toProtoMembers(s.memberlist.Members())
 	return &proto.JoinResponse{
 		Members: localMembers,
 	}, nil

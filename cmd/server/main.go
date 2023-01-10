@@ -107,7 +107,6 @@ func main() {
 	eventSender := broadcast.NewSender(gossiper)
 	memberlist := membership.New(localMember, logger, eventSender)
 	connections := clust.NewConnRegistry(memberlist, dialer)
-	cluster := clust.New(localMember.ID, memberlist, connections)
 	memberlist.ConsumeEvents(eventReceiver.Chan())
 
 	lsmConfig := lsmtree.DefaultConfig()
@@ -128,9 +127,9 @@ func main() {
 	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
 	membershipService := membershipsvc.NewMembershipService(memberlist)
 	membershippb.RegisterMembershipServiceServer(grpcServer, membershipService)
-	replicationService := replicationsvc.New(cluster, logger, consistency.Quorum, consistency.Quorum)
+	replicationService := replicationsvc.New(memberlist, connections, logger, consistency.Quorum, consistency.Quorum)
 	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
-	faildetectorService := faildetectorsvc.New(cluster)
+	faildetectorService := faildetectorsvc.New(memberlist, connections)
 	faildetectorpb.RegisterFailDetectorServiceServer(grpcServer, faildetectorService)
 
 	wg := sync.WaitGroup{}
@@ -166,6 +165,15 @@ func main() {
 			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
 			ctx, cancel := context.WithTimeout(appctx, 10*time.Second)
 
+			// At this point the local grpc server should be already listening.
+			localConn, err := connections.Get(localMember.ID)
+			if err != nil {
+				level.Error(logger).Log("msg", "failed to connect to self", "err", err)
+				time.Sleep(3 * time.Second)
+				cancel()
+				continue
+			}
+
 			// Connect to the remote node in order to get the list of members.
 			remoteConn, err := dialer.DialContext(ctx, args.joinAddr)
 			if err != nil {
@@ -175,8 +183,7 @@ func main() {
 				continue
 			}
 
-			// At this point the local grpc server should be already listening, so SelfConn works.
-			if err := clust.JoinClusters(ctx, cluster.SelfConn(), remoteConn); err != nil {
+			if err := joinClusters(ctx, localConn, remoteConn); err != nil {
 				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
 				time.Sleep(3 * time.Second)
 				cancel()

@@ -1,13 +1,14 @@
-package clust
+package main
 
 import (
 	"context"
 
+	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/membership/proto"
 	"golang.org/x/sync/errgroup"
 )
 
-// JoinClusters joins two clusters together by adding all members of the left
+// joinClusters joins two clusters together by adding all members of the left
 // cluster to the right cluster and vice versa. If any of the calls to Join fail,
 // the function returns an error, however, there is no guarantee that the membership
 // tables of both clusters will be consistent afther an error. For example, if the
@@ -15,7 +16,7 @@ import (
 // the left cluster, the left cluster will have all of the members of the right cluster
 // in its membership table, but the right cluster will not know about the left cluster.
 // This is a known issue and should be adressed with periodic membership table syncs.
-func JoinClusters(ctx context.Context, left, right Conn) error {
+func joinClusters(ctx context.Context, left, right clust.Conn) error {
 	leftResp, err := left.Members(ctx)
 	if err != nil {
 		return err

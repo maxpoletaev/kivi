@@ -21,7 +21,7 @@ import (
 
 func TestReplicatedPut(t *testing.T) {
 	tests := map[string]struct {
-		setupCluster func(ctrl *gomock.Controller, c *MockCluster)
+		setupCluster func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist)
 		writeLevel   consistency.Level
 		req          *proto.PutRequest
 		want         *proto.PutResponse
@@ -30,7 +30,7 @@ func TestReplicatedPut(t *testing.T) {
 	}{
 		"OneOfThreeNodesInQuorumFails": {
 			writeLevel: consistency.Quorum,
-			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
+			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
 				conn1 := clustmock.NewMockClient(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
@@ -69,11 +69,12 @@ func TestReplicatedPut(t *testing.T) {
 					{ID: 3, Name: "node3", Status: membership.StatusHealthy},
 				}
 
-				c.EXPECT().Self().Return(members[0])
-				c.EXPECT().Members().Return(members)
-				c.EXPECT().SelfConn().Return(conn1)
-				c.EXPECT().Conn(membership.NodeID(2)).Return(conn2, nil).MaxTimes(1)
-				c.EXPECT().Conn(membership.NodeID(3)).Return(conn3, nil).MaxTimes(1)
+				ml.EXPECT().Self().Return(members[0])
+				ml.EXPECT().Members().Return(members)
+
+				conns.EXPECT().Get(membership.NodeID(1)).Return(conn1, nil).MaxTimes(1)
+				conns.EXPECT().Get(membership.NodeID(2)).Return(conn2, nil).MaxTimes(1)
+				conns.EXPECT().Get(membership.NodeID(3)).Return(conn3, nil).MaxTimes(1)
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
@@ -86,7 +87,7 @@ func TestReplicatedPut(t *testing.T) {
 		},
 		"TwoOfThreeNodesInQuorumFail": {
 			writeLevel: consistency.Quorum,
-			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
+			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
 				conn1 := clustmock.NewMockClient(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
@@ -123,11 +124,12 @@ func TestReplicatedPut(t *testing.T) {
 					{ID: 3, Name: "node3", Status: membership.StatusHealthy},
 				}
 
-				c.EXPECT().Self().Return(members[0])
-				c.EXPECT().Members().Return(members)
-				c.EXPECT().SelfConn().Return(conn1)
-				c.EXPECT().Conn(membership.NodeID(2)).Return(conn2, nil).MaxTimes(1)
-				c.EXPECT().Conn(membership.NodeID(3)).Return(conn3, nil).MaxTimes(1)
+				ml.EXPECT().Self().Return(members[0])
+				ml.EXPECT().Members().Return(members)
+
+				conns.EXPECT().Get(membership.NodeID(1)).Return(conn1, nil).MaxTimes(1)
+				conns.EXPECT().Get(membership.NodeID(2)).Return(conn2, nil).MaxTimes(1)
+				conns.EXPECT().Get(membership.NodeID(3)).Return(conn3, nil).MaxTimes(1)
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
@@ -139,8 +141,8 @@ func TestReplicatedPut(t *testing.T) {
 		},
 		"TwoOfThreeNodesInQuorumAreFaulty": {
 			writeLevel: consistency.Quorum,
-			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
-				c.EXPECT().Members().Return([]membership.Member{
+			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
+				ml.EXPECT().Members().Return([]membership.Member{
 					{ID: 1, Name: "node1", Status: membership.StatusHealthy},
 					{ID: 2, Name: "node2", Status: membership.StatusFaulty},
 					{ID: 3, Name: "node3", Status: membership.StatusFaulty},
@@ -156,7 +158,7 @@ func TestReplicatedPut(t *testing.T) {
 		},
 		"WriteToLocalNodeFails": {
 			writeLevel: consistency.One,
-			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
+			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
 				self := membership.Member{
 					ID:     1,
 					Name:   "node1",
@@ -166,9 +168,10 @@ func TestReplicatedPut(t *testing.T) {
 				conn := clustmock.NewMockClient(ctrl)
 				conn.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil, assert.AnError)
 
-				c.EXPECT().Self().Return(self)
-				c.EXPECT().SelfConn().Return(conn)
-				c.EXPECT().Members().Return([]membership.Member{self})
+				ml.EXPECT().Self().Return(self)
+				ml.EXPECT().Members().Return([]membership.Member{self})
+
+				conns.EXPECT().Get(self.ID).Return(conn, nil)
 			},
 			req: &proto.PutRequest{
 				Key:     "key",
@@ -184,13 +187,14 @@ func TestReplicatedPut(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			defer ctrl.Finish()
 
-			c := NewMockCluster(ctrl)
-			test.setupCluster(ctrl, c)
+			ml := NewMockMemberlist(ctrl)
+			conns := NewMockConnRegistry(ctrl)
+			test.setupCluster(ctrl, conns, ml)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			s := New(c, log.NewNopLogger(), consistency.One, test.writeLevel)
+			s := New(ml, conns, log.NewNopLogger(), consistency.One, test.writeLevel)
 			got, err := s.ReplicatedPut(ctx, test.req)
 			require.Equal(t, test.wantCode, status.Code(err), err)
 			require.Equal(t, test.want, got)

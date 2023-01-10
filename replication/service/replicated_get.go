@@ -28,7 +28,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		return nil, err
 	}
 
-	replicas := s.cluster.Members()
+	replicas := s.members.Members()
 
 	minAcks := s.readLevel.N(len(replicas))
 
@@ -59,7 +59,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			default:
 			}
 
-			conn, err := s.cluster.Conn(replica.ID)
+			conn, err := s.connections.Get(replica.ID)
 			if err != nil {
 				level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
 				return
@@ -152,7 +152,7 @@ readloop:
 			go func(replica *membership.Member) {
 				defer wg.Done()
 
-				conn, err := s.cluster.Conn(replica.ID)
+				conn, err := s.connections.Get(replica.ID)
 				if err != nil {
 					level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
 					return

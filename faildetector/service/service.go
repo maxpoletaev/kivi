@@ -6,11 +6,13 @@ import (
 
 type FailDetectorService struct {
 	proto.UnimplementedFailDetectorServiceServer
-	cluster Cluster
+	connections ConnRegistry
+	members     Memberlist
 }
 
-func New(cluster Cluster) *FailDetectorService {
+func New(members Memberlist, connections ConnRegistry) *FailDetectorService {
 	return &FailDetectorService{
-		cluster: cluster,
+		connections: connections,
+		members:     members,
 	}
 }

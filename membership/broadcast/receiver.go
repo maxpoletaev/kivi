@@ -29,7 +29,7 @@ func (d *EventReceiver) Deliver(b []byte) error {
 		return fmt.Errorf("failed to unmarshal cluster event: %w", err)
 	}
 
-	event := membership.FromProtoEvent(msg)
+	event := fromProtoEvent(msg)
 
 	d.ch <- event
 

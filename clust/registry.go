@@ -51,6 +51,7 @@ func (r *ConnRegistry) get(id membership.NodeID) (Conn, bool) {
 
 		// Still closed? Remove it from the registry.
 		delete(r.connections, id)
+
 		r.mut.Unlock()
 
 		return nil, false
@@ -164,7 +165,7 @@ func (r *ConnRegistry) Get(id membership.NodeID) (Conn, error) {
 
 // Add adds a connection to the registry. If a connection to the member with
 // the same ID already exists, the old connection is closed.
-func (r *ConnRegistry) Put(id membership.NodeID, conn Conn) {
+func (r *ConnRegistry) Add(id membership.NodeID, conn Conn) {
 	r.mut.Lock()
 	defer r.mut.Unlock()
 

@@ -8,50 +8,35 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	"github.com/maxpoletaev/kv/clust"
+	clust "github.com/maxpoletaev/kv/clust"
 	membership "github.com/maxpoletaev/kv/membership"
 )
 
-// MockCluster is a mock of Cluster interface.
-type MockCluster struct {
+// MockMemberlist is a mock of Memberlist interface.
+type MockMemberlist struct {
 	ctrl     *gomock.Controller
-	recorder *MockClusterMockRecorder
+	recorder *MockMemberlistMockRecorder
 }
 
-// MockClusterMockRecorder is the mock recorder for MockCluster.
-type MockClusterMockRecorder struct {
-	mock *MockCluster
+// MockMemberlistMockRecorder is the mock recorder for MockMemberlist.
+type MockMemberlistMockRecorder struct {
+	mock *MockMemberlist
 }
 
-// NewMockCluster creates a new mock instance.
-func NewMockCluster(ctrl *gomock.Controller) *MockCluster {
-	mock := &MockCluster{ctrl: ctrl}
-	mock.recorder = &MockClusterMockRecorder{mock}
+// NewMockMemberlist creates a new mock instance.
+func NewMockMemberlist(ctrl *gomock.Controller) *MockMemberlist {
+	mock := &MockMemberlist{ctrl: ctrl}
+	mock.recorder = &MockMemberlistMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCluster) EXPECT() *MockClusterMockRecorder {
+func (m *MockMemberlist) EXPECT() *MockMemberlistMockRecorder {
 	return m.recorder
 }
 
-// Conn mocks base method.
-func (m *MockCluster) Conn(arg0 membership.NodeID) (clust.Conn, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Conn", arg0)
-	ret0, _ := ret[0].(clust.Conn)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Conn indicates an expected call of Conn.
-func (mr *MockClusterMockRecorder) Conn(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conn", reflect.TypeOf((*MockCluster)(nil).Conn), arg0)
-}
-
 // Members mocks base method.
-func (m *MockCluster) Members() []membership.Member {
+func (m *MockMemberlist) Members() []membership.Member {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Members")
 	ret0, _ := ret[0].([]membership.Member)
@@ -59,13 +44,13 @@ func (m *MockCluster) Members() []membership.Member {
 }
 
 // Members indicates an expected call of Members.
-func (mr *MockClusterMockRecorder) Members() *gomock.Call {
+func (mr *MockMemberlistMockRecorder) Members() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Members", reflect.TypeOf((*MockCluster)(nil).Members))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Members", reflect.TypeOf((*MockMemberlist)(nil).Members))
 }
 
 // Self mocks base method.
-func (m *MockCluster) Self() membership.Member {
+func (m *MockMemberlist) Self() membership.Member {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Self")
 	ret0, _ := ret[0].(membership.Member)
@@ -73,21 +58,45 @@ func (m *MockCluster) Self() membership.Member {
 }
 
 // Self indicates an expected call of Self.
-func (mr *MockClusterMockRecorder) Self() *gomock.Call {
+func (mr *MockMemberlistMockRecorder) Self() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Self", reflect.TypeOf((*MockCluster)(nil).Self))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Self", reflect.TypeOf((*MockMemberlist)(nil).Self))
 }
 
-// SelfConn mocks base method.
-func (m *MockCluster) SelfConn() clust.Conn {
+// MockConnRegistry is a mock of ConnRegistry interface.
+type MockConnRegistry struct {
+	ctrl     *gomock.Controller
+	recorder *MockConnRegistryMockRecorder
+}
+
+// MockConnRegistryMockRecorder is the mock recorder for MockConnRegistry.
+type MockConnRegistryMockRecorder struct {
+	mock *MockConnRegistry
+}
+
+// NewMockConnRegistry creates a new mock instance.
+func NewMockConnRegistry(ctrl *gomock.Controller) *MockConnRegistry {
+	mock := &MockConnRegistry{ctrl: ctrl}
+	mock.recorder = &MockConnRegistryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConnRegistry) EXPECT() *MockConnRegistryMockRecorder {
+	return m.recorder
+}
+
+// Get mocks base method.
+func (m *MockConnRegistry) Get(arg0 membership.NodeID) (clust.Conn, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelfConn")
+	ret := m.ctrl.Call(m, "Get", arg0)
 	ret0, _ := ret[0].(clust.Conn)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// SelfConn indicates an expected call of SelfConn.
-func (mr *MockClusterMockRecorder) SelfConn() *gomock.Call {
+// Get indicates an expected call of Get.
+func (mr *MockConnRegistryMockRecorder) Get(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelfConn", reflect.TypeOf((*MockCluster)(nil).SelfConn))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockConnRegistry)(nil).Get), arg0)
 }

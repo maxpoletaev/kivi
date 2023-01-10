@@ -32,15 +32,15 @@ import (
 var errNotEnoughIndirectNodes = fmt.Errorf("not enough indirect nodes")
 
 type Detector struct {
-	members           memberRegistry
-	connections       connectionRegistry
+	members           Memberlist
+	connections       ConnRegistry
 	logger            log.Logger
 	pingInterval      time.Duration
 	pingTimeout       time.Duration
 	indirectPingNodes int
 }
 
-func New(members memberRegistry, connections connectionRegistry, logger log.Logger, opts ...option) *Detector {
+func New(members Memberlist, connections ConnRegistry, logger log.Logger, opts ...option) *Detector {
 	d := &Detector{
 		logger:            logger,
 		members:           members,

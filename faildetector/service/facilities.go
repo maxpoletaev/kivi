@@ -5,8 +5,12 @@ import (
 	"github.com/maxpoletaev/kv/membership"
 )
 
-type Cluster interface {
-	Conn(id membership.NodeID) (clust.Conn, error)
-	HasMember(id membership.NodeID) bool
+type Memberlist interface {
 	Self() membership.Member
+	Members() []membership.Member
+	SetStatus(id membership.NodeID, status membership.Status) (membership.Status, error)
+}
+
+type ConnRegistry interface {
+	Get(id membership.NodeID) (clust.Conn, error)
 }

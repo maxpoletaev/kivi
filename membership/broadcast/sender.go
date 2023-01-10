@@ -29,7 +29,7 @@ func (p *EventSender) UnregisterReceiver(member *membership.Member) {
 }
 
 func (p *EventSender) Broadcast(event membership.ClusterEvent) error {
-	b, err := protobuf.Marshal(membership.ToProtoEvent(event))
+	b, err := protobuf.Marshal(toProtoEvent(event))
 	if err != nil {
 		return fmt.Errorf("failed to marshal cluster event: %w", err)
 	}

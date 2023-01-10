@@ -14,7 +14,7 @@ import (
 
 func (s *FailDetectorService) Ping(ctx context.Context, req *proto.PingRequest) (*proto.PingResponse, error) {
 	memberID := membership.NodeID(req.MemberId)
-	self := s.cluster.Self()
+	self := s.members.Self()
 
 	if memberID == 0 || memberID == self.ID {
 		// Always report self as healthy.
@@ -29,7 +29,7 @@ func (s *FailDetectorService) Ping(ctx context.Context, req *proto.PingRequest) 
 
 	start := time.Now()
 
-	conn, err := s.cluster.Conn(membership.NodeID(req.MemberId))
+	conn, err := s.connections.Get(membership.NodeID(req.MemberId))
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "failed to connect to member %d: %v", req.MemberId, err)
 	}

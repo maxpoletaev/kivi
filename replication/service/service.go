@@ -55,7 +55,8 @@ func WithConsistencyLevel(read, write consistency.Level) serviceOption {
 type ReplicationService struct {
 	proto.UnimplementedCoordinatorServiceServer
 
-	cluster      Cluster
+	connections  ConnRegistry
+	members      Memberlist
 	logger       kitlog.Logger
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -63,10 +64,16 @@ type ReplicationService struct {
 	writeLevel   consistency.Level
 }
 
-func New(clust Cluster, logger kitlog.Logger, readLevel, writeLevel consistency.Level) *ReplicationService {
+func New(
+	members Memberlist,
+	connections ConnRegistry,
+	logger kitlog.Logger,
+	readLevel, writeLevel consistency.Level,
+) *ReplicationService {
 	return &ReplicationService{
-		cluster:      clust,
 		logger:       logger,
+		members:      members,
+		connections:  connections,
 		readTimeout:  defaultReadTimeout,
 		writeTimeout: defaultWriteTimeout,
 		readLevel:    readLevel,

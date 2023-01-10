@@ -29,7 +29,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		return nil, err
 	}
 
-	members := s.cluster.Members()
+	members := s.members.Members()
 	acksLeft := s.writeLevel.N(len(members))
 
 	if countAlive(members) < acksLeft {
@@ -37,8 +37,13 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 
 	criterr := make(chan error, 1)
-	localMember := s.cluster.Self()
-	localConn := s.cluster.SelfConn()
+	localMember := s.members.Self()
+
+	localConn, err := s.connections.Get(localMember.ID)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "not connected to self: %s", err)
+	}
+
 	putResults := make(chan *nodePutResult, len(members))
 
 	// Initial write goes to the local node which increments the verstion vector.
@@ -71,7 +76,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 			default:
 			}
 
-			conn, err := s.cluster.Conn(replica.ID)
+			conn, err := s.connections.Get(replica.ID)
 			if err != nil {
 				level.Warn(s.logger).Log("msg", "failed to get connection", "name", replica.Name, "err", err)
 				return
