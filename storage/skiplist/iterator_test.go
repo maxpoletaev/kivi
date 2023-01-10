@@ -6,15 +6,18 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIterator(t *testing.T) {
-	node := &listNode[int, bool]{key: 1}
-	node.next[0] = &listNode[int, bool]{key: 2}
-	node.next[0].next[0] = &listNode[int, bool]{key: 3}
-	node.next[0].next[0].next[0] = &listNode[int, bool]{key: 4}
-	node.next[0].next[0].next[0].next[0] = &listNode[int, bool]{key: 5}
-	node.next[0].next[0].next[0].next[0].next[0] = &listNode[int, bool]{key: 5, marked: 1}
+func intPtr(i int) *int {
+	return &i
+}
 
-	intPtr := func(n int) *int { return &n }
+func TestIterator(t *testing.T) {
+	// Generate a list with 5 nodes: 1->2->3->4->5.
+	head := &listNode[int, bool]{key: 1}
+	for node, i := head, 2; i <= 5; i++ {
+		nx := &listNode[int, bool]{key: i}
+		node.storeNext(0, nx)
+		node = nx
+	}
 
 	type test struct {
 		node         *listNode[int, bool]
@@ -26,12 +29,12 @@ func TestIterator(t *testing.T) {
 	tests := map[string]test{
 		"AllValues": {
 			level:        0,
-			node:         node,
+			node:         head,
 			wantSequence: []int{1, 2, 3, 4, 5},
 		},
 		"StopAtKey3": {
 			level:        0,
-			node:         node,
+			node:         head,
 			stopAt:       intPtr(3),
 			wantSequence: []int{1, 2, 3},
 		},

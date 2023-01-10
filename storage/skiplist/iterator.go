@@ -1,14 +1,14 @@
 package skiplist
 
 // Iterator is an iterator over a Skiplist.
-type Iterator[K comparable, V any] struct {
+type Iterator[K any, V any] struct {
 	next    *listNode[K, V]
 	compare Comparator[K]
 	level   int
 	stopAt  *K
 }
 
-func newIterator[K comparable, V any](node *listNode[K, V], level int,
+func newIterator[K any, V any](node *listNode[K, V], level int,
 	comparator Comparator[K], stopAt *K) *Iterator[K, V] {
 
 	return &Iterator[K, V]{

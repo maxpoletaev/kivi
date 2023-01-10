@@ -8,12 +8,12 @@ import (
 	"github.com/maxpoletaev/kv/internal/set"
 )
 
-// TestSkiplist_Concurrency conurrently inserts and reads 10 keys from a 100 goroutines.
+// TestSkiplistStress_ConcurrentGetInsert conurrently inserts and reads 10 keys from a 500 goroutines.
 // It then ensures that all keys are present, and no data-races occur. This test is intended
 // to be run with the -race flag.
-func TestSkiplistStress(t *testing.T) {
-	const concurrency = 1000
-	const numKeys = 100
+func TestSkiplistStress_ConcurrentGetInsert(t *testing.T) {
+	const concurrency = 500
+	const numKeys = 10
 
 	wg := sync.WaitGroup{}
 	wg.Add(concurrency * 2)

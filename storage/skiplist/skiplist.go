@@ -2,6 +2,7 @@ package skiplist
 
 import (
 	"math/rand"
+	"sync"
 	"sync/atomic"
 )
 
@@ -12,19 +13,20 @@ const (
 
 // Comparator is a function that compares two keys.
 // It returns a negative number if a < b, 0 if a == b, and a positive number if a > b.
-type Comparator[K comparable] func(a, b K) int
+type Comparator[K any] func(a, b K) int
 
-// Skiplist is a generic skiplist implementation. It is lock-free and supports
-// mutiple concurrent readers and multiple concurrent writers at the same time.
-type Skiplist[K comparable, V any] struct {
+// Skiplist is a generic skiplist implementation. It is thread safe and supports concurrent reads and writes.
+// It allows to mutiple readers to access the list simultaneously, but only one writer.
+type Skiplist[K any, V any] struct {
 	head        *listNode[K, V]
 	compareKeys Comparator[K]
+	mut         sync.Mutex
 	height      int32
 	size        int32
 }
 
 // New returns a new Skiplist. The comparator is used to compare keys.
-func New[K comparable, V any](comparator Comparator[K]) *Skiplist[K, V] {
+func New[K any, V any](comparator Comparator[K]) *Skiplist[K, V] {
 	head := &listNode[K, V]{}
 
 	return &Skiplist[K, V]{
@@ -37,8 +39,8 @@ func (l *Skiplist[K, V]) loadHeight() int {
 	return int(atomic.LoadInt32(&l.height))
 }
 
-func (l *Skiplist[K, V]) casHeigth(oldHeight, newHeight int) bool {
-	return atomic.CompareAndSwapInt32(&l.height, int32(oldHeight), int32(newHeight))
+func (l *Skiplist[K, V]) storeHeight(newHeight int) {
+	atomic.StoreInt32(&l.height, int32(newHeight))
 }
 
 // Height returns the height of the list.
@@ -51,7 +53,7 @@ func (l *Skiplist[K, V]) Size() int {
 	return int(atomic.LoadInt32(&l.size))
 }
 
-func (l *Skiplist[K, V]) findLess(key K, searchPath *listNodes[K, V]) *listNode[K, V] {
+func (l *Skiplist[K, V]) findLess(key K, searchPath *listNodes[K, V], stopAt int) *listNode[K, V] {
 	height := l.loadHeight()
 	if height == 0 {
 		return nil
@@ -72,7 +74,7 @@ func (l *Skiplist[K, V]) findLess(key K, searchPath *listNodes[K, V]) *listNode[
 			searchPath[level] = node
 		}
 
-		if level == 0 {
+		if level == stopAt {
 			break
 		}
 
@@ -82,100 +84,86 @@ func (l *Skiplist[K, V]) findLess(key K, searchPath *listNodes[K, V]) *listNode[
 	return node
 }
 
-// Insert inserts a new key-value pair into the list. If the key already exists, the value is updated.
+// Insert inserts a new key-value pair into the list.
 func (l *Skiplist[K, V]) Insert(key K, value V) {
-	height := l.Height()
-	newheight := randomHeight()
+	l.mut.Lock()
+	defer l.mut.Unlock()
 
-	if newheight > height {
-		if !l.casHeigth(height, newheight) {
-			newheight = height
+	var searchPath listNodes[K, V]
+	l.findLess(key, &searchPath, 0)
+
+	if searchPath[0] != nil {
+		node := searchPath[0].loadNext(0)
+
+		// If there is already a node with the same key, just update the value.
+		if node != nil && l.compareKeys(key, node.key) == 0 {
+			node.storeValue(value)
+			return
 		}
 	}
 
 	newnode := &listNode[K, V]{key: key}
 	newnode.storeValue(value)
 
-loop:
-	for {
-		var searchPath listNodes[K, V]
+	height := l.Height()
+	newheight := randomHeight()
 
-		l.findLess(key, &searchPath)
-
+	if newheight > height {
 		for level := height; level < newheight; level++ {
 			searchPath[level] = l.head
 		}
 
-		node := searchPath[0].loadNext(0)
+		l.storeHeight(newheight)
+		height = newheight
+	}
 
-		// If the key already exists, just update the value.
-		if node != nil && l.compareKeys(key, node.key) == 0 {
-			node.storeValue(value)
-			return
-		}
+	for level := 0; level < newheight; level++ {
+		next := searchPath[level].loadNext(level)
+		newnode.storeNext(level, next)
+	}
 
-		for level := 0; level < newheight; level++ {
-			next := searchPath[level].loadNext(level)
-			newnode.storeNext(level, next)
-		}
-
-		prev := searchPath[0]
-		next := prev.loadNext(0)
-
-		// Insert to the base level first. If it fails, we need to start over.
-		if !prev.casNext(0, next, newnode) {
-			continue loop
-		}
-
-		// Update the upper levels. Repeat until we succeed.
-		for level := 1; level < newheight; level++ {
-			for {
-				prev := searchPath[level]
-				next := prev.loadNext(level)
-
-				// Update the next pointer if it's still the same as when we
-				// started. Otherwise, search again for the insertion point.
-				if !prev.casNext(level, next, newnode) {
-					l.findLess(key, &searchPath)
-					continue
-				}
-
-				break
-			}
-		}
-
-		break
+	for level := 0; level < newheight; level++ {
+		searchPath[level].storeNext(level, newnode)
 	}
 
 	atomic.AddInt32(&l.size, 1)
 }
 
 // Remove removes the key-value pair with the given key from the list.
-// It returns true if the key was found. Note that the node is not physically
-// removed from the list. Instead, it is marked as deleted and will be removed
-// once loadNext() is called on the previous node, which happens during findLess() call.
+// It returns true if the key was found.
 func (l *Skiplist[K, V]) Remove(key K) bool {
+	l.mut.Lock()
+	defer l.mut.Unlock()
+
 	var searchPath listNodes[K, V]
 
-	l.findLess(key, &searchPath)
+	l.findLess(key, &searchPath, 0)
 
-	prev := searchPath[0]
-	if prev == nil {
+	if searchPath[0] == nil {
 		return false
 	}
 
-	node := prev.loadNext(0)
+	node := searchPath[0].loadNext(0)
 	if node == nil || l.compareKeys(key, node.key) != 0 {
 		return false
 	}
 
-	node.setMarked()
+	for level := 0; level < l.loadHeight(); level++ {
+		prev := searchPath[level]
+		next := prev.loadNext(level)
+
+		// We have reached the highest level where the node is present.
+		if next != node {
+			break
+		}
+
+		// Remove the node from this level by pointing previous node to the next node.
+		prev.storeNext(level, node.loadNext(level))
+	}
 
 	if atomic.AddInt32(&l.size, -1) < 0 {
 		panic("skiplist: negative size")
 	}
-
-	l.findLess(key, nil) // triggers marked node cleanup
 
 	return true
 }
@@ -190,7 +178,7 @@ func (l *Skiplist[K, V]) Scan() *Iterator[K, V] {
 // Note that the list may change while the iterator is in use.
 func (l *Skiplist[K, V]) ScanFrom(key K) *Iterator[K, V] {
 	var node *listNode[K, V]
-	if prev := l.findLess(key, nil); prev != nil {
+	if prev := l.findLess(key, nil, 0); prev != nil {
 		node = prev.loadNext(0)
 	}
 
@@ -201,7 +189,7 @@ func (l *Skiplist[K, V]) ScanFrom(key K) *Iterator[K, V] {
 // Note that the list may change while the iterator is in use.
 func (l *Skiplist[K, V]) ScanRange(start, end K) *Iterator[K, V] {
 	var node *listNode[K, V]
-	if prev := l.findLess(start, nil); prev != nil {
+	if prev := l.findLess(start, nil, 0); prev != nil {
 		node = prev.loadNext(0)
 	}
 
@@ -212,7 +200,7 @@ func (l *Skiplist[K, V]) ScanRange(start, end K) *Iterator[K, V] {
 func (l *Skiplist[K, V]) Contains(key K) bool {
 	var node *listNode[K, V]
 
-	if prev := l.findLess(key, nil); prev != nil {
+	if prev := l.findLess(key, nil, 0); prev != nil {
 		node = prev.loadNext(0)
 	}
 
@@ -227,7 +215,7 @@ func (l *Skiplist[K, V]) Contains(key K) bool {
 func (l *Skiplist[K, V]) Get(key K) (ret V, found bool) {
 	var node *listNode[K, V]
 
-	if prev := l.findLess(key, nil); prev != nil {
+	if prev := l.findLess(key, nil, 0); prev != nil {
 		node = prev.loadNext(0)
 	}
 
@@ -238,9 +226,9 @@ func (l *Skiplist[K, V]) Get(key K) (ret V, found bool) {
 	return node.loadValue(), true
 }
 
-// GetLess returns the value for the key that is less than the given key.
+// LessOrEqual returns the value for the key that is less than the given key.
 func (l *Skiplist[K, V]) LessOrEqual(key K) (retk K, retv V, found bool) {
-	node := l.findLess(key, nil)
+	node := l.findLess(key, nil, 0)
 	if node == nil {
 		return retk, retv, false
 	}

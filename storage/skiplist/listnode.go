@@ -5,41 +5,20 @@ import (
 	"unsafe"
 )
 
-type listNodes[K comparable, V any] [maxHeight]*listNode[K, V]
+type listNodes[K any, V any] [maxHeight]*listNode[K, V]
 
-type listNode[K comparable, V any] struct {
-	key    K
-	value  atomic.Value
-	next   listNodes[K, V]
-	marked int32
-}
-
-func (n *listNode[K, V]) casNext(level int, oldNext, newNext *listNode[K, V]) bool {
-	nextPtr := (*unsafe.Pointer)(unsafe.Pointer(&n.next[level]))
-	return atomic.CompareAndSwapPointer(nextPtr, unsafe.Pointer(oldNext), unsafe.Pointer(newNext))
+type listNode[K any, V any] struct {
+	key   K
+	value atomic.Value
+	next  [maxHeight]unsafe.Pointer
 }
 
 func (n *listNode[K, V]) storeNext(level int, next *listNode[K, V]) {
-	nextPtr := (*unsafe.Pointer)(unsafe.Pointer(&n.next[level]))
-	atomic.StorePointer(nextPtr, unsafe.Pointer(next))
+	atomic.StorePointer(&n.next[level], unsafe.Pointer(next))
 }
 
 func (n *listNode[K, V]) loadNext(level int) *listNode[K, V] {
-	node := n
-
-	for {
-		nextPtr := (*unsafe.Pointer)(unsafe.Pointer(&node.next[level]))
-		next := (*listNode[K, V])(atomic.LoadPointer(nextPtr))
-
-		if next == nil || !next.isMarked() {
-			return next
-		}
-
-		// Since next is marked, try to remove it from the list.
-		node.casNext(level, next, next.loadNext(level))
-
-		node = next
-	}
+	return (*listNode[K, V])(atomic.LoadPointer(&n.next[level]))
 }
 
 func (n *listNode[K, V]) storeValue(value V) {
@@ -52,12 +31,4 @@ func (n *listNode[K, V]) loadValue() (ret V) {
 	}
 
 	return ret
-}
-
-func (n *listNode[K, V]) setMarked() {
-	atomic.StoreInt32(&n.marked, 1)
-}
-
-func (n *listNode[K, V]) isMarked() bool {
-	return atomic.LoadInt32(&n.marked) == 1
 }

@@ -26,7 +26,7 @@ func buildList[K comparable, V any](keys [][]K, keyComparator Comparator[K], def
 	}
 
 	for level := 0; level < len(keys); level++ {
-		tail := head.next[level]
+		tail := head.loadNext(level)
 
 		for _, key := range keys[level] {
 			node := nodes[key]
@@ -35,10 +35,10 @@ func buildList[K comparable, V any](keys [][]K, keyComparator Comparator[K], def
 			}
 
 			if tail == nil {
-				head.next[level] = node
+				head.storeNext(level, node)
 				tail = node
 			} else {
-				tail.next[level] = node
+				tail.storeNext(level, node)
 				tail = node
 			}
 		}
@@ -133,27 +133,27 @@ func TestBuildList(t *testing.T) {
 	assert.Equal(t, 6, list.Size())
 
 	// Ensure sequence on the first level
-	assert.Equal(t, 1, list.head.next[0].key)
-	assert.Equal(t, 2, list.head.next[0].next[0].key)
-	assert.Equal(t, 3, list.head.next[0].next[0].next[0].key)
+	assert.Equal(t, 1, list.head.loadNext(0).key)
+	assert.Equal(t, 2, list.head.loadNext(0).loadNext(0).key)
+	assert.Equal(t, 3, list.head.loadNext(0).loadNext(0).loadNext(0).key)
 
 	// Ensure the sequence is correct on the second level
-	assert.Equal(t, 1, list.head.next[1].key)
-	assert.Equal(t, 3, list.head.next[1].next[1].key)
-	assert.Equal(t, 5, list.head.next[1].next[1].next[1].key)
+	assert.Equal(t, 1, list.head.loadNext(1).key)
+	assert.Equal(t, 3, list.head.loadNext(1).loadNext(1).key)
+	assert.Equal(t, 5, list.head.loadNext(1).loadNext(1).loadNext(1).key)
 
 	// Ensure the sequence is correct on the third level.
-	assert.Equal(t, 1, list.head.next[2].key)
-	assert.Equal(t, 5, list.head.next[2].next[2].key)
+	assert.Equal(t, 1, list.head.loadNext(2).key)
+	assert.Equal(t, 5, list.head.loadNext(2).loadNext(2).key)
 
 	// Ensure thre links are correct between the second and first levels.
-	assert.Equal(t, 2, list.head.next[1].next[0].key)
-	assert.Equal(t, 4, list.head.next[1].next[1].next[0].key)
-	assert.Equal(t, 6, list.head.next[1].next[1].next[1].next[0].key)
+	assert.Equal(t, 2, list.head.loadNext(1).loadNext(0).key)
+	assert.Equal(t, 4, list.head.loadNext(1).loadNext(1).loadNext(0).key)
+	assert.Equal(t, 6, list.head.loadNext(1).loadNext(1).loadNext(1).loadNext(0).key)
 
 	// Ensure thre links are correct between the third and second levels.
-	assert.Equal(t, 3, list.head.next[2].next[1].key)
-	assert.Nil(t, list.head.next[2].next[2].next[1])
+	assert.Equal(t, 3, list.head.loadNext(2).loadNext(1).key)
+	assert.Nil(t, list.head.loadNext(2).loadNext(2).loadNext(1))
 
 	validateInternalState(t, list)
 }
@@ -238,7 +238,7 @@ func TestSkiplist_findLess(t *testing.T) {
 			var searchPath listNodes[int, bool]
 
 			list := buildList(tt.list, IntComparator, false)
-			found := list.findLess(tt.key, &searchPath)
+			found := list.findLess(tt.key, &searchPath, 0)
 
 			if tt.wantNil {
 				require.Nil(t, found, "node found")
@@ -401,8 +401,8 @@ func TestSkiplist_Insert(t *testing.T) {
 			insertValue: "value",
 			wantKeys:    []int{10},
 			assertFunc: func(t *testing.T, l *Skiplist[int, string]) {
-				require.Equal(t, 10, l.head.next[0].key)
-				require.Equal(t, "value", l.head.next[0].loadValue())
+				require.Equal(t, 10, l.head.loadNext(0).key)
+				require.Equal(t, "value", l.head.loadNext(0).loadValue())
 			},
 		},
 		"InsertMultipleSortedValuesIntoEmptyListWithoutRebalancing": {
@@ -571,12 +571,12 @@ func TestSkiplist_Remove(t *testing.T) {
 			}
 
 			actualKeys := make([]int, 0, list.Size())
-
 			for iter := list.Scan(); iter.HasNext(); {
 				key, _ := iter.Next()
 				actualKeys = append(actualKeys, key)
 			}
 
+			assert.Equal(t, len(tt.wantKeys), list.Size())
 			assert.Equal(t, tt.wantKeys, actualKeys)
 		})
 	}

@@ -2,42 +2,16 @@ package skiplist
 
 import (
 	"testing"
+	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestListNode_LoadNext(t *testing.T) {
-	node := &listNode[int, string]{
-		next: listNodes[int, string]{
-			{
-				key:    1,
-				marked: 1,
-				next: listNodes[int, string]{
-					{
-						key:    2,
-						marked: 0,
-						next: listNodes[int, string]{
-							{
-								key:    3,
-								marked: 1,
-								next: listNodes[int, string]{
-									{
-										key:    4,
-										marked: 0,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+	node := &listNode[int, bool]{key: 1}
+	nextNode := &listNode[int, bool]{key: 2}
+	node.next[0] = unsafe.Pointer(nextNode)
 
-	actualKeys := []int{}
-	for node := node.loadNext(0); node != nil; node = node.loadNext(0) {
-		actualKeys = append(actualKeys, node.key)
-	}
-
-	assert.Equal(t, []int{2, 4}, actualKeys)
+	assert.Equal(t, nextNode, node.loadNext(0))
+	assert.Nil(t, nextNode.loadNext(1))
 }
