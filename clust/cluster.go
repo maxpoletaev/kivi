@@ -1,4 +1,4 @@
-package cluster
+package clust
 
 import (
 	"github.com/maxpoletaev/kv/membership"

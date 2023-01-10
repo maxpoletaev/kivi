@@ -14,8 +14,8 @@ import (
 	"github.com/go-kit/log/level"
 	"google.golang.org/grpc"
 
-	clusterpkg "github.com/maxpoletaev/kv/cluster"
-	"github.com/maxpoletaev/kv/cluster/grpcclient"
+	"github.com/maxpoletaev/kv/clust"
+	"github.com/maxpoletaev/kv/clust/grpcclient"
 	"github.com/maxpoletaev/kv/faildetector"
 	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
 	faildetectorsvc "github.com/maxpoletaev/kv/faildetector/service"
@@ -106,8 +106,8 @@ func main() {
 	dialer := grpcclient.NewDialer()
 	eventSender := broadcast.NewSender(gossiper)
 	memberlist := membership.New(localMember, logger, eventSender)
-	connections := clusterpkg.NewConnRegistry(memberlist, dialer)
-	cluster := clusterpkg.New(localMember.ID, memberlist, connections)
+	connections := clust.NewConnRegistry(memberlist, dialer)
+	cluster := clust.New(localMember.ID, memberlist, connections)
 	memberlist.ConsumeEvents(eventReceiver.Chan())
 
 	lsmConfig := lsmtree.DefaultConfig()
@@ -176,7 +176,7 @@ func main() {
 			}
 
 			// At this point the local grpc server should be already listening, so SelfConn works.
-			if err := clusterpkg.JoinClusters(ctx, cluster.SelfConn(), remoteConn); err != nil {
+			if err := clust.JoinClusters(ctx, cluster.SelfConn(), remoteConn); err != nil {
 				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
 				time.Sleep(3 * time.Second)
 				cancel()

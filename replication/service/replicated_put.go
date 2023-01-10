@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/cluster"
+	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/internal/grpcutil"
 	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
@@ -157,7 +157,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}
 }
 
-func put(ctx context.Context, conn cluster.Conn, key string,
+func put(ctx context.Context, conn clust.Conn, key string,
 	value []byte, version string, primary bool) (string, error) {
 
 	req := &storagepb.PutRequest{

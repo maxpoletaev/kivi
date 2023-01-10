@@ -1,4 +1,4 @@
-package cluster
+package clust
 
 //go:generate mockgen -destination=facilities_mock_test.go -package=cluster -source=facilities.go
 

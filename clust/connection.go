@@ -1,4 +1,4 @@
-package cluster
+package clust
 
 //go:generate mockgen -source=client.go -destination=mock/client_mock.go -package=mock
 

@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	cluster "github.com/maxpoletaev/kv/cluster"
+	"github.com/maxpoletaev/kv/clust"
 	membership "github.com/maxpoletaev/kv/membership"
 )
 
@@ -36,10 +36,10 @@ func (m *MockCluster) EXPECT() *MockClusterMockRecorder {
 }
 
 // Conn mocks base method.
-func (m *MockCluster) Conn(arg0 membership.NodeID) (cluster.Conn, error) {
+func (m *MockCluster) Conn(arg0 membership.NodeID) (clust.Conn, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Conn", arg0)
-	ret0, _ := ret[0].(cluster.Conn)
+	ret0, _ := ret[0].(clust.Conn)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -79,10 +79,10 @@ func (mr *MockClusterMockRecorder) Self() *gomock.Call {
 }
 
 // SelfConn mocks base method.
-func (m *MockCluster) SelfConn() cluster.Conn {
+func (m *MockCluster) SelfConn() clust.Conn {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SelfConn")
-	ret0, _ := ret[0].(cluster.Conn)
+	ret0, _ := ret[0].(clust.Conn)
 	return ret0
 }
 

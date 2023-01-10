@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/maxpoletaev/kv/cluster"
+	"github.com/maxpoletaev/kv/clust"
 	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
 	membershippb "github.com/maxpoletaev/kv/membership/proto"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
@@ -23,7 +23,7 @@ func NewDialer() *GrpcDialer {
 
 // DialContext creates a new GRPC connection to the given address. It will block until the
 // connection is established and ready or the context is canceled.
-func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (cluster.Conn, error) {
+func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (clust.Conn, error) {
 	creds := insecure.NewCredentials()
 
 	grpcConn, err := grpc.DialContext(

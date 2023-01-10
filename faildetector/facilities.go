@@ -1,7 +1,7 @@
 package faildetector
 
 import (
-	clusterpkg "github.com/maxpoletaev/kv/cluster"
+	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/membership"
 )
 
@@ -12,5 +12,5 @@ type memberRegistry interface {
 }
 
 type connectionRegistry interface {
-	Get(id membership.NodeID) (clusterpkg.Conn, error)
+	Get(id membership.NodeID) (clust.Conn, error)
 }

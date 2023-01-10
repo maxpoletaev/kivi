@@ -2,7 +2,7 @@
 // Source: facilities.go
 
 // Package cluster is a generated GoMock package.
-package cluster
+package clust
 
 import (
 	context "context"

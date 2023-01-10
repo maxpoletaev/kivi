@@ -11,7 +11,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	clustermock "github.com/maxpoletaev/kv/cluster/mock"
+	clustmock "github.com/maxpoletaev/kv/clust/mock"
 	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
 	"github.com/maxpoletaev/kv/replication/consistency"
@@ -31,7 +31,7 @@ func TestReplicatedPut(t *testing.T) {
 		"OneOfThreeNodesInQuorumFails": {
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
-				conn1 := clustermock.NewMockClient(ctrl)
+				conn1 := clustmock.NewMockClient(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
 					Primary: true,
@@ -43,7 +43,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn2 := clustermock.NewMockClient(ctrl)
+				conn2 := clustmock.NewMockClient(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -54,7 +54,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn3 := clustermock.NewMockClient(ctrl)
+				conn3 := clustmock.NewMockClient(ctrl)
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -87,7 +87,7 @@ func TestReplicatedPut(t *testing.T) {
 		"TwoOfThreeNodesInQuorumFail": {
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, c *MockCluster) {
-				conn1 := clustermock.NewMockClient(ctrl)
+				conn1 := clustmock.NewMockClient(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
 					Primary: true,
@@ -99,7 +99,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn2 := clustermock.NewMockClient(ctrl)
+				conn2 := clustmock.NewMockClient(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -108,7 +108,7 @@ func TestReplicatedPut(t *testing.T) {
 					},
 				}).Return(nil, assert.AnError).MaxTimes(1)
 
-				conn3 := clustermock.NewMockClient(ctrl)
+				conn3 := clustmock.NewMockClient(ctrl)
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -163,7 +163,7 @@ func TestReplicatedPut(t *testing.T) {
 					Status: membership.StatusHealthy,
 				}
 
-				conn := clustermock.NewMockClient(ctrl)
+				conn := clustmock.NewMockClient(ctrl)
 				conn.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil, assert.AnError)
 
 				c.EXPECT().Self().Return(self)

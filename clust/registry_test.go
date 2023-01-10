@@ -1,4 +1,4 @@
-package cluster
+package clust
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kv/cluster/mock"
+	"github.com/maxpoletaev/kv/clust/mock"
 	"github.com/maxpoletaev/kv/membership"
 )
 
