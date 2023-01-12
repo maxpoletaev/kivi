@@ -122,23 +122,15 @@ func (ss *SSTable) Close() error {
 
 // Iterator returns an iterator over the SSTable.
 func (sst *SSTable) Iterator() *Iterator {
-	reader := protoio.NewReader(sst.dataFile)
-
-	next := &proto.DataEntry{}
-	if _, err := reader.ReadNext(next); err != nil {
-		next = nil
-	}
-
 	return &Iterator{
 		reader: protoio.NewReader(sst.dataFile),
-		next:   next,
 	}
 }
 
-// Contains checks the underlying bloom filter to see if the key is in the SSTable.
+// MayContain checks the underlying bloom filter to see if the key is in the SSTable.
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
-func (sst *SSTable) Contains(key string) bool {
+func (sst *SSTable) MayContain(key string) bool {
 	return sst.bloomfilter.Check([]byte(key))
 }
 

@@ -126,6 +126,14 @@ func (lsm *LSMTree) sheduleFlush() error {
 
 			if err := lsm.flushWaiting(); err != nil {
 				level.Error(lsm.logger).Log("msg", "failed to flush memtable", "err", err)
+				return
+			}
+
+			for _, rule := range lsm.conf.CompactionRules {
+				if err := lsm.compactLevel(&rule); err != nil {
+					level.Error(lsm.logger).Log("msg", "failed to compact", "err", err)
+					return
+				}
 			}
 		}()
 	}
@@ -183,6 +191,80 @@ func (lsm *LSMTree) flushWaiting() error {
 			return fmt.Errorf("failed to discard memtable: %w", err)
 		}
 	}
+}
+
+func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
+	lsm.mut.RLock()
+
+	var (
+		selected  []*SSTable
+		levelSize int64
+	)
+
+	for el := lsm.ssTables.Front(); el != nil; el = el.Next() {
+		if el.Value.(*SSTable).Level == rule.Level {
+			selected = append(selected, el.Value.(*SSTable))
+			levelSize += el.Value.(*SSTable).Size
+		}
+	}
+
+	lsm.mut.RUnlock()
+
+	switch {
+	case len(selected) < 2:
+		return nil // Nothing to compact.
+	case rule.MaxSegments == 0 && rule.MaxLevelSize == 0:
+		return nil // Empty/invalid compaction rule.
+	case rule.MaxSegments > 0 && len(selected) < rule.MaxSegments:
+		return nil // Not enough segments to compact.
+	case rule.MaxLevelSize > 0 && levelSize < rule.MaxLevelSize:
+		return nil // Level is not big enough to compact.
+	}
+
+	level.Info(lsm.logger).Log(
+		"msg", "compacting", "level", rule.Level, "num_segments", len(selected))
+
+	sst, err := mergeTables(selected, flushOpts{
+		bloomProb: lsm.conf.BloomFilterProbability,
+		indexGap:  lsm.conf.SparseIndexGapBytes,
+		mmapOpen:  lsm.conf.MmapDataFiles,
+		tableID:   time.Now().UnixMilli(),
+		level:     rule.TargetLevel,
+		prefix:    lsm.dataRoot,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to merge tables: %w", err)
+	}
+
+	lsm.mut.Lock()
+	defer lsm.mut.Unlock()
+
+	oldTableIDs := make([]int64, len(selected))
+	for i, sst := range selected {
+		oldTableIDs[i] = sst.ID
+	}
+
+	if err := lsm.state.TablesMerged(oldTableIDs, sst.SSTableInfo); err != nil {
+		return fmt.Errorf("failed to log segment compacted: %w", err)
+	}
+
+	idsToRemove := make(map[int64]struct{}, len(oldTableIDs))
+	for _, id := range oldTableIDs {
+		idsToRemove[id] = struct{}{}
+	}
+
+	for el := lsm.ssTables.Front(); el != nil; {
+		s := el.Value.(*SSTable)
+		el = el.Next()
+
+		if _, ok := idsToRemove[s.ID]; ok {
+			lsm.ssTables.Remove(el)
+		}
+	}
+
+	lsm.ssTables.PushBack(sst)
+
+	return nil
 }
 
 // Get returns the value for the given key, if it exists. It checks the active memtable first,

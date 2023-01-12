@@ -8,26 +8,23 @@ import (
 )
 
 type Iterator struct {
-	next   *proto.DataEntry
+	Item   *proto.DataEntry
 	reader *protoio.Reader
 }
 
-func (i *Iterator) HasNext() bool {
-	return i.next != nil
-}
+func (i *Iterator) Next() error {
+	entry := &proto.DataEntry{}
 
-func (i *Iterator) Next() (*proto.DataEntry, error) {
-	next := i.next
-
-	msg := &proto.DataEntry{}
-
-	if _, err := i.reader.ReadNext(msg); err != nil {
-		if err != io.EOF {
-			return nil, err
+	if _, err := i.reader.ReadNext(entry); err != nil {
+		if err == io.EOF {
+			i.Item = nil
+			return nil
 		}
 
-		i.next = nil
+		return err
 	}
 
-	return next, nil
+	i.Item = entry
+
+	return nil
 }

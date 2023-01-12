@@ -18,8 +18,9 @@ type flushOpts struct {
 	prefix    string
 	tableID   int64
 	indexGap  int64
-	useMmap   bool
+	mmapOpen  bool
 	bloomProb float64
+	level     int
 }
 
 // flushToDisk writes the contents of the memtable to disk and returns an SSTable
@@ -32,10 +33,11 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 
 	info := &SSTableInfo{
 		ID:         opts.tableID,
+		Level:      opts.level,
 		NumEntries: int64(mem.Len()),
-		IndexFile:  fmt.Sprintf("sst-%d.index", opts.tableID),
-		DataFile:   fmt.Sprintf("sst-%d.data", opts.tableID),
-		BloomFile:  fmt.Sprintf("sst-%d.bloom", opts.tableID),
+		IndexFile:  fmt.Sprintf("sst-%d.L%d.index", opts.tableID, opts.level),
+		DataFile:   fmt.Sprintf("sst-%d.L%d.data", opts.tableID, opts.level),
+		BloomFile:  fmt.Sprintf("sst-%d.L%d.bloom", opts.tableID, opts.level),
 	}
 
 	indexFile := og.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_CREATE|os.O_WRONLY, 0o644)
@@ -98,7 +100,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 
 	// Open the flushed table for reading. This should be done before discarding
 	// the memtable as we want to ensure that the table is readable.
-	sst, err := OpenTable(info, opts.prefix, opts.useMmap)
+	sst, err := OpenTable(info, opts.prefix, opts.mmapOpen)
 	if err != nil {
 		_ = og.RemoveAll() // Cleanup so that we don’t generate garbage in case of error.
 		return nil, fmt.Errorf("failed to open table: %w", err)

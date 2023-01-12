@@ -4,6 +4,17 @@ import (
 	"github.com/go-kit/log"
 )
 
+type CompactionRule struct {
+	// Level is the level of the segment that will be compacted.
+	Level int
+	// TargetLevel is the level where the compacted segment will be placed.
+	TargetLevel int
+	// MaxSegments is the maximum number of segments that can be in the level.
+	MaxSegments int
+	// MaxLevelSize is the maximum size of the level in bytes.
+	MaxLevelSize int64
+}
+
 type Config struct {
 	// Logger is the logger used to log the events inside the LSM-tree,
 	// such as flushing memtables to disk. Defaults to a no-op logger.
@@ -28,14 +39,30 @@ type Config struct {
 	// use mmap in databases, so it is disabled by default. Please check out the following
 	// paper for more details: https://db.cs.cmu.edu/mmap-cidr2022/
 	MmapDataFiles bool
+	// CompactionRules is a list of compaction rules that will be used to determine
+	// when to compact the segments. Defaults to a single rule that compacts the
+	// segments in the level 0 when there are more than 10 of them.
+	CompactionRules []CompactionRule
 }
 
 func DefaultConfig() Config {
 	return Config{
 		Logger:                 log.NewNopLogger(),
-		SparseIndexGapBytes:    64 * 1024, // 64KB
-		MaxMemtableSize:        1024,      // 1KB
+		SparseIndexGapBytes:    64 * 1024,        // 8KB
+		MaxMemtableSize:        16 * 1024 * 1024, // 16MB
 		MmapDataFiles:          false,
 		BloomFilterProbability: 0.01,
+		CompactionRules: []CompactionRule{
+			{
+				Level:       0,
+				TargetLevel: 1,
+				MaxSegments: 10,
+			},
+			{
+				Level:       1,
+				TargetLevel: 1,
+				MaxSegments: 1,
+			},
+		},
 	}
 }

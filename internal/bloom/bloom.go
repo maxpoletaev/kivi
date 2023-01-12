@@ -42,6 +42,14 @@ func New(value []byte, k int) *Filter {
 // Same Performance: Building a Better Bloom Filter" by Adam Kirsch and
 // Michael Mitzenmacher.
 func NewWithProbability(n int, p float64) *Filter {
+	if n <= 0 {
+		panic("bloom: n must be greater than 0")
+	}
+
+	if p <= 0 || p >= 1 {
+		panic("bloom: p must be greater than 0 and less than 1")
+	}
+
 	m := int(-float64(n) * math.Log(p) / (math.Log(2) * math.Log(2)))
 	k := int(float64(m) / float64(n) * math.Log(2))
 	return New(make([]byte, m/8), k)

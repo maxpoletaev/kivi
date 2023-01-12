@@ -11,6 +11,7 @@ import (
 type Writer struct {
 	file   io.Writer
 	offset int64
+	count  int64
 }
 
 func NewWriter(file io.Writer) *Writer {
@@ -55,6 +56,8 @@ func (w *Writer) writeEntry(entry proto.Message) (int, error) {
 
 	atomic.AddInt64(&w.offset, int64(n))
 
+	atomic.AddInt64(&w.count, 1)
+
 	return n, nil
 }
 
@@ -67,10 +70,10 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 	return n, nil
 }
 
-func (w *Writer) Offset() int64 {
-	return atomic.LoadInt64(&w.offset)
+func (w *Writer) Count() int {
+	return int(atomic.LoadInt64(&w.count))
 }
 
-func (w *Writer) SetOffset(offset int64) {
-	atomic.StoreInt64(&w.offset, offset)
+func (w *Writer) Offset() int64 {
+	return atomic.LoadInt64(&w.offset)
 }
