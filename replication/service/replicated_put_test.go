@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	clustmock "github.com/maxpoletaev/kv/clust/mock"
 	"github.com/maxpoletaev/kv/internal/vclock"
 	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kv/nodeclient"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	"github.com/maxpoletaev/kv/replication/proto"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
@@ -31,7 +31,7 @@ func TestReplicatedPut(t *testing.T) {
 		"OneOfThreeNodesInQuorumFails": {
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
-				conn1 := clustmock.NewMockClient(ctrl)
+				conn1 := nodeclient.NewMockConn(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
 					Primary: true,
@@ -43,7 +43,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn2 := clustmock.NewMockClient(ctrl)
+				conn2 := nodeclient.NewMockConn(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -54,7 +54,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn3 := clustmock.NewMockClient(ctrl)
+				conn3 := nodeclient.NewMockConn(ctrl)
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -88,7 +88,7 @@ func TestReplicatedPut(t *testing.T) {
 		"TwoOfThreeNodesInQuorumFail": {
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, conns *MockConnRegistry, ml *MockMemberlist) {
-				conn1 := clustmock.NewMockClient(ctrl)
+				conn1 := nodeclient.NewMockConn(ctrl)
 				conn1.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key:     "key",
 					Primary: true,
@@ -100,7 +100,7 @@ func TestReplicatedPut(t *testing.T) {
 					Version: vclock.NewEncoded(vclock.V{1: 1}),
 				}, nil).MaxTimes(1)
 
-				conn2 := clustmock.NewMockClient(ctrl)
+				conn2 := nodeclient.NewMockConn(ctrl)
 				conn2.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -109,7 +109,7 @@ func TestReplicatedPut(t *testing.T) {
 					},
 				}).Return(nil, assert.AnError).MaxTimes(1)
 
-				conn3 := clustmock.NewMockClient(ctrl)
+				conn3 := nodeclient.NewMockConn(ctrl)
 				conn3.EXPECT().Put(gomock.Any(), &storagepb.PutRequest{
 					Key: "key",
 					Value: &storagepb.VersionedValue{
@@ -165,7 +165,7 @@ func TestReplicatedPut(t *testing.T) {
 					Status: membership.StatusHealthy,
 				}
 
-				conn := clustmock.NewMockClient(ctrl)
+				conn := nodeclient.NewMockConn(ctrl)
 				conn.EXPECT().Put(gomock.Any(), gomock.Any()).Return(nil, assert.AnError)
 
 				ml.EXPECT().Self().Return(self)

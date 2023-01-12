@@ -3,8 +3,8 @@ package service
 //go:generate mockgen -source=facilities.go -destination=facilities_mock_test.go -package=service
 
 import (
-	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kv/nodeclient"
 )
 
 type Memberlist interface {
@@ -13,5 +13,5 @@ type Memberlist interface {
 }
 
 type ConnRegistry interface {
-	Get(membership.NodeID) (clust.Conn, error)
+	Get(membership.NodeID) (nodeclient.Conn, error)
 }

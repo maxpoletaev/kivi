@@ -1,10 +1,8 @@
-package clust
+package nodeclient
 
-//go:generate mockgen -destination=facilities_mock_test.go -package=cluster -source=facilities.go
+//go:generate mockgen -destination=facilities_mock.go -package=clust -source=facilities.go
 
 import (
-	"context"
-
 	"github.com/maxpoletaev/kv/membership"
 )
 
@@ -14,9 +12,4 @@ type MemberRegistry interface {
 	HasMember(membership.NodeID) bool
 	Member(membership.NodeID) (membership.Member, bool)
 	Add(members ...membership.Member) error
-}
-
-// Dialer is used to create new connections to the cluster members.
-type Dialer interface {
-	DialContext(ctx context.Context, addr string) (Conn, error)
 }

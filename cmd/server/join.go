@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kv/nodeclient"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -16,7 +16,7 @@ import (
 // the left cluster, the left cluster will have all of the members of the right cluster
 // in its membership table, but the right cluster will not know about the left cluster.
 // This is a known issue and should be adressed with periodic membership table syncs.
-func joinClusters(ctx context.Context, left, right clust.Conn) error {
+func joinClusters(ctx context.Context, left, right nodeclient.Conn) error {
 	leftResp, err := left.Members(ctx)
 	if err != nil {
 		return err

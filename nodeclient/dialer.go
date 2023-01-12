@@ -1,4 +1,6 @@
-package grpcclient
+package nodeclient
+
+//go:generate mockgen -source=dialer.go -destination=dialer_mock.go -package=clust
 
 import (
 	"context"
@@ -7,23 +9,27 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/maxpoletaev/kv/clust"
 	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
 	membershippb "github.com/maxpoletaev/kv/membership/proto"
 	storagepb "github.com/maxpoletaev/kv/storage/proto"
 )
 
+// Dialer is used to create new connections to the cluster members.
+type Dialer interface {
+	DialContext(ctx context.Context, addr string) (Conn, error)
+}
+
 // GrpcDialer is a factory for creating GRPC connections to cluster members.
 type GrpcDialer struct{}
 
-// NewDialer creates a new GRPCDialer.
-func NewDialer() *GrpcDialer {
+// NewGrpcDialer creates a new GRPCDialer.
+func NewGrpcDialer() *GrpcDialer {
 	return &GrpcDialer{}
 }
 
 // DialContext creates a new GRPC connection to the given address. It will block until the
 // connection is established and ready or the context is canceled.
-func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (clust.Conn, error) {
+func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (Conn, error) {
 	creds := insecure.NewCredentials()
 
 	grpcConn, err := grpc.DialContext(
@@ -40,7 +46,7 @@ func (d *GrpcDialer) DialContext(ctx context.Context, addr string) (clust.Conn, 
 	membershipClient := membershippb.NewMembershipServiceClient(grpcConn)
 	storageClient := storagepb.NewStorageServiceClient(grpcConn)
 
-	c := &GrpcClient{
+	c := &GrpcConn{
 		faildetectorClient: faildetectorClient,
 		membershipClient:   membershipClient,
 		storageClient:      storageClient,

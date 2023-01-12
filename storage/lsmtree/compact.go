@@ -158,7 +158,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 	if bloomData, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bloomfilter.Bytes()),
 		NumHashes: int32(bloomfilter.Hashes()),
-		NumBytes:  int32(bloomfilter.Size()),
+		NumBytes:  int32(bloomfilter.SizeBytes()),
 		Data:      bloomfilter.Bytes(),
 	}); err != nil {
 		return nil, fmt.Errorf("failed to marshal bloom filter: %w", err)

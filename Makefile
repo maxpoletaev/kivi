@@ -17,6 +17,11 @@ test:  ## run go tests
 	@echo "--------- running: $@ ---------"
 	go test -v -race -timeout 30s ./...
 
+.PHONY: bench
+bench:  ## run benchmarks
+	@echo "--------- running: $@ ---------"
+	go test -bench=. -run=^$$ -benchmem ./...
+
 .PHONY: godoc
 godoc:  ## start godoc server at :8000
 	@echo "--------- running: $@ ---------"
@@ -37,7 +42,7 @@ build:  ## build the binaries
 	go build -o bin/server $(GO_MODULE)/cmd/server
 
 .PHONY: image
-image:  ## build the docker image
+image: ## build the docker image
 	@echo "--------- running: $@ ---------"
 	docker build -t kv -t $(IMAGE_NAME) .
 
@@ -51,14 +56,8 @@ proto-gen:  ## generate protobuf/grpc models
 	@echo "--------- running: $@ ---------"
 	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative $(PROTO_FILES)
 
-.PHONY: proto-mock
-proto-mock:  ## generate protobuf mocks
-	@echo "--------- running: $@ ---------"
-	mockgen -package proto -destination=storage/proto/storage_mock.pb.go github.com/maxpoletaev/kv/storage/proto StorageServiceClient,StorageServiceServer
-	mockgen -package proto -destination=replication/proto/replication_mock.pb.go github.com/maxpoletaev/kv/replication/proto CoordinatorServiceClient,CoordinatorServiceServer
-
 .PHONY: proto
-proto: proto-clean proto-gen proto-mock  ## re-generate protobuf files and mocks
+proto: proto-clean proto-gen ## re-generate protobuf models
 
 .PHONY: lint
 lint:  ## run linter

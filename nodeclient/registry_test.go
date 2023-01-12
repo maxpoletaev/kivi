@@ -1,4 +1,4 @@
-package clust
+package nodeclient
 
 import (
 	"context"
@@ -9,13 +9,12 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kv/clust/mock"
 	"github.com/maxpoletaev/kv/membership"
 )
 
 func TestRegistry_GetExisting(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	conn := mock.NewMockClient(ctrl)
+	conn := NewMockConn(ctrl)
 	conn.EXPECT().IsClosed().Return(false).AnyTimes()
 
 	memberRepo := NewMockMemberRegistry(ctrl)
@@ -31,7 +30,7 @@ func TestRegistry_GetExisting(t *testing.T) {
 
 func TestRegistry_GetClosed(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	closedConn := mock.NewMockClient(ctrl)
+	closedConn := NewMockConn(ctrl)
 	closedConn.EXPECT().IsClosed().Return(true).Times(2)
 
 	memberRepo := NewMockMemberRegistry(ctrl)
@@ -40,7 +39,7 @@ func TestRegistry_GetClosed(t *testing.T) {
 	)
 
 	dialer := NewMockDialer(ctrl)
-	conn := mock.NewMockClient(ctrl)
+	conn := NewMockConn(ctrl)
 	dialer.EXPECT().DialContext(gomock.Any(), "192.168.10.1:8000").Return(conn, nil)
 
 	registry := NewConnRegistry(memberRepo, dialer)
@@ -62,7 +61,7 @@ func TestRegistry_GetNew(t *testing.T) {
 	}, true)
 
 	dialer := NewMockDialer(ctrl)
-	conn := mock.NewMockClient(ctrl)
+	conn := NewMockConn(ctrl)
 	dialer.EXPECT().DialContext(gomock.Any(), "192.168.10.1:8000").Return(conn, nil)
 
 	registry := NewConnRegistry(memberRepo, dialer)
@@ -89,7 +88,7 @@ func TestRegistry_GetConcurrent(t *testing.T) {
 		gomock.Any(), "192.168.10.1:8000",
 	).DoAndReturn(func(ctx context.Context, addr string) (Conn, error) {
 		time.Sleep(100 * time.Millisecond) // Simulate network latency.
-		conn := mock.NewMockClient(ctrl)
+		conn := NewMockConn(ctrl)
 		conn.EXPECT().IsClosed().Return(false).AnyTimes()
 		return conn, nil
 	}).Times(1)

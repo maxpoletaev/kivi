@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	clust "github.com/maxpoletaev/kv/clust"
+	clust "github.com/maxpoletaev/kv/nodeclient"
 	membership "github.com/maxpoletaev/kv/membership"
 )
 

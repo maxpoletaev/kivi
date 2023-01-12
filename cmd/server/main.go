@@ -14,8 +14,6 @@ import (
 	"github.com/go-kit/log/level"
 	"google.golang.org/grpc"
 
-	"github.com/maxpoletaev/kv/clust"
-	"github.com/maxpoletaev/kv/clust/grpcclient"
 	"github.com/maxpoletaev/kv/faildetector"
 	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
 	faildetectorsvc "github.com/maxpoletaev/kv/faildetector/service"
@@ -24,6 +22,7 @@ import (
 	"github.com/maxpoletaev/kv/membership/broadcast"
 	membershippb "github.com/maxpoletaev/kv/membership/proto"
 	membershipsvc "github.com/maxpoletaev/kv/membership/service"
+	"github.com/maxpoletaev/kv/nodeclient"
 	"github.com/maxpoletaev/kv/replication/consistency"
 	replicationpb "github.com/maxpoletaev/kv/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kv/replication/service"
@@ -103,10 +102,10 @@ func main() {
 		Version:    1,
 	}
 
-	dialer := grpcclient.NewDialer()
+	dialer := nodeclient.NewGrpcDialer()
 	eventSender := broadcast.NewSender(gossiper)
 	memberlist := membership.New(localMember, logger, eventSender)
-	connections := clust.NewConnRegistry(memberlist, dialer)
+	connections := nodeclient.NewConnRegistry(memberlist, dialer)
 	memberlist.ConsumeEvents(eventReceiver.Chan())
 
 	lsmConfig := lsmtree.DefaultConfig()
@@ -151,7 +150,7 @@ func main() {
 			select {
 			case <-appctx.Done():
 				return
-			case <-time.After(5 * time.Second):
+			case <-time.After(30 * time.Second):
 				connections.CollectGarbage()
 			}
 		}
@@ -186,10 +185,12 @@ func main() {
 			if err := joinClusters(ctx, localConn, remoteConn); err != nil {
 				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
 				time.Sleep(3 * time.Second)
+				_ = remoteConn.Close()
 				cancel()
 				continue
 			}
 
+			_ = remoteConn.Close()
 			cancel()
 			break
 		}

@@ -1,4 +1,4 @@
-package clust
+package nodeclient
 
 import (
 	"context"

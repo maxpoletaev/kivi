@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kv/clust"
 	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kv/nodeclient"
 )
 
 type Memberlist interface {
@@ -12,5 +12,5 @@ type Memberlist interface {
 }
 
 type ConnRegistry interface {
-	Get(id membership.NodeID) (clust.Conn, error)
+	Get(id membership.NodeID) (nodeclient.Conn, error)
 }

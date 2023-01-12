@@ -101,7 +101,7 @@ func (bf *Filter) Bytes() []byte {
 	return value
 }
 
-func (bf *Filter) Size() int {
+func (bf *Filter) SizeBytes() int {
 	return len(bf.value)
 }
 
