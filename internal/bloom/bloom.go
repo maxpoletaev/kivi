@@ -3,8 +3,6 @@ package bloom
 import (
 	"hash"
 	"math"
-
-	"github.com/twmb/murmur3"
 )
 
 // Filter is an implementation of a Bloom filter. It uses k hash functions
@@ -27,7 +25,7 @@ func New(value []byte, k int) *Filter {
 
 	hashers := make([]hash.Hash32, k)
 	for i := 0; i < k; i++ {
-		hashers[i] = murmur3.SeedNew32(uint32(i))
+		hashers[i] = newFnv32(uint32(i) * 0x9e3779b9)
 	}
 
 	return &Filter{
@@ -51,7 +49,9 @@ func NewWithProbability(n int, p float64) *Filter {
 	}
 
 	m := int(-float64(n) * math.Log(p) / (math.Log(2) * math.Log(2)))
+
 	k := int(float64(m) / float64(n) * math.Log(2))
+
 	return New(make([]byte, m/8), k)
 }
 

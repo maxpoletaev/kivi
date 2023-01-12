@@ -6,7 +6,6 @@ require (
 	github.com/go-kit/log v0.2.1
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.0
-	github.com/twmb/murmur3 v1.1.6
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
