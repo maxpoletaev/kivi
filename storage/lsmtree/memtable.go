@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/maxpoletaev/kv/internal/protoio"
+	"github.com/maxpoletaev/kv/internal/skiplist"
 	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
-	"github.com/maxpoletaev/kv/storage/skiplist"
 )
 
 type Memtable struct {

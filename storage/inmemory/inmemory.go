@@ -2,8 +2,8 @@ package inmemory
 
 import (
 	"github.com/maxpoletaev/kv/internal/lockmap"
+	"github.com/maxpoletaev/kv/internal/skiplist"
 	"github.com/maxpoletaev/kv/storage"
-	"github.com/maxpoletaev/kv/storage/skiplist"
 )
 
 type InMemoryEngine struct {

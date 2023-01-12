@@ -13,8 +13,8 @@ import (
 	"github.com/maxpoletaev/kv/internal/bloom"
 	"github.com/maxpoletaev/kv/internal/opengroup"
 	"github.com/maxpoletaev/kv/internal/protoio"
+	"github.com/maxpoletaev/kv/internal/skiplist"
 	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
-	"github.com/maxpoletaev/kv/storage/skiplist"
 )
 
 type readerAtCloser interface {
