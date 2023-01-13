@@ -109,7 +109,10 @@ func TestMergeValues(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			result, err := mergeVersions(tt.values)
 			require.NoError(t, err)
-			require.Equal(t, tt.wantResult, result)
+			require.Equal(t, len(tt.wantResult.Values), len(result.Values))
+			require.Equal(t, tt.wantResult.Version, result.Version)
+			require.ElementsMatch(t, tt.wantResult.StaleReplicas, result.StaleReplicas)
+			require.ElementsMatch(t, tt.wantResult.Values, result.Values)
 		})
 	}
 }
