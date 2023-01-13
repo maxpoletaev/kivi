@@ -8,10 +8,10 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
-	"github.com/maxpoletaev/kv/internal/multierror"
-	membershippb "github.com/maxpoletaev/kv/membership/proto"
-	storagepb "github.com/maxpoletaev/kv/storage/proto"
+	faildetectorpb "github.com/maxpoletaev/kiwi/faildetector/proto"
+	"github.com/maxpoletaev/kiwi/internal/multierror"
+	membershippb "github.com/maxpoletaev/kiwi/membership/proto"
+	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 // Conn is an interface to interact with a remote cluster member.

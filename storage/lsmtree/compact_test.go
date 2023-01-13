@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	protobuf "google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 func tableFromEntries(t *testing.T, dir string, id int64, entries []*proto.DataEntry) *SSTable {

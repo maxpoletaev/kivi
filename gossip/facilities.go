@@ -3,7 +3,7 @@ package gossip
 import (
 	"net/netip"
 
-	"github.com/maxpoletaev/kv/gossip/proto"
+	"github.com/maxpoletaev/kiwi/gossip/proto"
 )
 
 // Transport is the underlying transport protocol used to deliver peer-to-peer

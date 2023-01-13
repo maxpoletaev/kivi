@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	membership "github.com/maxpoletaev/kv/membership"
+	membership "github.com/maxpoletaev/kiwi/membership"
 )
 
 // MockMemberRegistry is a mock of MemberRegistry interface.

@@ -13,7 +13,7 @@ import (
 	"github.com/go-kit/log/level"
 	protobuf "google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kv/gossip/proto"
+	"github.com/maxpoletaev/kiwi/gossip/proto"
 )
 
 const (

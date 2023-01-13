@@ -1,4 +1,4 @@
-module github.com/maxpoletaev/kv
+module github.com/maxpoletaev/kiwi
 
 go 1.18
 

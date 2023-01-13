@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/maxpoletaev/kv/internal/vclock/pb"
+	"github.com/maxpoletaev/kiwi/internal/vclock/pb"
 	"google.golang.org/protobuf/proto"
 )
 

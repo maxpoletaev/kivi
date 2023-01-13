@@ -1,10 +1,10 @@
 package engine
 
 import (
-	"github.com/maxpoletaev/kv/internal/lockmap"
-	"github.com/maxpoletaev/kv/storage"
-	"github.com/maxpoletaev/kv/storage/lsmtree"
-	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kiwi/internal/lockmap"
+	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 type LSMTEngine struct {

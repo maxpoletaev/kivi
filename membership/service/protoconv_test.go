@@ -3,8 +3,8 @@ package service
 import (
 	"testing"
 
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 	"github.com/stretchr/testify/assert"
 )
 

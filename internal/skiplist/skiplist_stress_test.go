@@ -5,7 +5,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/maxpoletaev/kv/internal/set"
+	"github.com/maxpoletaev/kiwi/internal/set"
 )
 
 // TestSkiplistStress_ConcurrentGetInsert conurrently inserts and reads 10 keys from a 500 goroutines.

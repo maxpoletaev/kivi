@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 
-IMAGE_NAME = maxpoletaev/kv
-GO_MODULE = github.com/maxpoletaev/kv
+IMAGE_NAME = maxpoletaev/kiwi
+GO_MODULE = github.com/maxpoletaev/kiwi
 PROTO_FILES = $(shell find . -type f -name '*.proto')
 
 PLATFORM = $(shell uname)
@@ -15,7 +15,7 @@ help:  ## print help (this message)
 .PHONY: test
 test:  ## run go tests
 	@echo "--------- running: $@ ---------"
-	go test -v -race -timeout 30s ./...
+	go test -v -race -timeout=30s -count=1 ./...
 
 .PHONY: bench
 bench:  ## run benchmarks

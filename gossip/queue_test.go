@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kv/gossip/proto"
+	"github.com/maxpoletaev/kiwi/gossip/proto"
 )
 
 func TestQueue(t *testing.T) {

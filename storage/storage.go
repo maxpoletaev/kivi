@@ -5,7 +5,7 @@ package storage
 import (
 	"errors"
 
-	"github.com/maxpoletaev/kv/internal/vclock"
+	"github.com/maxpoletaev/kiwi/internal/vclock"
 )
 
 var (

@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 func TestRegistry_GetExisting(t *testing.T) {

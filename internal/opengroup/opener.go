@@ -3,7 +3,7 @@ package opengroup
 import (
 	"os"
 
-	"github.com/maxpoletaev/kv/internal/multierror"
+	"github.com/maxpoletaev/kiwi/internal/multierror"
 )
 
 type Opener struct {

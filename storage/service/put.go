@@ -8,9 +8,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/internal/vclock"
-	"github.com/maxpoletaev/kv/storage"
-	"github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/internal/vclock"
+	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {

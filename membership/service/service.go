@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 )
 
 type MembershipService struct {

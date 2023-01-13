@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 )
 
 func validateMember(member *proto.Member) error {

@@ -9,9 +9,9 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	proto "github.com/maxpoletaev/kv/faildetector/proto"
-	proto0 "github.com/maxpoletaev/kv/membership/proto"
-	proto1 "github.com/maxpoletaev/kv/storage/proto"
+	proto "github.com/maxpoletaev/kiwi/faildetector/proto"
+	proto0 "github.com/maxpoletaev/kiwi/membership/proto"
+	proto1 "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 // MockConn is a mock of Conn interface.

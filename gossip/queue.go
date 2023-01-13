@@ -4,8 +4,8 @@ import (
 	"math"
 	"sync"
 
-	"github.com/maxpoletaev/kv/gossip/proto"
-	"github.com/maxpoletaev/kv/internal/heap"
+	"github.com/maxpoletaev/kiwi/gossip/proto"
+	"github.com/maxpoletaev/kiwi/internal/heap"
 )
 
 // MessageQueue is a message queue that guarantees delivery order.

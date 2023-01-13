@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kv/internal/vclock"
-	"github.com/maxpoletaev/kv/membership"
-	storagepb "github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/internal/vclock"
+	"github.com/maxpoletaev/kiwi/membership"
+	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 func TestMergeValues(t *testing.T) {

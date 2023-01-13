@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-kit/log"
 
-	"github.com/maxpoletaev/kv/internal/generic"
-	"github.com/maxpoletaev/kv/internal/multierror"
+	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/multierror"
 )
 
 var (

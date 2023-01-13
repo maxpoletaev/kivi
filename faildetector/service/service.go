@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kv/faildetector/proto"
+	"github.com/maxpoletaev/kiwi/faildetector/proto"
 )
 
 type FailDetectorService struct {

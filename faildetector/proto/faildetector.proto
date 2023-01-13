@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package faildetector;
 
-option go_package = "github.com/maxpoletaev/kv/faildetector/proto";
+option go_package = "github.com/maxpoletaev/kiwi/faildetector/proto";
 
 message PingRequest {
     uint32 member_id = 1;

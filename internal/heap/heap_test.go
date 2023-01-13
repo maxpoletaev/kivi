@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/maxpoletaev/kv/internal/heap"
+	"github.com/maxpoletaev/kiwi/internal/heap"
 )
 
 func TestMinHeap(t *testing.T) {

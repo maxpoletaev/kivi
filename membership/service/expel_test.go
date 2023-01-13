@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 
-	"github.com/maxpoletaev/kv/internal/grpcutil"
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/internal/grpcutil"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 )
 
 func TestExpell(t *testing.T) {

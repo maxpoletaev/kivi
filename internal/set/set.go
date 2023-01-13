@@ -1,6 +1,6 @@
 package set
 
-import "github.com/maxpoletaev/kv/internal/generic"
+import "github.com/maxpoletaev/kiwi/internal/generic"
 
 type Set[T comparable] map[T]struct{}
 

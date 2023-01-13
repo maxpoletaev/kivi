@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 )
 
 func (s *MembershipService) Expel(ctx context.Context, req *proto.ExpelRequest) (*emptypb.Empty, error) {

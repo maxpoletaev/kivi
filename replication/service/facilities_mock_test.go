@@ -8,8 +8,8 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	clust "github.com/maxpoletaev/kv/nodeclient"
-	membership "github.com/maxpoletaev/kv/membership"
+	clust "github.com/maxpoletaev/kiwi/nodeclient"
+	membership "github.com/maxpoletaev/kiwi/membership"
 )
 
 // MockMemberlist is a mock of Memberlist interface.

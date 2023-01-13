@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 
-	"github.com/maxpoletaev/kv/membership/proto"
-	"github.com/maxpoletaev/kv/nodeclient"
+	"github.com/maxpoletaev/kiwi/membership/proto"
+	"github.com/maxpoletaev/kiwi/nodeclient"
 	"golang.org/x/sync/errgroup"
 )
 

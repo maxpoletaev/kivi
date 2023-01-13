@@ -4,7 +4,7 @@ package membership;
 
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/maxpoletaev/kv/membership/proto";
+option go_package = "github.com/maxpoletaev/kiwi/membership/proto";
 
 enum Status {
     Healthy = 0;

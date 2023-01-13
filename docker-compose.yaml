@@ -11,7 +11,7 @@ networks:
 
 services:
   replica1:
-    image: maxpoletaev/kv
+    image: maxpoletaev/kiwi
     container_name: replica1
     command: >
       server
@@ -34,7 +34,7 @@ services:
   replica2:
     depends_on:
       - replica1
-    image: maxpoletaev/kv
+    image: maxpoletaev/kiwi
     container_name: replica2
     command: >
       server
@@ -58,7 +58,7 @@ services:
   replica3:
     depends_on:
       - replica2
-    image: maxpoletaev/kv
+    image: maxpoletaev/kiwi
     container_name: replica3
     command: >
       server

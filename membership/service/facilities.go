@@ -2,7 +2,7 @@ package service
 
 //go:generate mockgen -source=facilities.go -destination=facilities_mock.go -package service
 
-import "github.com/maxpoletaev/kv/membership"
+import "github.com/maxpoletaev/kiwi/membership"
 
 type MemberRegistry interface {
 	Members() []membership.Member

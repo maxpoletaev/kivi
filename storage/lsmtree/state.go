@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/maxpoletaev/kv/internal/protoio"
-	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kiwi/internal/protoio"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 type MemtableInfo struct {

@@ -6,7 +6,7 @@ ADD go.mod go.sum ./
 RUN go mod download
 ADD . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build github.com/maxpoletaev/kv/cmd/server
+    go build github.com/maxpoletaev/kiwi/cmd/server
 
 
 FROM alpine:3.16

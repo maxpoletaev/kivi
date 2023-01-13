@@ -6,13 +6,13 @@ import (
 	"sync"
 
 	"github.com/go-kit/log/level"
-	"github.com/maxpoletaev/kv/internal/generic"
-	"github.com/maxpoletaev/kv/internal/grpcutil"
-	"github.com/maxpoletaev/kv/internal/set"
-	"github.com/maxpoletaev/kv/internal/vclock"
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/replication/proto"
-	storagepb "github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/grpcutil"
+	"github.com/maxpoletaev/kiwi/internal/set"
+	"github.com/maxpoletaev/kiwi/internal/vclock"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/replication/proto"
+	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 func (s *ReplicationService) validateGetRequest(req *proto.GetRequest) error {

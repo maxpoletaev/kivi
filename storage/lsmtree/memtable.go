@@ -9,9 +9,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/maxpoletaev/kv/internal/protoio"
-	"github.com/maxpoletaev/kv/internal/skiplist"
-	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kiwi/internal/protoio"
+	"github.com/maxpoletaev/kiwi/internal/skiplist"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 type Memtable struct {

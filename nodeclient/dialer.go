@@ -9,9 +9,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	faildetectorpb "github.com/maxpoletaev/kv/faildetector/proto"
-	membershippb "github.com/maxpoletaev/kv/membership/proto"
-	storagepb "github.com/maxpoletaev/kv/storage/proto"
+	faildetectorpb "github.com/maxpoletaev/kiwi/faildetector/proto"
+	membershippb "github.com/maxpoletaev/kiwi/membership/proto"
+	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 // Dialer is used to create new connections to the cluster members.

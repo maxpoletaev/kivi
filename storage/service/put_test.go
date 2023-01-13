@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
-	"github.com/maxpoletaev/kv/internal/grpcutil"
-	"github.com/maxpoletaev/kv/internal/vclock"
-	"github.com/maxpoletaev/kv/storage"
-	"github.com/maxpoletaev/kv/storage/mock"
-	"github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/internal/grpcutil"
+	"github.com/maxpoletaev/kiwi/internal/vclock"
+	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kiwi/storage/mock"
+	"github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 func TestPut(t *testing.T) {

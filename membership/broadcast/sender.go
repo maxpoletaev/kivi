@@ -5,8 +5,8 @@ import (
 
 	protobuf "google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kv/gossip"
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/gossip"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 type EventSender struct {

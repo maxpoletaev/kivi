@@ -10,11 +10,11 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kv/gossip/proto"
-	"github.com/maxpoletaev/kv/gossip/transport"
-	"github.com/maxpoletaev/kv/internal/bloom"
-	"github.com/maxpoletaev/kv/internal/generic"
-	"github.com/maxpoletaev/kv/internal/rolling"
+	"github.com/maxpoletaev/kiwi/gossip/proto"
+	"github.com/maxpoletaev/kiwi/gossip/transport"
+	"github.com/maxpoletaev/kiwi/internal/bloom"
+	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/rolling"
 )
 
 const (

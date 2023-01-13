@@ -9,10 +9,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/replication/consistency"
-	"github.com/maxpoletaev/kv/replication/proto"
-	storagepb "github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/replication/consistency"
+	"github.com/maxpoletaev/kiwi/replication/proto"
+	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 const (

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "github.com/maxpoletaev/kv/gossip/proto";
+option go_package = "github.com/maxpoletaev/kiwi/gossip/proto";
 
 message GossipMessage {
     uint32 peer_id = 1;

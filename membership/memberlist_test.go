@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/golang/mock/gomock"
-	"github.com/maxpoletaev/kv/internal/multierror"
+	"github.com/maxpoletaev/kiwi/internal/multierror"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

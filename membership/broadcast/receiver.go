@@ -3,8 +3,8 @@ package broadcast
 import (
 	"fmt"
 
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 	protobuf "google.golang.org/protobuf/proto"
 )
 

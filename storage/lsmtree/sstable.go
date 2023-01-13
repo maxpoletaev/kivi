@@ -10,11 +10,11 @@ import (
 	"golang.org/x/exp/mmap"
 	protobuf "google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kv/internal/bloom"
-	"github.com/maxpoletaev/kv/internal/opengroup"
-	"github.com/maxpoletaev/kv/internal/protoio"
-	"github.com/maxpoletaev/kv/internal/skiplist"
-	"github.com/maxpoletaev/kv/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kiwi/internal/bloom"
+	"github.com/maxpoletaev/kiwi/internal/opengroup"
+	"github.com/maxpoletaev/kiwi/internal/protoio"
+	"github.com/maxpoletaev/kiwi/internal/skiplist"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 type readerAtCloser interface {

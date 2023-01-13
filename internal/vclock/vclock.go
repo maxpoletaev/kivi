@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/maxpoletaev/kv/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/generic"
 )
 
 // Causality is a type that represents the causality relationship between two vectors.

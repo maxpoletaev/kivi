@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package lsm;
 
-option go_package = "github.com/maxpoletaev/kv/storage/lsm/proto";
+option go_package = "github.com/maxpoletaev/kiwi/storage/lsm/proto";
 
 message MemtableInfo {
     int64 id = 1;

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/maxpoletaev/kv/internal/generic"
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 type ConnRegistry struct {

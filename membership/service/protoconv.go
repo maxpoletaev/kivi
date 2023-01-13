@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kv/membership"
-	"github.com/maxpoletaev/kv/membership/proto"
+	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/membership/proto"
 )
 
 func toProtoStatus(s membership.Status) proto.Status {

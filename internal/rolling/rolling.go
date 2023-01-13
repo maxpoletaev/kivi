@@ -3,7 +3,7 @@ package rolling
 import (
 	"sync"
 
-	"github.com/maxpoletaev/kv/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/generic"
 )
 
 // Counter is a thread-safe counter that can be incremented infinite number of

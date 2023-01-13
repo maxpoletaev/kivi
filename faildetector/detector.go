@@ -11,9 +11,9 @@ import (
 	"github.com/go-kit/log/level"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/maxpoletaev/kv/faildetector/proto"
-	"github.com/maxpoletaev/kv/internal/generic"
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/faildetector/proto"
+	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 // errNotEnoughIndirectNodes is returned when there are not enough alive intermediate

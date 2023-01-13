@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kv/faildetector/proto"
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/faildetector/proto"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 func (s *FailDetectorService) Ping(ctx context.Context, req *proto.PingRequest) (*proto.PingResponse, error) {

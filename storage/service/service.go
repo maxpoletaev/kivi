@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kv/storage"
-	"github.com/maxpoletaev/kv/storage/proto"
+	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 type StorageService struct {

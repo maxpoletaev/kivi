@@ -3,7 +3,7 @@ package nodeclient
 //go:generate mockgen -destination=facilities_mock.go -package=clust -source=facilities.go
 
 import (
-	"github.com/maxpoletaev/kv/membership"
+	"github.com/maxpoletaev/kiwi/membership"
 )
 
 // MemberRegistry is used to manage the cluster members.

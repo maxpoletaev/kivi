@@ -8,7 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	storage "github.com/maxpoletaev/kv/storage"
+	storage "github.com/maxpoletaev/kiwi/storage"
 )
 
 // MockBackend is a mock of Backend interface.
