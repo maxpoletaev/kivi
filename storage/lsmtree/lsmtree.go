@@ -22,10 +22,11 @@ type LSMTree struct {
 	ssTables   *list.List // *SSTable
 	wg         sync.WaitGroup
 	mut        sync.RWMutex
-	stop       chan struct{}
+	quit       chan struct{}
 	state      *loggedState
 	logger     log.Logger
 	conf       Config
+	dirty      int32
 	inFlush    int32
 }
 
@@ -65,7 +66,7 @@ func Create(conf Config) (*LSMTree, error) {
 	}
 
 	lsm := &LSMTree{
-		stop:       make(chan struct{}),
+		quit:       make(chan struct{}),
 		dataRoot:   conf.DataRoot,
 		flushQueue: flushQueue,
 		ssTables:   sstables,
@@ -81,6 +82,9 @@ func Create(conf Config) (*LSMTree, error) {
 			return nil, err
 		}
 	}
+
+	// Periodically sync the contents of the WAL to disk.
+	lsm.startSyncLoop()
 
 	return lsm, nil
 }
@@ -267,6 +271,43 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	return nil
 }
 
+func (lsm *LSMTree) sync() error {
+	// We usage an atomic here to avoid taking the lock if we don't need to.
+	if !atomic.CompareAndSwapInt32(&lsm.dirty, 1, 0) {
+		return nil
+	}
+
+	lsm.mut.Lock()
+	defer lsm.mut.Unlock()
+
+	if lsm.memtable != nil {
+		if err := lsm.memtable.Sync(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (lsm *LSMTree) startSyncLoop() {
+	lsm.wg.Add(1)
+
+	go func() {
+		defer lsm.wg.Done()
+
+		for {
+			select {
+			case <-lsm.quit:
+				return
+			case <-time.After(1 * time.Second):
+				if err := lsm.sync(); err != nil {
+					level.Error(lsm.logger).Log("msg", "failed to sync memtable", "err", err)
+				}
+			}
+		}
+	}()
+}
+
 // Get returns the value for the given key, if it exists. It checks the active memtable first,
 // then the memtables that are waiting to be flushed, and finally the sstables on disk. Note that
 // the retuned entry is a pointer to the actual entry in the memtable or sstable, so it should not
@@ -316,6 +357,8 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 				return fmt.Errorf("failed to put entry: %w", err)
 			}
 
+			atomic.StoreInt32(&lsm.dirty, 1)
+
 			return nil
 		}
 
@@ -363,7 +406,7 @@ func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
 // all the sstables and the state file. One should ensure that no reads or writes are happening
 // when calling this method.
 func (lsm *LSMTree) Close() error {
-	close(lsm.stop)
+	close(lsm.quit)
 	lsm.wg.Wait()
 
 	lsm.mut.Lock()

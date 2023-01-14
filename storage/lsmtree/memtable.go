@@ -158,3 +158,7 @@ func (mt *Memtable) CloseAndDiscard() error {
 
 	return mt.Discard()
 }
+
+func (mt *Memtable) Sync() error {
+	return mt.walFile.Sync()
+}

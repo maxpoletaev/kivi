@@ -92,7 +92,6 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 
 	for pq.Len() > 0 {
 		item := pq.Pop()
-		iter := iterators[item.tableID]
 
 		if item.entry.Key != lastKey {
 			lastKey = item.entry.Key
@@ -113,7 +112,11 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 
 				lastOffset = offset
 			}
+
+			info.NumEntries++
 		}
+
+		iter := iterators[item.tableID]
 
 		if err = iter.Next(); err != nil {
 			return nil, err
@@ -127,15 +130,13 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 		}
 	}
 
-	info.NumEntries = int64(dataWriter.Count())
-
 	if _, err = dataFile.Seek(0, io.SeekStart); err != nil {
 		return nil, fmt.Errorf("failed to seek to start of data file: %w", err)
 	}
 
 	// The size of the bloom filter is based on the number of entries in the data file.
 	// We did not know the number of entries in advance, so we have to re-read the entire data file.
-	bloomfilter := bloom.NewWithProbability(dataWriter.Count(), opts.bloomProb)
+	bloomfilter := bloom.NewWithProbability(int(info.NumEntries), opts.bloomProb)
 	dataReader := protoio.NewReader(dataFile)
 	entry := &proto.DataEntry{}
 

@@ -70,15 +70,9 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 
 	w.offset += int64(n1 + n2)
 
-	w.count++
-
 	return n1 + n2, nil
 }
 
 func (w *Writer) Offset() int64 {
 	return w.offset
-}
-
-func (w *Writer) Count() int {
-	return w.count
 }
