@@ -4,9 +4,13 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// AdressableReader is an interface for reading protobuf messages from a
-// seekable source.
-type AdressableReader interface {
+const (
+	defaultSeparator = 0xABCD
+	headerSize       = 16
+)
+
+// RandomAccessReadeer is an interface for reading protobuf messages from a seekable source.
+type RandomAccessReadeer interface {
 	ReadAt(entry proto.Message, offset int64) (int, error)
 }
 

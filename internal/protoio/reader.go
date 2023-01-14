@@ -2,37 +2,47 @@ package protoio
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
 
 	"google.golang.org/protobuf/proto"
 )
 
+var ErrDataCorrupted = fmt.Errorf("data corrupted")
+
 type Reader struct {
-	headerBuf [headerSize]byte
 	file      io.ReaderAt
+	entryBuf  []byte
+	headerBuf []byte
+	separator uint16
 	offset    int64
 }
 
 func NewReader(source io.ReaderAt) *Reader {
 	return &Reader{
-		file: source,
+		file:      source,
+		separator: defaultSeparator,
+		entryBuf:  make([]byte, 0),
+		headerBuf: make([]byte, headerSize),
 	}
 }
 
 func (r *Reader) readHeader(h *entryHeader) (int, error) {
-	buf := r.headerBuf[:]
-
-	read, err := r.file.ReadAt(buf, r.offset)
+	read, err := r.file.ReadAt(r.headerBuf, r.offset)
 	if err != nil {
 		return 0, err
 	}
 
-	if read != headerSize {
+	if read != len(r.headerBuf) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	if err := decodeHeader(h, buf); err != nil {
+	if err := decodeHeader(h, r.headerBuf); err != nil {
 		return 0, fmt.Errorf("failed to decode header: %w", err)
+	}
+
+	if h.separator != r.separator {
+		return 0, ErrDataCorrupted
 	}
 
 	r.offset += int64(read)
@@ -41,9 +51,13 @@ func (r *Reader) readHeader(h *entryHeader) (int, error) {
 }
 
 func (r *Reader) readEntry(h entryHeader, entry proto.Message) (int, error) {
-	buf := make([]byte, h.dataSize)
+	if cap(r.entryBuf) < int(h.dataSize) {
+		r.entryBuf = make([]byte, h.dataSize)
+	} else {
+		r.entryBuf = r.entryBuf[:h.dataSize]
+	}
 
-	read, err := r.file.ReadAt(buf, r.offset)
+	read, err := r.file.ReadAt(r.entryBuf, r.offset)
 	if err != nil {
 		return 0, err
 	}
@@ -52,7 +66,11 @@ func (r *Reader) readEntry(h entryHeader, entry proto.Message) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	if err := proto.Unmarshal(buf, entry); err != nil {
+	if h.crc != crc32.ChecksumIEEE(r.entryBuf) {
+		return 0, ErrDataCorrupted
+	}
+
+	if err := proto.Unmarshal(r.entryBuf, entry); err != nil {
 		return 0, err
 	}
 
@@ -64,17 +82,17 @@ func (r *Reader) readEntry(h entryHeader, entry proto.Message) (int, error) {
 func (r *Reader) read(msg proto.Message) (int, error) {
 	var header entryHeader
 
-	headerSize, err := r.readHeader(&header)
+	n1, err := r.readHeader(&header)
 	if err != nil {
 		return 0, err
 	}
 
-	entrySize, err := r.readEntry(header, msg)
+	n2, err := r.readEntry(header, msg)
 	if err != nil {
 		return 0, err
 	}
 
-	read := headerSize + entrySize
+	read := n1 + n2
 
 	return read, nil
 }

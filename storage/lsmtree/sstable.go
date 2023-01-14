@@ -1,6 +1,7 @@
 package lsmtree
 
 import (
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -53,7 +54,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 		var entry proto.IndexEntry
 
 		if _, err := indexReader.ReadNext(&entry); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 
@@ -158,7 +159,7 @@ func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	for len(entry.Key) == 0 || key > entry.Key {
 		read, err := reader.ReadAt(entry, offset)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil, false, nil
 			}
 

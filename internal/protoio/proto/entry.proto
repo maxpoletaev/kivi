@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package protoio;
+
+option go_package = "github.com/maxpoletaev/kiwi/internal/protoio/proto";
+
+message TestEntry {
+    int64 id = 1;
+    string value = 2;
+}

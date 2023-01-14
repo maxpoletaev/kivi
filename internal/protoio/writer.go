@@ -2,16 +2,21 @@ package protoio
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
-	"sync/atomic"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/runtime/protoiface"
 )
 
 type Writer struct {
-	file   io.Writer
-	offset int64
-	count  int64
+	pbopts    *proto.MarshalOptions
+	file      io.Writer
+	separator uint16
+	entryBuf  []byte
+	headerBuf []byte
+	offset    int64
+	count     int
 }
 
 func NewWriter(file io.Writer) *Writer {
@@ -21,59 +26,59 @@ func NewWriter(file io.Writer) *Writer {
 	}
 
 	return &Writer{
-		file:   file,
-		offset: offset,
+		file:      file,
+		offset:    offset,
+		entryBuf:  make([]byte, 0),
+		headerBuf: make([]byte, headerSize),
+		pbopts:    &proto.MarshalOptions{},
+		separator: defaultSeparator,
 	}
 }
 
-func (w *Writer) writeEntry(entry proto.Message) (int, error) {
-	dataBuf, err := proto.Marshal(entry)
+func (w *Writer) Append(entry proto.Message) (int, error) {
+	out, err := w.pbopts.MarshalState(protoiface.MarshalInput{
+		Message: entry.ProtoReflect(),
+		Buf:     w.entryBuf[:0],
+	})
 	if err != nil {
 		return 0, fmt.Errorf("proto marshaling failed: %w", err)
 	}
 
-	header := entryHeader{
-		dataSize:  uint64(len(dataBuf)),
-		separator: entrySeparator,
-	}
+	defer func() {
+		// The orignal buffer could have been resized by the MarshalState call.
+		// We need to update the reference to the buffer to the new one.
+		w.entryBuf = out.Buf
+	}()
 
-	headerBuf := make([]byte, headerSize)
-	if err := encodeHeader(&header, headerBuf); err != nil {
+	if err = encodeHeader(&entryHeader{
+		separator: w.separator,
+		dataSize:  uint64(len(out.Buf)),
+		crc:       crc32.ChecksumIEEE(out.Buf),
+	}, w.headerBuf); err != nil {
 		return 0, err
 	}
 
-	headerN, err := w.file.Write(headerBuf)
-	if err != nil {
-		return 0, fmt.Errorf("failed to write header file: %w", err)
-	}
-
-	dataN, err := w.file.Write(dataBuf)
-	if err != nil {
-		return 0, fmt.Errorf("failed to write into a file file: %w", err)
-	}
-
-	n := headerN + dataN
-
-	atomic.AddInt64(&w.offset, int64(n))
-
-	atomic.AddInt64(&w.count, 1)
-
-	return n, nil
-}
-
-func (w *Writer) Append(entry proto.Message) (int, error) {
-	n, err := w.writeEntry(entry)
+	n1, err := w.file.Write(w.headerBuf)
 	if err != nil {
 		return 0, err
 	}
 
-	return n, nil
-}
+	n2, err := w.file.Write(out.Buf)
+	if err != nil {
+		return 0, err
+	}
 
-func (w *Writer) Count() int {
-	return int(atomic.LoadInt64(&w.count))
+	w.offset += int64(n1 + n2)
+
+	w.count++
+
+	return n1 + n2, nil
 }
 
 func (w *Writer) Offset() int64 {
-	return atomic.LoadInt64(&w.offset)
+	return w.offset
+}
+
+func (w *Writer) Count() int {
+	return w.count
 }

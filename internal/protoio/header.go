@@ -2,46 +2,30 @@ package protoio
 
 import (
 	"encoding/binary"
-	"errors"
-)
-
-const (
-	entrySeparator uint16 = 0xAFAF
-	headerSize     int    = 12
 )
 
 var (
-	errWrongSeparator    = errors.New("separator mismatch")
-	errInvalidHeaderSize = errors.New("invalid header size")
+	byteOrder = binary.LittleEndian
 )
 
 type entryHeader struct {
 	separator uint16
 	dataSize  uint64
+	crc       uint32
 }
 
 func encodeHeader(h *entryHeader, b []byte) error {
-	if len(b) < headerSize {
-		return errInvalidHeaderSize
-	}
-
-	binary.LittleEndian.PutUint16(b[0:2], entrySeparator)
-	binary.LittleEndian.PutUint64(b[2:10], h.dataSize)
+	byteOrder.PutUint16(b[0:2], h.separator)
+	byteOrder.PutUint64(b[2:10], h.dataSize)
+	byteOrder.PutUint32(b[10:14], h.crc)
 
 	return nil
 }
 
 func decodeHeader(h *entryHeader, b []byte) error {
-	if len(b) < headerSize {
-		return errInvalidHeaderSize
-	}
-
-	h.separator = binary.LittleEndian.Uint16(b[0:2])
-	h.dataSize = binary.LittleEndian.Uint64(b[2:10])
-
-	if h.separator != entrySeparator {
-		return errWrongSeparator
-	}
+	h.separator = byteOrder.Uint16(b[0:2])
+	h.dataSize = byteOrder.Uint64(b[2:10])
+	h.crc = byteOrder.Uint32(b[10:14])
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package lsmtree
 
 import (
+	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -140,7 +141,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 
 	for {
 		if _, err = dataReader.ReadNext(entry); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

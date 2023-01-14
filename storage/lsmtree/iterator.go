@@ -1,6 +1,7 @@
 package lsmtree
 
 import (
+	"errors"
 	"io"
 
 	"github.com/maxpoletaev/kiwi/internal/protoio"
@@ -16,7 +17,7 @@ func (i *Iterator) Next() error {
 	entry := &proto.DataEntry{}
 
 	if _, err := i.reader.ReadNext(entry); err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			i.Item = nil
 			return nil
 		}

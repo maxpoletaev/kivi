@@ -1,6 +1,7 @@
 package lsmtree
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -130,7 +131,7 @@ func (sm *loggedState) restore() error {
 
 	for {
 		if _, err := reader.ReadNext(change); err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 
