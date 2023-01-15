@@ -23,6 +23,7 @@ services:
         -gossip-bind-addr=0.0.0.0:4000
         -gossip-public-addr=172.24.2.1:4000
         -data-dir=/data
+        -verbose
     ports:
       - 3001:3000
     networks:
@@ -47,6 +48,7 @@ services:
         -gossip-public-addr=172.24.2.2:4000
         -join-addr=replica1:3000
         -data-dir=/data
+        -verbose
     ports:
       - 3002:3000
     networks:
@@ -71,6 +73,7 @@ services:
         -gossip-public-addr=172.24.2.3:4000
         -join-addr=replica2:3000
         -data-dir=/data
+        -verbose
     ports:
       - 3003:3000
     networks:

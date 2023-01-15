@@ -111,11 +111,10 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 		return nil
 	}
 
-	canceled := false
+	cancelCalled := false
 	cancel := func() {
-		cancelMap()
-
-		canceled = true
+		cancelCalled = true
+		cancelMap() // nolint:wsl
 	}
 
 	for {
@@ -129,7 +128,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 
 			err := reduceFn(cancel, reply.nodeID, reply.reply, reply.err)
 
-			if canceled {
+			if cancelCalled {
 				return err
 			}
 

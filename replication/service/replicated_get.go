@@ -29,18 +29,17 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 	}
 
 	var (
-		gotAcks   = 0
-		members   = s.members.Members()
-		needAcks  = s.readLevel.N(len(members))
-		repairIDs = map[membership.NodeID]struct{}{}
-		ackedIDs  = map[membership.NodeID]struct{}{}
-		allValues = make([]nodeValue, 0)
+		members    = s.members.Members()
+		needAcks   = s.readLevel.N(len(members))
+		staleIDs   = map[membership.NodeID]struct{}{}
+		repliedIDs = map[membership.NodeID]struct{}{}
+		allValues  = make([]nodeValue, 0)
 	)
 
 	err := replication.Opts[[]*storagepb.VersionedValue]{
 		Conns:      s.connections,
 		ReplicaSet: members,
-		AckedIDs:   ackedIDs,
+		AckedIDs:   repliedIDs,
 		MinAcks:    needAcks,
 		Logger:     s.logger,
 		Timeout:    s.readTimeout,
@@ -66,12 +65,13 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			values []*storagepb.VersionedValue,
 			err error,
 		) error {
-			for i := range values {
-				allValues = append(allValues, nodeValue{nodeID, values[i]})
+			if len(values) == 0 {
+				staleIDs[nodeID] = struct{}{}
+				return nil
 			}
 
-			if len(values) == 0 {
-				repairIDs[nodeID] = struct{}{}
+			for i := range values {
+				allValues = append(allValues, nodeValue{nodeID, values[i]})
 			}
 
 			return nil
@@ -87,21 +87,21 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 	}
 
 	for _, id := range merged.StaleReplicas {
-		repairIDs[id] = struct{}{}
+		staleIDs[id] = struct{}{}
 	}
 
-	if len(repairIDs) > 0 && len(merged.Values) == 0 {
+	if len(staleIDs) > 0 && len(merged.Values) <= 1 {
 		level.Debug(s.logger).Log(
 			"msg", "repairing stale replicas",
 			"key", req.Key,
 			"stale_replicas", fmt.Sprintf("%v", merged.StaleReplicas),
-			"repair_replicas", fmt.Sprintf("%v", generic.MapKeys(repairIDs)),
+			"repair_replicas", fmt.Sprintf("%v", generic.MapKeys(staleIDs)),
 		)
 
 		var toRepair []membership.Member
 
 		for _, member := range members {
-			if _, ok := repairIDs[member.ID]; ok {
+			if _, ok := staleIDs[member.ID]; ok {
 				toRepair = append(toRepair, member)
 			}
 		}
@@ -112,11 +112,11 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		}
 
 		err := replication.Opts[int]{
-			MinAcks:    needAcks - gotAcks,
+			MinAcks:    len(toRepair),
 			ReplicaSet: toRepair,
 			Conns:      s.connections,
+			Timeout:    s.writeTimeout,
 			Logger:     s.logger,
-			Background: true,
 		}.MapReduce(
 			ctx,
 			func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[int]) {
