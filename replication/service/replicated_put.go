@@ -33,17 +33,19 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		needAcks  = s.writeLevel.N(len(members))
 	)
 
+	// Do not attempt to write if we know in advance that thre is not enough alive nodes.
 	if countAlive(members) < needAcks {
 		return nil, errNotEnoughReplicas
 	}
 
-	version, err := put(
-		ctx, localConn, req.Key, req.Value.Data, req.Version, true)
+	// The first write goes to the coordinator, which is the local node. The coordinator
+	// is responsible for generating the version number, which is then send to the other nodes.
+	version, err := putValue(ctx, localConn, req.Key, req.Value.Data, req.Version, true)
 	if err != nil {
 		return nil, err
 	}
 
-	// We already received an ack from ourselves.
+	// We already received an ack from the local node, so skip in the map-reduce operation.
 	ackedIDs := make(map[membership.NodeID]struct{})
 	ackedIDs[s.members.SelfID()] = struct{}{}
 
@@ -54,10 +56,11 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		Conns:      s.connections,
 		Logger:     s.logger,
 		Timeout:    s.writeTimeout,
+		Background: true,
 	}.MapReduce(
 		ctx,
 		func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[string]) {
-			version, err := put(ctx, conn, req.Key, req.Value.Data, version, false)
+			version, err := putValue(ctx, conn, req.Key, req.Value.Data, version, false)
 			if err != nil {
 				reply.Error(err)
 				return
@@ -66,6 +69,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 			reply.Ok(version)
 		},
 		func(cancel func(), nodeID membership.NodeID, version string, err error) error {
+			// Cancel the whole write if one of the replicas already has a newer value.
 			if grpcutil.ErrorCode(err) == codes.AlreadyExists {
 				cancel()
 			}
@@ -73,8 +77,13 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 			return nil
 		},
 	)
+
 	if err != nil {
-		if errors.Is(err, replication.ErrLevelNotSatisfied) {
+		// If we did not receive enough acks, return a special error that will be
+		// converted to a Unavailable response. This is done to distinguish between
+		// a write that failed because of a network partition and a write that failed
+		// because of a write quorum not being satisfied.
+		if errors.Is(err, replication.ErrNotEnoughAcks) {
 			return nil, errLevelNotSatisfied
 		}
 
@@ -86,9 +95,14 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	}, nil
 }
 
-func put(ctx context.Context, conn nodeclient.Conn, key string,
-	value []byte, version string, primary bool) (string, error) {
-
+func putValue(
+	ctx context.Context,
+	conn nodeclient.Conn,
+	key string,
+	value []byte,
+	version string,
+	primary bool,
+) (string, error) {
 	req := &storagepb.PutRequest{
 		Key:     key,
 		Primary: primary,

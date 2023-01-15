@@ -126,8 +126,6 @@ func (t *UDPTransport) ReadFrom(msg *proto.GossipMessage) error {
 			continue
 		}
 
-		retryDelay = retryInitialDelay
-
 		break
 	}
 

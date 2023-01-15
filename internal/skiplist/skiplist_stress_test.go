@@ -4,28 +4,28 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
-
-	"github.com/maxpoletaev/kiwi/internal/set"
 )
 
 // TestSkiplistStress_ConcurrentGetInsert conurrently inserts and reads 10 keys from a 500 goroutines.
 // It then ensures that all keys are present, and no data-races occur. This test is intended
 // to be run with the -race flag.
 func TestSkiplistStress_ConcurrentGetInsert(t *testing.T) {
-	const concurrency = 500
-	const numKeys = 10
+	const (
+		concurrency = 500
+		numKeys     = 10
+	)
 
 	wg := sync.WaitGroup{}
 	wg.Add(concurrency * 2)
 
 	run := make(chan bool)
-	usedKeys := set.New[int]()
+	usedKeys := map[int]struct{}{}
 	list := New[int, bool](IntComparator)
 
 	// Simulate concurrent reads and writes.
 	for i := 0; i < concurrency; i++ {
 		key := rand.Intn(numKeys) + 1
-		usedKeys.Add(key)
+		usedKeys[key] = struct{}{}
 
 		go func() {
 			<-run
@@ -46,7 +46,7 @@ func TestSkiplistStress_ConcurrentGetInsert(t *testing.T) {
 	validateInternalState(t, list)
 
 	// Ensure all keys are present.
-	for _, key := range usedKeys.Values() {
+	for key := range usedKeys {
 		if _, ok := list.Get(key); !ok {
 			t.Errorf("key %d not found", key)
 		}

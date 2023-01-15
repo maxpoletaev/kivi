@@ -79,8 +79,9 @@ func validateInternalState[K comparable, V any](t *testing.T, list *Skiplist[K, 
 
 	for i := 1; i < len(listDump); i++ {
 		if len(listDump[i]) > len(listDump[i-1]) {
-			t.Errorf("level %d has more keys than level %d", i, i-1)
 			hasErrors = true
+
+			t.Errorf("level %d has more keys than level %d", i, i-1)
 		}
 	}
 
@@ -93,16 +94,18 @@ func validateInternalState[K comparable, V any](t *testing.T, list *Skiplist[K, 
 		// Ensure no duplicate keys on each level.
 		for key, count := range keyCount {
 			if count > 1 {
-				t.Errorf("duplicate key %v at level %d (repeats %d times)", key, level, count)
 				hasErrors = true
+
+				t.Errorf("duplicate key %v at level %d (repeats %d times)", key, level, count)
 			}
 		}
 
 		// Ensure keys are in the right order on each level.
 		for i := 1; i < len(nodes); i++ {
 			if list.compareKeys(nodes[i].key, nodes[i-1].key) < 0 {
-				t.Errorf("wrong key order at level %d: %v < %v", level, nodes[i].key, nodes[i-1].key)
 				hasErrors = true
+
+				t.Errorf("wrong key order at level %d: %v < %v", level, nodes[i].key, nodes[i-1].key)
 			}
 		}
 	}
@@ -560,7 +563,6 @@ func TestSkiplist_Remove(t *testing.T) {
 	}
 
 	for name, tt := range tests {
-
 		t.Run(name, func(t *testing.T) {
 			list := New[int, string](IntComparator)
 

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kiwi/internal/generic"
 	"github.com/maxpoletaev/kiwi/internal/multierror"
@@ -40,7 +41,9 @@ func New(self Member, logger log.Logger, eb EventSender) *Memberlist {
 func (c *Memberlist) ConsumeEvents(ch <-chan ClusterEvent) {
 	go func() {
 		for event := range ch {
-			c.handleEvent(event)
+			if err := c.handleEvent(event); err != nil {
+				level.Error(c.logger).Log("msg", "failed to handle event", "err", err)
+			}
 		}
 	}()
 }
@@ -93,9 +96,9 @@ func (c *Memberlist) Add(members ...Member) error {
 	defer c.mut.Unlock()
 
 	errs := multierror.New[NodeID]()
+	newMembers := make([]Member, 0)
 
 	// Filter out the ones that we already know about.
-	newMembers := make([]Member, 0)
 	for _, n := range members {
 		if _, found := c.members[n.ID]; !found {
 			newMembers = append(newMembers, n)

@@ -16,6 +16,7 @@ func tableFromEntries(t *testing.T, dir string, id int64, entries []*proto.DataE
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	defer memt.Discard()
 
 	for _, entry := range entries {

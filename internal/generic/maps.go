@@ -2,6 +2,7 @@ package generic
 
 func MapKeys[K comparable, V any](maps ...map[K]V) []K {
 	uniqueKeys := make(map[K]struct{})
+
 	for _, m := range maps {
 		for k := range m {
 			uniqueKeys[k] = struct{}{}

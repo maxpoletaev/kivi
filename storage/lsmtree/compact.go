@@ -58,6 +58,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 	dataFile := og.Open(filepath.Join(opts.prefix, info.DataFile), os.O_RDWR|os.O_CREATE, 0o644)
 	indexFile := og.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_WRONLY|os.O_CREATE, 0o644)
 	bloomFile := og.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_WRONLY|os.O_CREATE, 0o644)
+
 	if err := og.Err(); err != nil {
 		return nil, err
 	}

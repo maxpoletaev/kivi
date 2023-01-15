@@ -96,6 +96,7 @@ func TestMerge(t *testing.T) {
 func TestMerge_WithRollover(t *testing.T) {
 	a := New(V{1: math.MaxUint32, 2: 1})
 	b := New(V{1: math.MaxUint32, 2: 2})
+
 	a.Update(1)
 	a.Update(1)
 

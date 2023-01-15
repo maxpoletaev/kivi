@@ -11,8 +11,9 @@ func intPtr(i int) *int {
 }
 
 func TestIterator(t *testing.T) {
-	// Generate a list with 5 nodes: 1->2->3->4->5.
 	head := &listNode[int, bool]{key: 1}
+
+	// Generate a list with 5 nodes: 1->2->3->4->5.
 	for node, i := head, 2; i <= 5; i++ {
 		nx := &listNode[int, bool]{key: i}
 		node.storeNext(0, nx)
@@ -59,5 +60,4 @@ func TestIterator(t *testing.T) {
 			assert.Equal(t, tt.wantSequence, sequence)
 		})
 	}
-
 }

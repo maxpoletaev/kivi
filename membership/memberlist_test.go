@@ -39,13 +39,13 @@ func TestMemberlist_AddFails_BroadcastError(t *testing.T) {
 	pub := NewMockEventSender(ctrl)
 	ml := New(Member{}, log.NewNopLogger(), pub)
 
-	member := Member{ID: 1, Name: "node1"}
-
 	pub.EXPECT().Broadcast(&MemberJoined{ID: 1, Name: "node1"}).Return(assert.AnError)
+
+	member := Member{ID: 1, Name: "node1"}
 	err := ml.Add(member)
 	require.NotNil(t, err)
 
-	var em *multierror.Error[NodeID]
+	em := multierror.New[NodeID]()
 	require.ErrorAs(t, err, &em)
 	require.Equal(t, 1, em.Len())
 
@@ -60,13 +60,14 @@ func TestMemberlist_AddFails_RegisterError(t *testing.T) {
 	ml := New(Member{}, log.NewNopLogger(), ep)
 
 	member := Member{ID: 1, Name: "node1"}
+
 	ep.EXPECT().Broadcast(&MemberJoined{ID: 1, Name: "node1"}).Return(nil)
 	ep.EXPECT().RegisterReceiver(&member).Return(assert.AnError)
 
 	err := ml.Add(member)
 	require.NotNil(t, err)
 
-	var em *multierror.Error[NodeID]
+	em := multierror.New[NodeID]()
 	require.ErrorAs(t, err, &em)
 	require.Equal(t, 1, em.Len())
 

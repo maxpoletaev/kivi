@@ -55,7 +55,9 @@ func (s *LSMTEngine) Put(key string, value storage.Value) error {
 		Values: toProtoValues(values),
 	}
 
-	s.lsm.Put(entry)
+	if err := s.lsm.Put(entry); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -67,10 +67,12 @@ func (a *App) Shutdown() {
 }
 
 func main() {
-	appctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	appctx, cancel := signal.NotifyContext(
+		context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stderr))
 	args := parseCliArgs()
-	defer cancel()
 
 	if !args.verbose {
 		logger = level.NewFilter(logger, level.AllowInfo())
@@ -124,25 +126,31 @@ func main() {
 	grpcServer := grpc.NewServer()
 	storageService := storagesvc.New(storage, uint32(args.nodeID))
 	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
+
 	membershipService := membershipsvc.NewMembershipService(memberlist)
 	membershippb.RegisterMembershipServiceServer(grpcServer, membershipService)
+
 	replicationService := replicationsvc.New(memberlist, connections, logger, consistency.Quorum, consistency.Quorum)
 	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
+
 	faildetectorService := faildetectorsvc.New(memberlist, connections)
 	faildetectorpb.RegisterFailDetectorServiceServer(grpcServer, faildetectorService)
 
 	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 	detector := faildetector.New(memberlist, connections, logger, faildetector.WithIndirectPingNodes(1))
 
+	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
+
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		detector.RunLoop(appctx)
 	}()
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 
@@ -157,12 +165,14 @@ func main() {
 	}()
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 
 		for len(args.joinAddr) > 0 {
-			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
 			ctx, cancel := context.WithTimeout(appctx, 10*time.Second)
+
+			level.Info(logger).Log("msg", "attempting to join the cluster", "addr", args.joinAddr)
 
 			// At this point the local grpc server should be already listening.
 			localConn, err := connections.Get(localMember.ID)
@@ -170,6 +180,7 @@ func main() {
 				level.Error(logger).Log("msg", "failed to connect to self", "err", err)
 				time.Sleep(3 * time.Second)
 				cancel()
+
 				continue
 			}
 
@@ -179,27 +190,33 @@ func main() {
 				level.Error(logger).Log("msg", "failed to dial remote node", "err", err)
 				time.Sleep(3 * time.Second)
 				cancel()
+
 				continue
 			}
 
 			if err := joinClusters(ctx, localConn, remoteConn); err != nil {
 				level.Error(logger).Log("msg", "failed to join cluster", "err", err)
 				time.Sleep(3 * time.Second)
-				_ = remoteConn.Close()
+				remoteConn.Close()
 				cancel()
+
 				continue
 			}
 
-			_ = remoteConn.Close()
+			remoteConn.Close()
 			cancel()
+
 			break
 		}
 	}()
 
 	wg.Add(1)
+
 	go func() {
 		<-interrupt
+
 		defer wg.Done()
+
 		level.Info(logger).Log("msg", "shutting down the server")
 
 		// Leave the cluster before shutting down the server.

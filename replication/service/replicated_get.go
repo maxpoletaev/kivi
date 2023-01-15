@@ -33,12 +33,14 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		members   = s.members.Members()
 		needAcks  = s.readLevel.N(len(members))
 		repairIDs = map[membership.NodeID]struct{}{}
+		ackedIDs  = map[membership.NodeID]struct{}{}
 		allValues = make([]nodeValue, 0)
 	)
 
 	err := replication.Opts[[]*storagepb.VersionedValue]{
 		Conns:      s.connections,
 		ReplicaSet: members,
+		AckedIDs:   ackedIDs,
 		MinAcks:    needAcks,
 		Logger:     s.logger,
 		Timeout:    s.readTimeout,
@@ -64,21 +66,12 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			values []*storagepb.VersionedValue,
 			err error,
 		) error {
-			if err != nil {
-				return nil
-			}
-
 			for i := range values {
 				allValues = append(allValues, nodeValue{nodeID, values[i]})
 			}
 
 			if len(values) == 0 {
 				repairIDs[nodeID] = struct{}{}
-			}
-
-			// Got enough acks, cancel the rest of the requests.
-			if gotAcks++; gotAcks >= needAcks {
-				cancel()
 			}
 
 			return nil
@@ -106,6 +99,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		)
 
 		var toRepair []membership.Member
+
 		for _, member := range members {
 			if _, ok := repairIDs[member.ID]; ok {
 				toRepair = append(toRepair, member)
@@ -122,6 +116,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			ReplicaSet: toRepair,
 			Conns:      s.connections,
 			Logger:     s.logger,
+			Background: true,
 		}.MapReduce(
 			ctx,
 			func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[int]) {
@@ -132,7 +127,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 					}
 				}
 
-				if _, err := put(ctx, conn, req.Key, data, merged.Version, false); err != nil {
+				if _, err := putValue(ctx, conn, req.Key, data, merged.Version, false); err != nil {
 					reply.Error(err)
 					return
 				}
@@ -172,14 +167,16 @@ func mergeVersions(values []nodeValue) (mergeResult, error) {
 
 	// Keep decoded version for each value.
 	for i, v := range values {
-		var ver *vclock.Vector
-		var err error
+		var (
+			version *vclock.Vector
+			err     error
+		)
 
-		if ver, err = vclock.Decode(v.Version); err != nil {
+		if version, err = vclock.Decode(v.Version); err != nil {
 			return mergeResult{}, fmt.Errorf("invalid version: %w", err)
 		}
 
-		valueVersion[i] = ver
+		valueVersion[i] = version
 	}
 
 	// Merge all versions into one.

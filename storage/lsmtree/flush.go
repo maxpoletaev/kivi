@@ -27,9 +27,16 @@ type flushOpts struct {
 // that can be used to read the data. The memtable must be closed before calling
 // this function to guarantee that it is not modified while the flush. The parameters
 // of the bloom filter are calculated based on the number of entries in the memtable.
-func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
+func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 	og := opengroup.New()
-	defer og.CloseAll()
+
+	defer func() {
+		og.CloseAll()
+
+		if err != nil {
+			og.RemoveAll()
+		}
+	}()
 
 	info := &SSTableInfo{
 		ID:         opts.tableID,
@@ -43,7 +50,8 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 	indexFile := og.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_CREATE|os.O_WRONLY, 0o644)
 	bloomFile := og.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_CREATE|os.O_WRONLY, 0o644)
 	dataFile := og.Open(filepath.Join(opts.prefix, info.DataFile), os.O_CREATE|os.O_WRONLY, 0o644)
-	if err := og.Err(); err != nil {
+
+	if err = og.Err(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 
@@ -51,7 +59,10 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 	indexWriter := protoio.NewWriter(indexFile)
 	dataWriter := protoio.NewWriter(dataFile)
 
-	var lastOffset int64
+	var (
+		bloomBytes []byte
+		lastOffset int64
+	)
 
 	for it := mem.entries.Scan(); it.HasNext(); {
 		key, entry := it.Next()
@@ -60,7 +71,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 
 		offset := dataWriter.Offset()
 
-		if _, err := dataWriter.Append(entry); err != nil {
+		if _, err = dataWriter.Append(entry); err != nil {
 			return nil, fmt.Errorf("failed to write entry: %w", err)
 		}
 
@@ -68,11 +79,11 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 		// the current offset and the last offset is larger than the threshold.
 		if lastOffset == 0 || offset-lastOffset >= opts.indexGap {
 			indexEntry := &proto.IndexEntry{
-				DataOffset: int64(offset),
+				DataOffset: offset,
 				Key:        key,
 			}
 
-			if _, err := indexWriter.Append(indexEntry); err != nil {
+			if _, err = indexWriter.Append(indexEntry); err != nil {
 				return nil, fmt.Errorf("failed to write index entry: %w", err)
 			}
 
@@ -80,17 +91,18 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 		}
 	}
 
-	bloomData, err := protobuf.Marshal(&proto.BloomFilter{
+	bloomBytes, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bf.Bytes()),
-		NumHashes: int32(bf.Hashes()),
 		NumBytes:  int32(bf.SizeBytes()),
+		NumHashes: int32(bf.Hashes()),
 		Data:      bf.Bytes(),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal bloom filter: %w", err)
 	}
 
-	if _, err := bloomFile.Write(bloomData); err != nil {
+	if _, err = bloomFile.Write(bloomBytes); err != nil {
 		return nil, fmt.Errorf("failed to write bloom filter: %w", err)
 	}
 
@@ -100,9 +112,8 @@ func flushToDisk(mem *Memtable, opts flushOpts) (*SSTable, error) {
 
 	// Open the flushed table for reading. This should be done before discarding
 	// the memtable as we want to ensure that the table is readable.
-	sst, err := OpenTable(info, opts.prefix, opts.mmapOpen)
+	sst, err = OpenTable(info, opts.prefix, opts.mmapOpen)
 	if err != nil {
-		_ = og.RemoveAll() // Cleanup so that we don’t generate garbage in case of error.
 		return nil, fmt.Errorf("failed to open table: %w", err)
 	}
 

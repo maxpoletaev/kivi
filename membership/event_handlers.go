@@ -34,13 +34,13 @@ func (c *Memberlist) handleMemberJoined(event *MemberJoined) error {
 	return nil
 }
 
-func (c *Memberlist) handleMemberLeft(event *MemberLeft) error {
+func (c *Memberlist) handleMemberLeft(event *MemberLeft) (err error) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
 	member, ok := c.members[event.ID]
 	if !ok {
-		return nil
+		return
 	}
 
 	// Node is expeled from the cluster by another node.
@@ -54,27 +54,26 @@ func (c *Memberlist) handleMemberLeft(event *MemberLeft) error {
 		// Reset the list of members to only contain the local node.
 		c.members = make(map[NodeID]Member, 1)
 		c.members[member.ID] = member
-		return nil
 	}
 
 	delete(c.members, event.ID)
 	c.eventBus.UnregisterReceiver(&member)
 	level.Debug(c.logger).Log("msg", "member left", "name", member.Name)
 
-	return nil
+	return
 }
 
-func (c *Memberlist) handleMemberUpdated(event *MemberUpdated) error {
+func (c *Memberlist) handleMemberUpdated(event *MemberUpdated) (err error) {
 	c.mut.Lock()
 	defer c.mut.Unlock()
 
 	member, ok := c.members[event.ID]
 	if !ok {
-		return nil
+		return
 	}
 
 	if member.Version > event.Version {
-		return nil
+		return
 	}
 
 	oldStatus := member.Status

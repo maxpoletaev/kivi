@@ -25,7 +25,6 @@ func TestInc(t *testing.T) {
 
 	require.Equal(t, uint8(0), counter.Value())
 	require.True(t, counter.Rollover())
-
 }
 
 func TestLess(t *testing.T) {

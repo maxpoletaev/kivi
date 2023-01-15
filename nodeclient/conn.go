@@ -47,6 +47,7 @@ func (c *GrpcConn) Close() error {
 	}
 
 	errs := multierror.New[int]()
+
 	for idx, f := range c.onClose {
 		if err := f(); err != nil {
 			errs.Add(idx, err)

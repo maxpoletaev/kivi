@@ -14,8 +14,7 @@ import (
 )
 
 var (
-	ErrLevelNotSatisfied = errors.New("consistency level not satisfied")
-	ErrNotEnoughReplicas = errors.New("not enough replicas")
+	ErrNotEnoughAcks = errors.New("consistency level not satisfied")
 )
 
 type NodeReply[T any] struct {
@@ -39,6 +38,7 @@ type Opts[T any] struct {
 	Timeout    time.Duration
 	ReplicaSet []membership.Member
 	AckedIDs   map[membership.NodeID]struct{}
+	Background bool
 }
 
 type MapFn[T any] func(context.Context, membership.NodeID, nodeclient.Conn, *NodeReply[T])
@@ -89,9 +89,11 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 			mapFn(mapCtx, nodeID, conn, reply)
 
 			if reply.err != nil {
-				loglevel.Warn(
-					kitlog.With(o.Logger, "node_id", nodeID),
-				).Log("msg", "failed to replicate", "err", reply.err)
+				if !errors.Is(reply.err, context.Canceled) {
+					loglevel.Warn(
+						kitlog.With(o.Logger, "node_id", nodeID),
+					).Log("msg", "failed to replicate", "err", reply.err)
+				}
 			}
 
 			replies <- reply
@@ -111,8 +113,9 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 
 	canceled := false
 	cancel := func() {
-		canceled = true
 		cancelMap()
+
+		canceled = true
 	}
 
 	for {
@@ -121,7 +124,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 			return ctx.Err()
 		case reply, ok := <-replies:
 			if !ok {
-				return ErrLevelNotSatisfied
+				return ErrNotEnoughAcks
 			}
 
 			err := reduceFn(cancel, reply.nodeID, reply.reply, reply.err)
@@ -139,6 +142,10 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 				o.AckedIDs[reply.nodeID] = struct{}{}
 
 				if len(o.AckedIDs) == o.MinAcks {
+					if !o.Background {
+						cancelMap()
+					}
+
 					return nil
 				}
 			}

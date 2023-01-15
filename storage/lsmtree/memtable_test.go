@@ -16,6 +16,7 @@ func TestCreateMemtable(t *testing.T) {
 
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
+
 	defer memt.CloseAndDiscard()
 
 	require.Equal(t, 0, memt.Len())
@@ -28,6 +29,7 @@ func TestOpenMemtable(t *testing.T) {
 	walFile, err := os.OpenFile(
 		filepath.Join(tempDir, "1.wal"), os.O_CREATE|os.O_WRONLY, 0o644)
 	require.NoError(t, err)
+
 	defer walFile.Close()
 
 	writer := protoio.NewWriter(walFile)
@@ -46,6 +48,7 @@ func TestOpenMemtable(t *testing.T) {
 		WALFile: "1.wal",
 	}, tempDir)
 	require.NoError(t, err)
+
 	defer memt.CloseAndDiscard()
 
 	got, ok := memt.Get("key")
@@ -62,6 +65,7 @@ func TestMemtable_GetAfterPut(t *testing.T) {
 
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
+
 	defer memt.CloseAndDiscard()
 
 	memt.Put(&proto.DataEntry{
@@ -88,6 +92,7 @@ func TestMemtable_PutRecordedInWAL(t *testing.T) {
 
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
+
 	defer memt.CloseAndDiscard()
 
 	memt.Put(&proto.DataEntry{

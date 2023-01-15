@@ -185,7 +185,7 @@ func (d *Detector) directProbe(member *membership.Member) (bool, error) {
 
 	resp, err := conn.PingDirect(ctx)
 	if err != nil {
-		return false, nil
+		return false, nil // nolint:nilerr
 	}
 
 	return resp.Alive, nil

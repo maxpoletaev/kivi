@@ -125,7 +125,7 @@ func (r *ConnRegistry) connect(id membership.NodeID) (Conn, error) {
 		// Check if the connection has been added manually while we were dialing.
 		// If so, discard the connection we just created and use the existing one.
 		if old, ok := r.connections[id]; ok && !old.IsClosed() {
-			_ = conn.Close()
+			conn.Close()
 			return old, nil
 		}
 
@@ -143,7 +143,7 @@ func (r *ConnRegistry) CollectGarbage() {
 
 	for id, conn := range r.connections {
 		if !r.members.HasMember(id) {
-			_ = conn.Close()
+			conn.Close()
 		}
 
 		// Remove all closed connections. They may have been closed manually.
@@ -190,7 +190,7 @@ func (r *ConnRegistry) Add(id membership.NodeID, conn Conn) {
 	defer r.mut.Unlock()
 
 	if old, ok := r.connections[id]; ok {
-		_ = old.Close()
+		old.Close()
 	}
 
 	r.connections[id] = conn

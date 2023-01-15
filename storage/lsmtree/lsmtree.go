@@ -376,7 +376,8 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 
 			if err := lsm.state.MemtableCreated(memt.MemtableInfo); err != nil {
 				lsm.mut.Unlock()
-				_ = memt.CloseAndDiscard()
+				memt.CloseAndDiscard()
+
 				return fmt.Errorf("failed to log segment created: %w", err)
 			}
 

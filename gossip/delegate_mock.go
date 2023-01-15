@@ -20,6 +20,7 @@ func (d *MockDelegate) GetReceived() [][]byte {
 	d.mut.Lock()
 	received := d.received
 	d.mut.Unlock()
+
 	return received
 }
 
@@ -35,5 +36,6 @@ func (d *MockDelegate) GetDelivered() [][]byte {
 	d.mut.Lock()
 	delivered := d.delivered
 	d.mut.Unlock()
+
 	return delivered
 }

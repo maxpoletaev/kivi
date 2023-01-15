@@ -37,9 +37,7 @@ func (r *Reader) readHeader(h *entryHeader) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 
-	if err := decodeHeader(h, r.headerBuf); err != nil {
-		return 0, fmt.Errorf("failed to decode header: %w", err)
-	}
+	decodeHeader(h, r.headerBuf)
 
 	if h.separator != r.separator {
 		return 0, ErrDataCorrupted

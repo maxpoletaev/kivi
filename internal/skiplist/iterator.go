@@ -8,9 +8,9 @@ type Iterator[K any, V any] struct {
 	stopAt  *K
 }
 
-func newIterator[K any, V any](node *listNode[K, V], level int,
-	comparator Comparator[K], stopAt *K) *Iterator[K, V] {
-
+func newIterator[K any, V any](
+	node *listNode[K, V], level int, comparator Comparator[K], stopAt *K,
+) *Iterator[K, V] {
 	return &Iterator[K, V]{
 		next:    node,
 		level:   level,

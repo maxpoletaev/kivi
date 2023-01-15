@@ -175,12 +175,16 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 }
 
 func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
-	var lastErr error
-	var seenBy *bloom.Filter
-	var sentCount, failedCount int
+	var (
+		seenBy      *bloom.Filter
+		lastErr     error
+		sentCount   int
+		failedCount int
+	)
 
 	knownPeers := g.getPeers()
 	peerIDs := generic.MapKeys(knownPeers)
+
 	generic.Shuffle(peerIDs)
 
 	if len(msg.SeenBy) > 0 {

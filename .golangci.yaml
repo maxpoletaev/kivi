@@ -1,13 +1,20 @@
+run:
+  tests: false
+
 linters:
+  disable-all: true
   enable:
-    - errcheck
+    - typecheck
+    - staticcheck
     - gofmt
     - unparam
     - prealloc
-    - gosec
     - nilerr
-    - errcheck
     - gosimple
+    - unconvert
+    - staticcheck
+    - goconst
+    - unused
     - wsl
 
 issues:

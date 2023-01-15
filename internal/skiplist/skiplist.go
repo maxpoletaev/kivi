@@ -90,6 +90,7 @@ func (l *Skiplist[K, V]) Insert(key K, value V) {
 	defer l.mut.Unlock()
 
 	var searchPath listNodes[K, V]
+
 	l.findLess(key, &searchPath, 0)
 
 	if searchPath[0] != nil {
@@ -114,7 +115,6 @@ func (l *Skiplist[K, V]) Insert(key K, value V) {
 		}
 
 		l.storeHeight(newheight)
-		height = newheight
 	}
 
 	for level := 0; level < newheight; level++ {

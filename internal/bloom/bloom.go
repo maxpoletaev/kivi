@@ -98,6 +98,7 @@ func (bf *Filter) Check(data []byte) bool {
 func (bf *Filter) Bytes() []byte {
 	value := make([]byte, len(bf.value))
 	copy(value, bf.value)
+
 	return value
 }
 

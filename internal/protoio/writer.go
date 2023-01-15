@@ -16,7 +16,6 @@ type Writer struct {
 	entryBuf  []byte
 	headerBuf []byte
 	offset    int64
-	count     int
 }
 
 func NewWriter(file io.Writer) *Writer {
@@ -50,13 +49,11 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 		w.entryBuf = out.Buf
 	}()
 
-	if err = encodeHeader(&entryHeader{
+	encodeHeader(&entryHeader{
 		separator: w.separator,
 		dataSize:  uint64(len(out.Buf)),
 		crc:       crc32.ChecksumIEEE(out.Buf),
-	}, w.headerBuf); err != nil {
-		return 0, err
-	}
+	}, w.headerBuf)
 
 	n1, err := w.file.Write(w.headerBuf)
 	if err != nil {

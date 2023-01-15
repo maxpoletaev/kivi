@@ -65,8 +65,7 @@ func (s *MembershipService) Join(ctx context.Context, req *proto.JoinRequest) (*
 		).Err()
 	}
 
-	localMembers := toProtoMembers(s.memberlist.Members())
 	return &proto.JoinResponse{
-		Members: localMembers,
+		Members: toProtoMembers(s.memberlist.Members()),
 	}, nil
 }

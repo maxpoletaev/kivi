@@ -27,20 +27,6 @@ var (
 	errMissingKey        = status.Error(codes.InvalidArgument, "key is required")
 )
 
-type nodePutResult struct {
-	nodeID  membership.NodeID
-	version string
-}
-
-type nodeGetResult struct {
-	nodeID membership.NodeID
-	values []*storagepb.VersionedValue
-}
-
-type nodeDeleteResult struct {
-	nodeID membership.NodeID
-}
-
 type nodeValue struct {
 	NodeID membership.NodeID
 	*storagepb.VersionedValue

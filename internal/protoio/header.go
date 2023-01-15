@@ -14,18 +14,14 @@ type entryHeader struct {
 	crc       uint32
 }
 
-func encodeHeader(h *entryHeader, b []byte) error {
+func encodeHeader(h *entryHeader, b []byte) {
 	byteOrder.PutUint16(b[0:2], h.separator)
 	byteOrder.PutUint64(b[2:10], h.dataSize)
 	byteOrder.PutUint32(b[10:14], h.crc)
-
-	return nil
 }
 
-func decodeHeader(h *entryHeader, b []byte) error {
+func decodeHeader(h *entryHeader, b []byte) {
 	h.separator = byteOrder.Uint16(b[0:2])
 	h.dataSize = byteOrder.Uint64(b[2:10])
 	h.crc = byteOrder.Uint32(b[10:14])
-
-	return nil
 }
