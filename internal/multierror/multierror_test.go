@@ -16,7 +16,7 @@ func TestMultiError_Error(t *testing.T) {
 
 func TestMultiError_ToError(t *testing.T) {
 	m := New[string]()
-	assert.Nil(t, m.Ret())
+	assert.Nil(t, m.Combined())
 	m.Add("1", errors.New("error"))
-	assert.NotNil(t, m.Ret())
+	assert.NotNil(t, m.Combined())
 }

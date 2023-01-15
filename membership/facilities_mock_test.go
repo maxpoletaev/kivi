@@ -10,31 +10,31 @@ import (
 	gomock "github.com/golang/mock/gomock"
 )
 
-// MockEventPub is a mock of EventPub interface.
-type MockEventPub struct {
+// MockEventSender is a mock of EventSender interface.
+type MockEventSender struct {
 	ctrl     *gomock.Controller
-	recorder *MockEventPubMockRecorder
+	recorder *MockEventSenderMockRecorder
 }
 
-// MockEventPubMockRecorder is the mock recorder for MockEventPub.
-type MockEventPubMockRecorder struct {
-	mock *MockEventPub
+// MockEventSenderMockRecorder is the mock recorder for MockEventSender.
+type MockEventSenderMockRecorder struct {
+	mock *MockEventSender
 }
 
-// NewMockEventPub creates a new mock instance.
-func NewMockEventPub(ctrl *gomock.Controller) *MockEventPub {
-	mock := &MockEventPub{ctrl: ctrl}
-	mock.recorder = &MockEventPubMockRecorder{mock}
+// NewMockEventSender creates a new mock instance.
+func NewMockEventSender(ctrl *gomock.Controller) *MockEventSender {
+	mock := &MockEventSender{ctrl: ctrl}
+	mock.recorder = &MockEventSenderMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockEventPub) EXPECT() *MockEventPubMockRecorder {
+func (m *MockEventSender) EXPECT() *MockEventSenderMockRecorder {
 	return m.recorder
 }
 
 // Broadcast mocks base method.
-func (m *MockEventPub) Broadcast(arg0 ClusterEvent) error {
+func (m *MockEventSender) Broadcast(arg0 ClusterEvent) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Broadcast", arg0)
 	ret0, _ := ret[0].(error)
@@ -42,13 +42,13 @@ func (m *MockEventPub) Broadcast(arg0 ClusterEvent) error {
 }
 
 // Broadcast indicates an expected call of Broadcast.
-func (mr *MockEventPubMockRecorder) Broadcast(arg0 interface{}) *gomock.Call {
+func (mr *MockEventSenderMockRecorder) Broadcast(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockEventPub)(nil).Broadcast), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Broadcast", reflect.TypeOf((*MockEventSender)(nil).Broadcast), arg0)
 }
 
 // RegisterReceiver mocks base method.
-func (m *MockEventPub) RegisterReceiver(arg0 *Member) error {
+func (m *MockEventSender) RegisterReceiver(arg0 *Member) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RegisterReceiver", arg0)
 	ret0, _ := ret[0].(error)
@@ -56,19 +56,19 @@ func (m *MockEventPub) RegisterReceiver(arg0 *Member) error {
 }
 
 // RegisterReceiver indicates an expected call of RegisterReceiver.
-func (mr *MockEventPubMockRecorder) RegisterReceiver(arg0 interface{}) *gomock.Call {
+func (mr *MockEventSenderMockRecorder) RegisterReceiver(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterReceiver", reflect.TypeOf((*MockEventPub)(nil).RegisterReceiver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterReceiver", reflect.TypeOf((*MockEventSender)(nil).RegisterReceiver), arg0)
 }
 
 // UnregisterReceiver mocks base method.
-func (m *MockEventPub) UnregisterReceiver(arg0 *Member) {
+func (m *MockEventSender) UnregisterReceiver(arg0 *Member) {
 	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "UnregisterReceiver", arg0)
 }
 
 // UnregisterReceiver indicates an expected call of UnregisterReceiver.
-func (mr *MockEventPubMockRecorder) UnregisterReceiver(arg0 interface{}) *gomock.Call {
+func (mr *MockEventSenderMockRecorder) UnregisterReceiver(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnregisterReceiver", reflect.TypeOf((*MockEventPub)(nil).UnregisterReceiver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnregisterReceiver", reflect.TypeOf((*MockEventSender)(nil).UnregisterReceiver), arg0)
 }

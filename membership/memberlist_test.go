@@ -12,7 +12,7 @@ import (
 
 func TestMemberlist_Add(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	pub := NewMockEventPub(ctrl)
+	pub := NewMockEventSender(ctrl)
 
 	member1 := Member{ID: 1, Name: "node1"}
 	member2 := Member{ID: 2, Name: "node2"}
@@ -36,7 +36,7 @@ func TestMemberlist_Add(t *testing.T) {
 
 func TestMemberlist_AddFails_BroadcastError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	pub := NewMockEventPub(ctrl)
+	pub := NewMockEventSender(ctrl)
 	ml := New(Member{}, log.NewNopLogger(), pub)
 
 	member := Member{ID: 1, Name: "node1"}
@@ -56,7 +56,7 @@ func TestMemberlist_AddFails_BroadcastError(t *testing.T) {
 
 func TestMemberlist_AddFails_RegisterError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 	ml := New(Member{}, log.NewNopLogger(), ep)
 
 	member := Member{ID: 1, Name: "node1"}
@@ -78,7 +78,7 @@ func TestMemberlist_AddFails_RegisterError(t *testing.T) {
 func TestMemberlist_Leave(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 	ep.EXPECT().Broadcast(&MemberLeft{ID: 1, SourceID: 1}).Return(nil)
 	ep.EXPECT().UnregisterReceiver(&Member{ID: 2})
 
@@ -93,7 +93,7 @@ func TestMemberlist_Leave(t *testing.T) {
 func TestMemberlist_LeaveFails_BroadcastError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 	ep.EXPECT().Broadcast(&MemberLeft{ID: 1, SourceID: 1}).Return(assert.AnError)
 
 	ml := New(Member{ID: 1}, log.NewNopLogger(), ep)
@@ -104,7 +104,7 @@ func TestMemberlist_LeaveFails_BroadcastError(t *testing.T) {
 
 func TestMemberlist_SetStatus(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 
 	ep.EXPECT().Broadcast(&MemberUpdated{
 		ID:       2,
@@ -127,7 +127,7 @@ func TestMemberlist_SetStatus(t *testing.T) {
 
 func TestMemberlist_SetStatus_NotChanged(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 
 	ml := New(Member{ID: 1}, log.NewNopLogger(), ep)
 	ml.members[2] = Member{ID: 2, Status: StatusFaulty, Version: 1}
@@ -143,7 +143,7 @@ func TestMemberlist_SetStatus_NotChanged(t *testing.T) {
 
 func TestMemberlist_SetStatusFails_MemberNotFound(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 
 	ml := New(Member{ID: 1}, log.NewNopLogger(), ep)
 	_, err := ml.SetStatus(2, StatusFaulty)

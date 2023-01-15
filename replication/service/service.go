@@ -1,7 +1,5 @@
 package service
 
-//go:generate moq -stub -out service_mock.go . cluster
-
 import (
 	"time"
 
@@ -10,6 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/consistency"
 	"github.com/maxpoletaev/kiwi/replication/proto"
 	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
@@ -29,13 +28,17 @@ var (
 )
 
 type nodePutResult struct {
-	NodeID  membership.NodeID
-	Version string
+	nodeID  membership.NodeID
+	version string
 }
 
 type nodeGetResult struct {
-	NodeID membership.NodeID
-	Values []*storagepb.VersionedValue
+	nodeID membership.NodeID
+	values []*storagepb.VersionedValue
+}
+
+type nodeDeleteResult struct {
+	nodeID membership.NodeID
 }
 
 type nodeValue struct {
@@ -55,7 +58,7 @@ func WithConsistencyLevel(read, write consistency.Level) serviceOption {
 type ReplicationService struct {
 	proto.UnimplementedCoordinatorServiceServer
 
-	connections  ConnRegistry
+	connections  replication.ConnRegistry
 	members      Memberlist
 	logger       kitlog.Logger
 	readTimeout  time.Duration
@@ -66,7 +69,7 @@ type ReplicationService struct {
 
 func New(
 	members Memberlist,
-	connections ConnRegistry,
+	connections replication.ConnRegistry,
 	logger kitlog.Logger,
 	readLevel, writeLevel consistency.Level,
 ) *ReplicationService {

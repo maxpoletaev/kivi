@@ -1,6 +1,6 @@
 package nodeclient
 
-//go:generate mockgen -source=conn.go -destination=conn_mock.go -package=clust
+//go:generate mockgen -source=conn.go -destination=conn_mock.go -package=nodeclient
 
 import (
 	"context"
@@ -53,7 +53,7 @@ func (c *GrpcConn) Close() error {
 		}
 	}
 
-	return errs.Ret()
+	return errs.Combined()
 }
 
 // IsClosed returns true if the connection is closed.

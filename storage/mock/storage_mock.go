@@ -11,31 +11,31 @@ import (
 	storage "github.com/maxpoletaev/kiwi/storage"
 )
 
-// MockBackend is a mock of Backend interface.
-type MockBackend struct {
+// MockEngine is a mock of Engine interface.
+type MockEngine struct {
 	ctrl     *gomock.Controller
-	recorder *MockBackendMockRecorder
+	recorder *MockEngineMockRecorder
 }
 
-// MockBackendMockRecorder is the mock recorder for MockBackend.
-type MockBackendMockRecorder struct {
-	mock *MockBackend
+// MockEngineMockRecorder is the mock recorder for MockEngine.
+type MockEngineMockRecorder struct {
+	mock *MockEngine
 }
 
-// NewMockBackend creates a new mock instance.
-func NewMockBackend(ctrl *gomock.Controller) *MockBackend {
-	mock := &MockBackend{ctrl: ctrl}
-	mock.recorder = &MockBackendMockRecorder{mock}
+// NewMockEngine creates a new mock instance.
+func NewMockEngine(ctrl *gomock.Controller) *MockEngine {
+	mock := &MockEngine{ctrl: ctrl}
+	mock.recorder = &MockEngineMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockBackend) EXPECT() *MockBackendMockRecorder {
+func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 	return m.recorder
 }
 
 // Get mocks base method.
-func (m *MockBackend) Get(key string) ([]storage.Value, error) {
+func (m *MockEngine) Get(key string) ([]storage.Value, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Get", key)
 	ret0, _ := ret[0].([]storage.Value)
@@ -44,13 +44,13 @@ func (m *MockBackend) Get(key string) ([]storage.Value, error) {
 }
 
 // Get indicates an expected call of Get.
-func (mr *MockBackendMockRecorder) Get(key interface{}) *gomock.Call {
+func (mr *MockEngineMockRecorder) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockBackend)(nil).Get), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockEngine)(nil).Get), key)
 }
 
 // Put mocks base method.
-func (m *MockBackend) Put(key string, value storage.Value) error {
+func (m *MockEngine) Put(key string, value storage.Value) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Put", key, value)
 	ret0, _ := ret[0].(error)
@@ -58,9 +58,88 @@ func (m *MockBackend) Put(key string, value storage.Value) error {
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockBackendMockRecorder) Put(key, value interface{}) *gomock.Call {
+func (mr *MockEngineMockRecorder) Put(key, value interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockBackend)(nil).Put), key, value)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockEngine)(nil).Put), key, value)
+}
+
+// MockScannable is a mock of Scannable interface.
+type MockScannable struct {
+	ctrl     *gomock.Controller
+	recorder *MockScannableMockRecorder
+}
+
+// MockScannableMockRecorder is the mock recorder for MockScannable.
+type MockScannableMockRecorder struct {
+	mock *MockScannable
+}
+
+// NewMockScannable creates a new mock instance.
+func NewMockScannable(ctrl *gomock.Controller) *MockScannable {
+	mock := &MockScannable{ctrl: ctrl}
+	mock.recorder = &MockScannableMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockScannable) EXPECT() *MockScannableMockRecorder {
+	return m.recorder
+}
+
+// Scan mocks base method.
+func (m *MockScannable) Scan() storage.ScanIterator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Scan")
+	ret0, _ := ret[0].(storage.ScanIterator)
+	return ret0
+}
+
+// Scan indicates an expected call of Scan.
+func (mr *MockScannableMockRecorder) Scan() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scan", reflect.TypeOf((*MockScannable)(nil).Scan))
+}
+
+// ScanFrom mocks base method.
+func (m *MockScannable) ScanFrom(key string) storage.ScanIterator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ScanFrom", key)
+	ret0, _ := ret[0].(storage.ScanIterator)
+	return ret0
+}
+
+// ScanFrom indicates an expected call of ScanFrom.
+func (mr *MockScannableMockRecorder) ScanFrom(key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanFrom", reflect.TypeOf((*MockScannable)(nil).ScanFrom), key)
+}
+
+// ScanRange mocks base method.
+func (m *MockScannable) ScanRange(from, to string) storage.ScanIterator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ScanRange", from, to)
+	ret0, _ := ret[0].(storage.ScanIterator)
+	return ret0
+}
+
+// ScanRange indicates an expected call of ScanRange.
+func (mr *MockScannableMockRecorder) ScanRange(from, to interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanRange", reflect.TypeOf((*MockScannable)(nil).ScanRange), from, to)
+}
+
+// ScanTo mocks base method.
+func (m *MockScannable) ScanTo(key string) storage.ScanIterator {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ScanTo", key)
+	ret0, _ := ret[0].(storage.ScanIterator)
+	return ret0
+}
+
+// ScanTo indicates an expected call of ScanTo.
+func (mr *MockScannableMockRecorder) ScanTo(key interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanTo", reflect.TypeOf((*MockScannable)(nil).ScanTo), key)
 }
 
 // MockScanIterator is a mock of ScanIterator interface.

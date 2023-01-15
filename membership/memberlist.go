@@ -81,6 +81,10 @@ func (c *Memberlist) Self() Member {
 	return c.members[c.selfID]
 }
 
+func (c *Memberlist) SelfID() NodeID {
+	return c.selfID
+}
+
 // Add adds new members to the cluster. It is expected that if there are multiple members on
 // the list, they already form a cluster and already know about each other. Adding several
 // independent nodes requires calling this method once per each node.
@@ -135,7 +139,7 @@ func (c *Memberlist) Add(members ...Member) error {
 		c.members[m.ID] = *m
 	}
 
-	return errs.Ret()
+	return errs.Combined()
 }
 
 func (c *Memberlist) Expel(id NodeID) error {

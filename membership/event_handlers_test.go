@@ -10,7 +10,7 @@ import (
 
 func TestHandleEvent_MemberJoined(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 	ml := New(Member{}, log.NewNopLogger(), ep)
 
 	ep.EXPECT().RegisterReceiver(&Member{
@@ -35,7 +35,7 @@ func TestHandleEvent_MemberJoined(t *testing.T) {
 
 func TestHandleEvent_MemberLeft(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ep := NewMockEventPub(ctrl)
+	ep := NewMockEventSender(ctrl)
 	ml := New(Member{}, log.NewNopLogger(), ep)
 
 	ml.members[10] = Member{

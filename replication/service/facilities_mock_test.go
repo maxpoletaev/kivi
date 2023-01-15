@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	clust "github.com/maxpoletaev/kiwi/nodeclient"
 	membership "github.com/maxpoletaev/kiwi/membership"
 )
 
@@ -63,40 +62,16 @@ func (mr *MockMemberlistMockRecorder) Self() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Self", reflect.TypeOf((*MockMemberlist)(nil).Self))
 }
 
-// MockConnRegistry is a mock of ConnRegistry interface.
-type MockConnRegistry struct {
-	ctrl     *gomock.Controller
-	recorder *MockConnRegistryMockRecorder
-}
-
-// MockConnRegistryMockRecorder is the mock recorder for MockConnRegistry.
-type MockConnRegistryMockRecorder struct {
-	mock *MockConnRegistry
-}
-
-// NewMockConnRegistry creates a new mock instance.
-func NewMockConnRegistry(ctrl *gomock.Controller) *MockConnRegistry {
-	mock := &MockConnRegistry{ctrl: ctrl}
-	mock.recorder = &MockConnRegistryMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConnRegistry) EXPECT() *MockConnRegistryMockRecorder {
-	return m.recorder
-}
-
-// Get mocks base method.
-func (m *MockConnRegistry) Get(arg0 membership.NodeID) (clust.Conn, error) {
+// SelfID mocks base method.
+func (m *MockMemberlist) SelfID() membership.NodeID {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", arg0)
-	ret0, _ := ret[0].(clust.Conn)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
+	ret := m.ctrl.Call(m, "SelfID")
+	ret0, _ := ret[0].(membership.NodeID)
+	return ret0
 }
 
-// Get indicates an expected call of Get.
-func (mr *MockConnRegistryMockRecorder) Get(arg0 interface{}) *gomock.Call {
+// SelfID indicates an expected call of SelfID.
+func (mr *MockMemberlistMockRecorder) SelfID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockConnRegistry)(nil).Get), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelfID", reflect.TypeOf((*MockMemberlist)(nil).SelfID))
 }

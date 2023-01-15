@@ -19,13 +19,13 @@ import (
 func TestGet(t *testing.T) {
 	type test struct {
 		request        *proto.GetRequest
-		setupBackend   func(b *storagemock.MockBackend)
+		setupBackend   func(b *storagemock.MockEngine)
 		assertResponse func(t *testing.T, res *proto.GetResponse, err error)
 	}
 
 	tests := map[string]test{
 		"FoundSingleValue": {
-			setupBackend: func(b *storagemock.MockBackend) {
+			setupBackend: func(b *storagemock.MockEngine) {
 				b.EXPECT().Get("key").Return([]storage.Value{
 					{
 						Version: vclock.New(vclock.V{1: 1}),
@@ -42,7 +42,7 @@ func TestGet(t *testing.T) {
 			},
 		},
 		"FoundMultipleValues": {
-			setupBackend: func(b *storagemock.MockBackend) {
+			setupBackend: func(b *storagemock.MockEngine) {
 				b.EXPECT().Get("key").Return(
 					[]storage.Value{
 						{
@@ -67,7 +67,7 @@ func TestGet(t *testing.T) {
 			},
 		},
 		"NotFound": {
-			setupBackend: func(b *storagemock.MockBackend) {
+			setupBackend: func(b *storagemock.MockEngine) {
 				b.EXPECT().Get("non-existing-key").Return(nil, storage.ErrNotFound)
 			},
 			request: &proto.GetRequest{Key: "non-existing-key"},
@@ -77,7 +77,7 @@ func TestGet(t *testing.T) {
 			},
 		},
 		"BackendError": {
-			setupBackend: func(b *storagemock.MockBackend) {
+			setupBackend: func(b *storagemock.MockEngine) {
 				b.EXPECT().Get("key").Return(nil, assert.AnError)
 			},
 			request: &proto.GetRequest{Key: "key"},
@@ -92,7 +92,7 @@ func TestGet(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			backend := storagemock.NewMockBackend(ctrl)
+			backend := storagemock.NewMockEngine(ctrl)
 			service := New(backend, 0)
 			ctx := context.Background()
 

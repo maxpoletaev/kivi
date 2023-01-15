@@ -131,3 +131,7 @@ func TestAddVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveVersion(t *testing.T) {
+
+}

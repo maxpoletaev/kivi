@@ -36,17 +36,16 @@ func (s *InMemoryEngine) Put(key string, value storage.Value) error {
 	// loosing versions during concurrent updates of the same key. The skiplist
 	// itself is thread-safe, that is why we do not lock it in Get.
 	s.locks.Lock(key)
+	defer s.locks.Unlock(key)
 
 	values, _ := s.data.Get(key)
 
 	values, err := storage.AppendVersion(values, value)
 	if err != nil {
-		s.locks.Unlock(key)
 		return err
 	}
 
 	s.data.Insert(key, values)
-	s.locks.Unlock(key)
 
 	return nil
 }

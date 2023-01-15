@@ -84,12 +84,7 @@ func openMemtable(info *MemtableInfo, prefix string) (*Memtable, error) {
 // a tombstone, the second return value is false.
 func (mt *Memtable) Get(key string) (*proto.DataEntry, bool) {
 	entry, ok := mt.entries.Get(key)
-
-	if !ok || entry.Tombstone {
-		return nil, false
-	}
-
-	return entry, true
+	return entry, ok
 }
 
 // Put inserts a new entry into the memtable. The entry is first appended to the

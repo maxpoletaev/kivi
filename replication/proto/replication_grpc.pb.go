@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type CoordinatorServiceClient interface {
 	ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	ReplicatedPut(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
+	ReplicatedDelete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 }
 
 type coordinatorServiceClient struct {
@@ -52,12 +53,22 @@ func (c *coordinatorServiceClient) ReplicatedPut(ctx context.Context, in *PutReq
 	return out, nil
 }
 
+func (c *coordinatorServiceClient) ReplicatedDelete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
+	out := new(DeleteResponse)
+	err := c.cc.Invoke(ctx, "/replication.CoordinatorService/ReplicatedDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // CoordinatorServiceServer is the server API for CoordinatorService service.
 // All implementations must embed UnimplementedCoordinatorServiceServer
 // for forward compatibility
 type CoordinatorServiceServer interface {
 	ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error)
 	ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error)
+	ReplicatedDelete(context.Context, *DeleteRequest) (*DeleteResponse, error)
 	mustEmbedUnimplementedCoordinatorServiceServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedCoordinatorServiceServer) ReplicatedGet(context.Context, *Get
 }
 func (UnimplementedCoordinatorServiceServer) ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedPut not implemented")
+}
+func (UnimplementedCoordinatorServiceServer) ReplicatedDelete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedDelete not implemented")
 }
 func (UnimplementedCoordinatorServiceServer) mustEmbedUnimplementedCoordinatorServiceServer() {}
 
@@ -120,6 +134,24 @@ func _CoordinatorService_ReplicatedPut_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _CoordinatorService_ReplicatedDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CoordinatorServiceServer).ReplicatedDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/replication.CoordinatorService/ReplicatedDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CoordinatorServiceServer).ReplicatedDelete(ctx, req.(*DeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // CoordinatorService_ServiceDesc is the grpc.ServiceDesc for CoordinatorService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var CoordinatorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplicatedPut",
 			Handler:    _CoordinatorService_ReplicatedPut_Handler,
+		},
+		{
+			MethodName: "ReplicatedDelete",
+			Handler:    _CoordinatorService_ReplicatedDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

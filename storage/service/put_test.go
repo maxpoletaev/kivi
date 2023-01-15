@@ -18,14 +18,14 @@ import (
 
 func TestPut(t *testing.T) {
 	type test struct {
-		setupBackend   func(backend *mock.MockBackend)
+		setupBackend   func(backend *mock.MockEngine)
 		request        *proto.PutRequest
 		assertResponse func(t *testing.T, res *proto.PutResponse, err error)
 	}
 
 	tests := map[string]test{
 		"OkPrimary": {
-			setupBackend: func(b *mock.MockBackend) {
+			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(vclock.V{100: 2, 200: 1}),
 					Data:    []byte("value"),
@@ -47,7 +47,7 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"OkNonPrimary": {
-			setupBackend: func(b *mock.MockBackend) {
+			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(vclock.V{100: 1, 200: 1}),
 					Data:    []byte("value"),
@@ -69,7 +69,7 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"FailsObsoleteWrite": {
-			setupBackend: func(b *mock.MockBackend) {
+			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(),
 					Data:    []byte{},
@@ -89,7 +89,7 @@ func TestPut(t *testing.T) {
 			},
 		},
 		"FailsRandomError": {
-			setupBackend: func(b *mock.MockBackend) {
+			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(),
 					Data:    []byte{},
@@ -113,7 +113,7 @@ func TestPut(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
-			backend := mock.NewMockBackend(ctrl)
+			backend := mock.NewMockEngine(ctrl)
 			service := New(backend, 100)
 			ctx := context.Background()
 

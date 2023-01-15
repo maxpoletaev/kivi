@@ -4,14 +4,9 @@ package service
 
 import (
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
 )
 
 type Memberlist interface {
-	Self() membership.Member
+	SelfID() membership.NodeID
 	Members() []membership.Member
-}
-
-type ConnRegistry interface {
-	Get(membership.NodeID) (nodeclient.Conn, error)
 }

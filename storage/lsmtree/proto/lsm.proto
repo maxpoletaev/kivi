@@ -10,13 +10,13 @@ message IndexEntry {
 }
 
 message Value {
-    string version = 1;
-    bytes data = 2;
+    bool tombstone = 1;
+    string version = 2;
+    bytes data = 3;
 }
 
 message DataEntry {
     string key = 1;
-    bool tombstone = 2;
     repeated Value values = 3;
 }
 

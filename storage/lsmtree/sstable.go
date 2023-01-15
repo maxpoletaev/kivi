@@ -174,10 +174,5 @@ func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 		return nil, false, nil
 	}
 
-	// Tombstone records are deleted records.
-	if entry.Tombstone {
-		return nil, true, nil
-	}
-
 	return entry, true, nil
 }

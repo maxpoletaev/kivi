@@ -10,7 +10,8 @@ message GetRequest {
 
 message VersionedValue {
     string version = 1;
-    bytes data = 2;
+    bool tombstone = 2;
+    bytes data = 3;
 }
 
 message GetResponse {

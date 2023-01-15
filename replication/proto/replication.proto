@@ -29,7 +29,16 @@ message PutResponse {
     string version = 1;
 }
 
+message DeleteRequest {
+    string key = 1;
+    string version = 2;
+}
+
+message DeleteResponse {
+}
+
 service CoordinatorService {
     rpc ReplicatedGet(GetRequest) returns (GetResponse);
     rpc ReplicatedPut(PutRequest) returns (PutResponse);
+    rpc ReplicatedDelete(DeleteRequest) returns (DeleteResponse);
 }

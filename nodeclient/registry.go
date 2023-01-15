@@ -163,6 +163,26 @@ func (r *ConnRegistry) Get(id membership.NodeID) (Conn, error) {
 	return r.connect(id)
 }
 
+// Local returns a connection to the local member. It assumes that the local
+// connection is always stable, so it panics if it is not present.
+func (r *ConnRegistry) Local() Conn {
+	var (
+		conn Conn
+		err  error
+		ok   bool
+	)
+
+	if conn, ok = r.get(r.members.SelfID()); ok {
+		return conn
+	}
+
+	if conn, err = r.connect(r.members.SelfID()); err != nil {
+		panic(fmt.Sprintf("not connected to self: %v", err))
+	}
+
+	return conn
+}
+
 // Add adds a connection to the registry. If a connection to the member with
 // the same ID already exists, the old connection is closed.
 func (r *ConnRegistry) Add(id membership.NodeID, conn Conn) {

@@ -53,7 +53,19 @@ func (me *Error[T]) Get(key T) (error, bool) {
 	return nil, false
 }
 
-func (me *Error[T]) Ret() error {
+func (me *Error[T]) First() error {
+	if len(me.errors) == 0 {
+		return nil
+	}
+
+	for _, v := range me.errors {
+		return v
+	}
+
+	return nil
+}
+
+func (me *Error[T]) Combined() error {
 	if len(me.errors) == 0 {
 		return nil
 	}

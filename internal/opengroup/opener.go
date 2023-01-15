@@ -41,7 +41,7 @@ func (o *Opener) Close(name string) error {
 }
 
 func (o *Opener) Err() error {
-	return o.errors.Ret()
+	return o.errors.Combined()
 }
 
 func (o *Opener) CloseAll() error {
@@ -53,7 +53,7 @@ func (o *Opener) CloseAll() error {
 		}
 	}
 
-	return errs.Ret()
+	return errs.Combined()
 }
 
 func (o *Opener) RemoveAll() error {
@@ -65,5 +65,5 @@ func (o *Opener) RemoveAll() error {
 		}
 	}
 
-	return errs.Ret()
+	return errs.Combined()
 }

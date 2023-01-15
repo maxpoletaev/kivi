@@ -1,6 +1,6 @@
 package nodeclient
 
-//go:generate mockgen -source=dialer.go -destination=dialer_mock.go -package=clust
+//go:generate mockgen -source=dialer.go -destination=dialer_mock.go -package=nodeclient
 
 import (
 	"context"

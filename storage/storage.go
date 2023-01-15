@@ -9,12 +9,12 @@ import (
 )
 
 var (
+	// ErrNotFound is returned when a key is not found in the storage.
+	ErrNotFound = errors.New("key not found")
+
 	// ErrObsoleteWrite is returned when a write operation is
 	// performed on a key that already has a newer version.
 	ErrObsoleteWrite = errors.New("obsolete write")
-
-	// ErrNotFound is returned when a key is not found in the storage.
-	ErrNotFound = errors.New("key not found")
 
 	// ErrNoMoreItems is returned when there are no more items in the iterator.
 	ErrNoMoreItems = errors.New("no more items in the iterator")
@@ -22,8 +22,9 @@ var (
 
 // Value represents a single value associated with a key.
 type Value struct {
-	Version *vclock.Vector
-	Data    []byte
+	Version   *vclock.Vector
+	Data      []byte
+	Tombstone bool
 }
 
 // Engine is the interface that wraps the basic storage operations. It is implemented by
@@ -60,15 +61,22 @@ type ScanIterator interface {
 // version is older than the existing ones, an ErrObsoleteWrite is returned. In case
 // of concurrent versions, the new version is added to the list.
 func AppendVersion(values []Value, newValue Value) ([]Value, error) {
-	merged := make([]Value, 0, len(values))
+	merged := make([]Value, 0, 1)
 
 	for _, val := range values {
 		switch vclock.Compare(newValue.Version, val.Version) {
 		case vclock.Before, vclock.Equal:
 			return nil, ErrObsoleteWrite
+
 		case vclock.Concurrent:
-			merged = append(merged, val)
+			if !val.Tombstone {
+				merged = append(merged, val)
+			}
 		}
+	}
+
+	if len(merged) > 0 && newValue.Tombstone {
+		return nil, ErrObsoleteWrite
 	}
 
 	merged = append(merged, newValue)

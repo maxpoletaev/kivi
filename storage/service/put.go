@@ -26,8 +26,9 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	value := storage.Value{
-		Data:    req.Value.Data,
-		Version: version,
+		Version:   version,
+		Data:      req.Value.Data,
+		Tombstone: req.Value.Tombstone,
 	}
 
 	err = s.storage.Put(req.Key, value)

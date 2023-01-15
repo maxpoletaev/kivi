@@ -39,8 +39,9 @@ func toResponseValues(values []storage.Value) []*proto.VersionedValue {
 
 	for _, value := range values {
 		versionedValues = append(versionedValues, &proto.VersionedValue{
-			Version: vclock.MustEncode(value.Version),
-			Data:    value.Data,
+			Version:   vclock.MustEncode(value.Version),
+			Tombstone: value.Tombstone,
+			Data:      value.Data,
 		})
 	}
 

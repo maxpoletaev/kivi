@@ -1,6 +1,6 @@
 package nodeclient
 
-//go:generate mockgen -destination=facilities_mock.go -package=clust -source=facilities.go
+//go:generate mockgen -source=facilities.go -destination=facilities_mock.go -package=nodeclient
 
 import (
 	"github.com/maxpoletaev/kiwi/membership"
@@ -8,6 +8,7 @@ import (
 
 // MemberRegistry is used to manage the cluster members.
 type MemberRegistry interface {
+	SelfID() membership.NodeID
 	Members() []membership.Member
 	HasMember(membership.NodeID) bool
 	Member(membership.NodeID) (membership.Member, bool)
