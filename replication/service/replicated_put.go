@@ -53,6 +53,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		AckedIDs:   ackedIDs,
 		Conns:      s.connections,
 		Logger:     s.logger,
+		Timeout:    s.writeTimeout,
 	}.MapReduce(
 		ctx,
 		func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[string]) {

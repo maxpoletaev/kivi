@@ -52,6 +52,7 @@ func (s *ReplicationService) ReplicatedDelete(
 		AckedIDs:   repliedIDs,
 		Conns:      s.connections,
 		Logger:     s.logger,
+		Timeout:    s.writeTimeout,
 	}.MapReduce(
 		ctx,
 		func(

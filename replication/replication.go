@@ -50,8 +50,12 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 		o.AckedIDs = make(map[membership.NodeID]struct{})
 	}
 
+	if o.Timeout == 0 {
+		panic("timeout is not set")
+	}
+
+	mapCtx, cancelMap := context.WithTimeout(context.Background(), o.Timeout)
 	replies := make(chan *NodeReply[T], len(o.ReplicaSet))
-	waitCtx, cancel := context.WithTimeout(context.Background(), o.Timeout)
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(o.ReplicaSet))
@@ -82,7 +86,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 			}
 
 			reply := &NodeReply[T]{nodeID: nodeID}
-			mapFn(waitCtx, nodeID, conn, reply)
+			mapFn(mapCtx, nodeID, conn, reply)
 
 			if reply.err != nil {
 				loglevel.Warn(
@@ -96,13 +100,19 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 
 	go func() {
 		wg.Wait()
-		cancel()
+		cancelMap()
 		close(replies)
 	}()
 
 	// If we already have enough replies, so no need to wait for more.
 	if len(o.AckedIDs) >= o.MinAcks {
 		return nil
+	}
+
+	canceled := false
+	cancel := func() {
+		canceled = true
+		cancelMap()
 	}
 
 	for {
@@ -116,14 +126,12 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 
 			err := reduceFn(cancel, reply.nodeID, reply.reply, reply.err)
 
-			if ctxerr := waitCtx.Err(); ctxerr != nil {
-				if errors.Is(ctxerr, context.Canceled) {
-					return err
-				}
+			if canceled {
+				return err
 			}
 
 			if err != nil {
-				cancel()
+				cancelMap()
 				return err
 			}
 

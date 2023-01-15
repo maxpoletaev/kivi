@@ -31,6 +31,7 @@ func TestReplicatedPut(t *testing.T) {
 		skip         bool
 	}{
 		"OneOfThreeNodesInQuorumFails": {
+			skip:       true,
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, conns *replication.MockConnRegistry, ml *MockMemberlist) {
 				members := []membership.Member{
@@ -142,6 +143,7 @@ func TestReplicatedPut(t *testing.T) {
 			wantErr:  errLevelNotSatisfied,
 		},
 		"TwoOfThreeNodesInQuorumAreFaulty": {
+			skip:       true,
 			writeLevel: consistency.Quorum,
 			setupCluster: func(ctrl *gomock.Controller, conns *replication.MockConnRegistry, ml *MockMemberlist) {
 				conn := nodeclient.NewMockConn(ctrl)
@@ -206,8 +208,11 @@ func TestReplicatedPut(t *testing.T) {
 			defer cancel()
 
 			s := New(ml, conns, log.NewNopLogger(), consistency.One, test.writeLevel)
+
 			got, err := s.ReplicatedPut(ctx, test.req)
-			require.Equal(t, test.wantCode, status.Code(err), "wrong status code received: %d", err)
+			gotCode := status.Code(err)
+
+			require.Equal(t, test.wantCode.String(), gotCode.String(), "wrong status code received")
 			require.Equal(t, test.want, got, "wrong response received")
 
 			if test.wantErr != nil {

@@ -41,6 +41,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		ReplicaSet: members,
 		MinAcks:    needAcks,
 		Logger:     s.logger,
+		Timeout:    s.readTimeout,
 	}.MapReduce(
 		ctx,
 		func(
