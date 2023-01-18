@@ -32,40 +32,6 @@ import (
 	storagesvc "github.com/maxpoletaev/kiwi/storage/service"
 )
 
-type App struct {
-	wg         sync.WaitGroup
-	onShutdown []func()
-}
-
-func NewApp() *App {
-	return &App{}
-}
-
-func (a *App) AddWorker(fn func()) {
-	a.wg.Add(1)
-
-	go func() {
-		fn()
-		a.wg.Done()
-	}()
-}
-
-func (a *App) AddShutdownHook(fn func()) {
-	a.onShutdown = append(a.onShutdown, fn)
-}
-
-func (a *App) Run() {
-	a.wg.Wait()
-}
-
-func (a *App) Shutdown() {
-	for _, fn := range a.onShutdown {
-		fn()
-	}
-
-	a.wg.Wait()
-}
-
 func main() {
 	appctx, cancel := signal.NotifyContext(
 		context.Background(), syscall.SIGINT, syscall.SIGTERM)

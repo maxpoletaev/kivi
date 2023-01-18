@@ -13,8 +13,13 @@ linters:
     - gosimple
     - unconvert
     - staticcheck
+    - loggercheck
+    - wastedassign
+    - misspell
     - goconst
     - unused
+    - govet
+    - godot
     - wsl
 
 issues:

@@ -10,7 +10,7 @@ import (
 
 // Encode encodes the vector clock into a base64-encoded string.
 // The encoded string are always the same for the same vector clock,
-// so it can safely be used for comparasion.
+// so it can safely be used for comparison.
 func Encode(v *Vector) (string, error) {
 	vc := &pb.VectorClock{
 		Clocks:    v.clocks,

@@ -5,7 +5,6 @@ import (
 
 	"github.com/maxpoletaev/kiwi/membership/proto"
 	"github.com/maxpoletaev/kiwi/nodeclient"
-	"golang.org/x/sync/errgroup"
 )
 
 // joinClusters joins two clusters together by adding all members of the left
@@ -15,33 +14,28 @@ import (
 // left cluster is joined to the right cluster, but the right cluster fails to join
 // the left cluster, the left cluster will have all of the members of the right cluster
 // in its membership table, but the right cluster will not know about the left cluster.
-// This is a known issue and should be adressed with periodic membership table syncs.
-func joinClusters(ctx context.Context, left, right nodeclient.Conn) error {
-	leftResp, err := left.Members(ctx)
+func joinClusters(ctx context.Context, local, remote nodeclient.Conn) error {
+	localResp, err := local.Members(ctx)
 	if err != nil {
 		return err
 	}
 
-	rightResp, err := right.Members(ctx)
+	remoteResp, err := remote.Members(ctx)
 	if err != nil {
 		return err
 	}
 
-	errg := errgroup.Group{}
-
-	errg.Go(func() error {
-		_, err := right.Join(ctx, &proto.JoinRequest{
-			MembersToAdd: leftResp.Members,
-		})
+	if _, err := remote.Join(ctx, &proto.JoinRequest{
+		MembersToAdd: localResp.Members,
+	}); err != nil {
 		return err
-	})
+	}
 
-	errg.Go(func() error {
-		_, err := left.Join(ctx, &proto.JoinRequest{
-			MembersToAdd: rightResp.Members,
-		})
+	if _, err := local.Join(ctx, &proto.JoinRequest{
+		MembersToAdd: remoteResp.Members,
+	}); err != nil {
 		return err
-	})
+	}
 
-	return errg.Wait()
+	return nil
 }

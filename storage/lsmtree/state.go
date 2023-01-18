@@ -40,7 +40,7 @@ type loggedState struct {
 }
 
 // newLoggedState creates a new state manager. If the log file already exists, the state will be
-// restored from it, otherwise a new log file will be created. All chnages are immediately
+// restored from it, otherwise a new log file will be created. All chages are immediately
 // flushed to the disk due to the file opened with O_SYNC flag.
 func newLoggedState(prefix string) (*loggedState, error) {
 	logFile, err := os.OpenFile(
