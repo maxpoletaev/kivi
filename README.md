@@ -1,4 +1,4 @@
-# 🦄 My Little KV
+# 🥝 Kiwi DB
 
 The goal of the project is to build a simple distributed key-value store from
 scratch, without relying much on third-party libraries. The project falls into
@@ -21,7 +21,6 @@ Kiwi uses LSM-Tree as a storage engine and a SWIM-like protocol for cluster
 membership and failure detection. On top of that, there is a replication layer
 that coordinates reads and writes to multiple nodes according to the desired
 consistency level.
-
 
 ## How to try it out
 
