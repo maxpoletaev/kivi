@@ -206,9 +206,11 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	)
 
 	for el := lsm.ssTables.Front(); el != nil; el = el.Next() {
-		if el.Value.(*SSTable).Level == rule.Level {
-			selected = append(selected, el.Value.(*SSTable))
-			levelSize += el.Value.(*SSTable).Size
+		sst := el.Value.(*SSTable)
+
+		if sst.Level == rule.Level {
+			selected = append(selected, sst)
+			levelSize += sst.Size
 		}
 	}
 

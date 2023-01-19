@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/netip"
 	"sync"
+	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -36,9 +37,12 @@ func (p PeerID) Bytes() []byte {
 }
 
 type remotePeer struct {
-	ID    PeerID
-	Addr  netip.AddrPort
-	Queue *MessageQueue
+	ID      PeerID
+	Addr    netip.AddrPort
+	Queue   *MessageQueue
+	Backlog *Backlog
+	Timers  map[uint64]time.Time
+	Blocked int
 }
 
 type peerMap map[PeerID]*remotePeer
@@ -47,17 +51,20 @@ type peerMap map[PeerID]*remotePeer
 // for maintaining a list of known peers and exchanging messages with them. All
 // received messages are passed to the delegate for processing.
 type Gossiper struct {
-	peerID       PeerID
-	delegate     Delegate
-	logger       log.Logger
-	transport    Transport
-	gossipFactor int
-	messageTTL   uint32
-	lastSeqNum   *rolling.Counter[uint64]
-	enableBF     bool
-	wg           sync.WaitGroup
-	peersMut     sync.RWMutex
-	peers        peerMap
+	peerID              PeerID
+	delegate            Delegate
+	logger              log.Logger
+	transport           Transport
+	gossipFactor        int
+	messageTTL          uint32
+	lastSeqNum          *rolling.Counter[uint64]
+	enableBF            bool
+	wg                  sync.WaitGroup
+	peersMut            sync.RWMutex
+	peers               peerMap
+	retransmitTimeout   time.Duration
+	retransmitThreshold int
+	backlogSize         int
 }
 
 // Start initializes the gossiper struct with the given configuration
@@ -91,15 +98,18 @@ func Start(conf *Config) (*Gossiper, error) {
 
 func newGossiper(conf *Config) *Gossiper {
 	return &Gossiper{
-		peerID:       conf.PeerID,
-		gossipFactor: conf.GossipFactor,
-		transport:    conf.Transport,
-		delegate:     conf.Delegate,
-		logger:       conf.Logger,
-		messageTTL:   conf.MessageTTL,
-		lastSeqNum:   rolling.NewCounter[uint64](),
-		enableBF:     conf.EnableBloomFilter,
-		peers:        make(peerMap),
+		peerID:              conf.PeerID,
+		gossipFactor:        conf.GossipFactor,
+		transport:           conf.Transport,
+		delegate:            conf.Delegate,
+		logger:              conf.Logger,
+		messageTTL:          conf.MessageTTL,
+		lastSeqNum:          rolling.NewCounter[uint64](),
+		enableBF:            conf.EnableBloomFilter,
+		backlogSize:         conf.RetransmitBacklogSize,
+		retransmitTimeout:   conf.RetransmitTimeout,
+		retransmitThreshold: conf.RetransmitThreshold,
+		peers:               make(peerMap),
 	}
 }
 
@@ -112,8 +122,82 @@ func (g *Gossiper) getPeers() peerMap {
 	return peers
 }
 
-func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
-	l := log.WithSuffix(g.logger, "from_peer", msg.PeerId, "seq_num", msg.SeqNumber)
+func (g *Gossiper) processRepeatReq(msg *proto.GossipMessage, req *proto.RepeatReq) {
+	peers := g.getPeers()
+
+	sender, ok := peers[PeerID(msg.PeerId)]
+	if !ok || sender.ID == g.peerID {
+		return
+	}
+
+	sourcePeer, ok := peers[PeerID(req.FromPeerId)]
+	if !ok || sourcePeer.ID == g.peerID {
+		return
+	}
+
+	missingIDs := make(map[uint64]struct{})
+
+	for _, seqNum := range req.SeqNumbers {
+		if payload, ok := sourcePeer.Backlog.Get(seqNum); ok {
+			level.Debug(g.logger).Log(
+				"msg", "retransmitting a message",
+				"target_peer", sender.ID,
+				"seqNum", seqNum,
+			)
+
+			msg := &proto.GossipMessage{
+				PeerId: uint32(sourcePeer.ID),
+				Message: &proto.GossipMessage_Payload{
+					Payload: payload,
+				},
+				SeenBy: nil,
+				Ttl:    0,
+			}
+
+			// The message is in the backlog, unicast it to the peer.
+			if err := g.transport.WriteTo(msg, &sender.Addr); err != nil {
+				level.Error(g.logger).Log("msg", "failed to send message", "err", err)
+			}
+		} else {
+			// The messages that are not in the backlog will be requested from other peers.
+			missingIDs[seqNum] = struct{}{}
+		}
+	}
+
+	if len(msg.SeenBy) > 0 {
+		bf := bloom.New(msg.SeenBy, bloomFilterHashers)
+		bf.Add(g.peerID.Bytes())
+	}
+
+	// If there are still missing messages, request them from other peers.
+	// We reconstruct the message with the updated TTL, SeqNumbers and SeenBy fields.
+	if len(missingIDs) > 0 && msg.Ttl > 0 {
+		newmsg := &proto.GossipMessage{
+			PeerId: msg.PeerId,
+			Ttl:    msg.Ttl - 1,
+			SeenBy: msg.SeenBy,
+			Message: &proto.GossipMessage_RepeatReq{
+				RepeatReq: &proto.RepeatReq{
+					FromPeerId: req.FromPeerId,
+					SeqNumbers: generic.MapKeys(missingIDs),
+				},
+			},
+		}
+
+		g.wg.Add(1)
+
+		go func() {
+			defer g.wg.Done()
+
+			if err := g.gossip(newmsg); err != nil {
+				level.Error(g.logger).Log("msg", "failed to broadcast message", "err", err)
+			}
+		}()
+	}
+}
+
+func (g *Gossiper) processDataMessage(msg *proto.GossipMessage, pl *proto.Payload) {
+	l := log.WithSuffix(g.logger, "from_peer", msg.PeerId, "seq_num", pl.SeqNumber)
 
 	if msg.Ttl > 0 {
 		level.Debug(l).Log("msg", "scheduled for rebroadcast", "ttl", msg.Ttl)
@@ -150,28 +234,141 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 		return
 	}
 
-	if peer.Queue.Push(msg) {
+	// Put the message in the backlog, so that we can retransmit it when requested.
+	peer.Backlog.Add(pl)
+
+	// Delete the retransmit timer since we got the message.
+	if _, ok := peer.Timers[pl.SeqNumber]; ok {
+		level.Debug(l).Log("msg", "retransmit recevied", "seq", pl.SeqNumber)
+		delete(peer.Timers, pl.SeqNumber)
+	}
+
+	if peer.Queue.Push(pl) {
 		level.Debug(l).Log("msg", "message is added to the queue", "queue_len", peer.Queue.Len())
 
-		if err := g.delegate.Receive(msg.Payload); err != nil {
+		if err := g.delegate.Receive(pl.Data); err != nil {
 			level.Error(l).Log("msg", "message receive failed", "err", err)
 		}
 	}
 
 	for {
-		next := peer.Queue.PopNext()
+		var (
+			nextSeqNum = peer.Queue.NextSeqNum()
+			next       = peer.Queue.PopNext()
+		)
+
 		if next == nil {
-			level.Debug(l).Log("msg", "no more messages available", "queue_len", peer.Queue.Len())
+			// First, try unblocking the queue by skipping the next message if,
+			// we have already been waiting for the retransmission for too long.
+			if started, ok := peer.Timers[nextSeqNum]; ok {
+				if time.Since(started) > g.retransmitTimeout {
+					level.Warn(l).Log("msg", "message skipped", "seq_num", nextSeqNum)
+					delete(peer.Timers, nextSeqNum)
+					peer.Queue.SkipTo(nextSeqNum)
+
+					continue
+				}
+			}
+
+			// If there is nothing to skip and the queue is still blocked, we increment the
+			// blocked counter and wait for the next message, that might unblock the queue.
+			if peer.Queue.Len() > 0 {
+				peer.Blocked++
+			}
+
+			level.Debug(l).Log(
+				"msg", "no more messages available",
+				"blocked_count", peer.Blocked,
+				"queue_len", peer.Queue.Len(),
+			)
+
 			break
 		}
 
-		if err := g.delegate.Deliver(next.Payload); err != nil {
+		if err := g.delegate.Deliver(next.Data); err != nil {
 			level.Error(l).Log("msg", "message delivery failed", "err", err)
 			continue
 		}
 
 		level.Debug(l).Log("msg", "message delivered", "queue_len", peer.Queue.Len())
+
+		peer.Blocked = 0
+
+		return
 	}
+
+	// Once the delivery from the peer is blocked more than a configured threshold, we ask other
+	// peers for retransmission of missing messages. This is done only once per peer, so that we
+	// don't spam the network with retransmission requests.
+	if peer.Blocked >= g.retransmitThreshold {
+		if err := g.askRetransmit(peer); err != nil {
+			level.Warn(l).Log("msg", "failed to ask for retransmission", "err", err)
+		}
+	}
+}
+
+func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
+	switch msg.Message.(type) {
+	case *proto.GossipMessage_Payload:
+		g.processDataMessage(msg, msg.GetPayload())
+	case *proto.GossipMessage_RepeatReq:
+		g.processRepeatReq(msg, msg.GetRepeatReq())
+	default:
+		level.Error(g.logger).Log("msg", "unknown message type", "type", fmt.Sprintf("%T", msg.Message))
+	}
+}
+
+func (g *Gossiper) askRetransmit(peer *remotePeer) error {
+	var missingSeqNums []uint64
+
+	for _, seq := range peer.Queue.FindGaps() {
+		if _, ok := peer.Timers[seq]; ok {
+			continue // We have already asked and currently waiting, for this message.
+		}
+
+		missingSeqNums = append(missingSeqNums, seq)
+	}
+
+	if len(missingSeqNums) > 0 {
+		level.Debug(g.logger).Log(
+			"msg", "asking for retransmission",
+			"source_peer", peer.ID,
+			"seq_nums", fmt.Sprintf("%v", missingSeqNums),
+		)
+
+		var (
+			now    = time.Now()
+			seenBy []byte
+		)
+
+		// Setup retransmit timers for the missing messages. If we don't get
+		// the messages within the timeout, we consider the message as lost.
+		for _, seq := range missingSeqNums {
+			peer.Timers[seq] = now
+		}
+
+		if g.enableBF {
+			seenBy = make([]byte, bloomFilterBits/8+1)
+			bf := bloom.New(seenBy, bloomFilterHashers)
+			bf.Add(g.peerID.Bytes())
+		}
+
+		msg := &proto.GossipMessage{
+			PeerId: uint32(g.peerID),
+			Ttl:    g.initialTTL(),
+			SeenBy: seenBy,
+			Message: &proto.GossipMessage_RepeatReq{
+				RepeatReq: &proto.RepeatReq{
+					FromPeerId: uint32(peer.ID),
+					SeqNumbers: missingSeqNums,
+				},
+			},
+		}
+
+		return g.gossip(msg)
+	}
+
+	return nil
 }
 
 func (g *Gossiper) gossip(msg *proto.GossipMessage) error {
@@ -266,7 +463,6 @@ func (g *Gossiper) listenMessages() {
 		level.Debug(g.logger).Log(
 			"msg", "received gossip message",
 			"from", msg.PeerId,
-			"seq", msg.SeqNumber,
 			"ttl", msg.Ttl,
 		)
 
@@ -301,9 +497,11 @@ func (g *Gossiper) AddPeer(id PeerID, addr string) (bool, error) {
 	}
 
 	g.peers[id] = &remotePeer{
-		ID:    id,
-		Addr:  addrPort,
-		Queue: NewQueue(),
+		ID:      id,
+		Addr:    addrPort,
+		Queue:   NewQueue(),
+		Backlog: NewBacklog(g.backlogSize),
+		Timers:  make(map[uint64]time.Time),
 	}
 
 	level.Debug(g.logger).Log("msg", "new peer registered", "id", id, "addr", addr)
@@ -334,11 +532,15 @@ func (g *Gossiper) Broadcast(payload []byte) error {
 	seqNumber, rollover := g.lastSeqNum.Inc()
 
 	msg := &proto.GossipMessage{
-		PeerId:      uint32(g.peerID),
-		Ttl:         g.initialTTL(),
-		SeqNumber:   seqNumber,
-		SeqRollover: rollover,
-		Payload:     payload,
+		PeerId: uint32(g.peerID),
+		Ttl:    g.initialTTL(),
+		Message: &proto.GossipMessage_Payload{
+			Payload: &proto.Payload{
+				SeqNumber:   seqNumber,
+				SeqRollover: rollover,
+				Data:        payload,
+			},
+		},
 	}
 
 	if g.enableBF {

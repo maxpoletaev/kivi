@@ -2,11 +2,26 @@ syntax = "proto3";
 
 option go_package = "github.com/maxpoletaev/kiwi/gossip/proto";
 
+message Payload {
+    uint64 seq_number = 1;
+    bool seq_rollover = 2;
+    bytes data = 3;
+}
+
+// RepeatReq is a message asking peers to retransmit the messages received from
+// the specified peer with the specified sequence numbers to the sender.
+message RepeatReq {
+    uint32 from_peer_id = 1;
+    repeated uint64 seq_numbers = 2;
+}
+
 message GossipMessage {
     uint32 peer_id = 1;
-    uint64 seq_number = 2;
-    bool seq_rollover = 3;
-    bytes payload = 4;
-    uint32 ttl = 5;
-    bytes seen_by = 6;
+    bytes seen_by = 2;
+    uint32 ttl = 3;
+
+    oneof message {
+        Payload payload = 4;
+        RepeatReq repeat_req = 5;
+    }
 }

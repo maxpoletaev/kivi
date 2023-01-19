@@ -1,5 +1,6 @@
 .DEFAULT_GOAL := help
 
+TEST_PACKAGE = ./...
 IMAGE_NAME = maxpoletaev/kiwi
 GO_MODULE = github.com/maxpoletaev/kiwi
 PROTO_FILES = $(shell find . -type f -name '*.proto')
@@ -15,7 +16,7 @@ help:  ## print help (this message)
 .PHONY: test
 test:  ## run go tests
 	@echo "--------- running: $@ ---------"
-	go test -v -race -timeout=30s -count=1 ./...
+	go test -v -race -timeout=30s -count=1 $(GO_MODULE)/$(TEST_PACKAGE)
 
 .PHONY: bench
 bench:  ## run benchmarks

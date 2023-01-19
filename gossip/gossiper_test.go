@@ -11,6 +11,9 @@ import (
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+
+	"github.com/maxpoletaev/kiwi/gossip/proto"
+	"github.com/maxpoletaev/kiwi/gossip/transport"
 )
 
 type virtualPeer struct {
@@ -18,6 +21,31 @@ type virtualPeer struct {
 	Addr     netip.AddrPort
 	Gossiper *Gossiper
 	Delegate *MockDelegate
+}
+
+type unstableTransport struct {
+	Transport
+}
+
+func newTransport(bindAddr *netip.AddrPort) *unstableTransport {
+	tr, err := transport.Create(bindAddr)
+	if err != nil {
+		panic("failed to create transport: " + err.Error())
+	}
+
+	return &unstableTransport{Transport: tr}
+}
+
+func (t *unstableTransport) WriteTo(msg *proto.GossipMessage, addr *netip.AddrPort) error {
+	if rand.Intn(10) == 0 {
+		return nil
+	}
+
+	return t.Transport.WriteTo(msg, addr)
+}
+
+func (t *unstableTransport) ReadFrom(msg *proto.GossipMessage) error {
+	return t.Transport.ReadFrom(msg)
 }
 
 func createTestCluster(n int) ([]*virtualPeer, error) {
@@ -81,7 +109,7 @@ func createTestCluster(n int) ([]*virtualPeer, error) {
 	return nodes, nil
 }
 
-func TestGossiper(t *testing.T) {
+func TestGossiper_Test(t *testing.T) {
 	// Spin up 50 gossip publishers/listeners.
 	nodes, err := createTestCluster(50)
 	if err != nil {
@@ -100,18 +128,18 @@ func TestGossiper(t *testing.T) {
 		messages = append(messages, []byte(fmt.Sprintf("%d", i)))
 	}
 
-	// Node to be used for broadcast. The protocol guarantess that all messages
+	// Node to be used for broadcast. The protocol guarantees that all messages
 	// send by one node should be delivered by other nodes in the same order.
 	sourceNode := nodes[0]
 
-	// We need the first message to to be received first to use it as the starting point.
+	// We need the first message to be received first to use it as the starting point.
 	err = sourceNode.Gossiper.Broadcast(messages[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	// Wait till message reaches all nodes.
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// Then broadcast the remaining ones. These may be received by nodes in
 	// different order but should still be delivered in the same order.
@@ -122,7 +150,7 @@ func TestGossiper(t *testing.T) {
 	}
 
 	// Wait till messages reaches all nodes.
-	time.Sleep(1 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Check the delivered messages on all nodes except the broadcast source.
 	for _, node := range nodes {
