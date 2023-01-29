@@ -31,7 +31,7 @@ func TestExpellFails_MemberNotFound(t *testing.T) {
 	svc := NewMembershipService(memberRepo)
 	ctx := context.Background()
 
-	memberRepo.EXPECT().Expel(membership.NodeID(1)).Return(membership.ErrMemberNotFound)
+	memberRepo.EXPECT().Expel(membership.NodeID(1)).Return(membership.ErrNoSuchMember)
 
 	_, err := svc.Expel(ctx, &proto.ExpelRequest{MemberId: 1})
 	assert.Equal(t, codes.NotFound, grpcutil.ErrorCode(err))

@@ -62,7 +62,7 @@ func main() {
 	rnd := rand.New(rand.NewSource(int64(args.nodeID)))
 	localMember := membership.Member{
 		ID:         membership.NodeID(args.nodeID),
-		RandID:     rnd.Uint32(),
+		RunID:      rnd.Uint32(),
 		Name:       args.nodeName,
 		GossipAddr: args.gossipPublicAddr,
 		ServerAddr: args.grpcPublicAddr,
@@ -96,7 +96,7 @@ func main() {
 	membershipService := membershipsvc.NewMembershipService(memberlist)
 	membershippb.RegisterMembershipServiceServer(grpcServer, membershipService)
 
-	replicationService := replicationsvc.New(memberlist, connections, logger, consistency.Quorum, consistency.Quorum)
+	replicationService := replicationsvc.New(memberlist, logger, connections, consistency.Quorum, consistency.Quorum)
 	replicationpb.RegisterCoordinatorServiceServer(grpcServer, replicationService)
 
 	faildetectorService := faildetectorsvc.New(memberlist, connections)

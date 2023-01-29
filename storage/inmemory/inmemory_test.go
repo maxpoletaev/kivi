@@ -150,7 +150,7 @@ func TestPutFails_ObsoleteVersion(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	require.ErrorIs(t, err, storage.ErrObsoleteWrite)
+	require.ErrorIs(t, err, storage.ErrObsolete)
 }
 
 // TestPutFails_SameVersion verifies the case when the value with the same version is pushed
@@ -173,5 +173,5 @@ func TestPutFails_SameVersion(t *testing.T) {
 	})
 
 	require.Error(t, err)
-	require.ErrorIs(t, err, storage.ErrObsoleteWrite)
+	require.ErrorIs(t, err, storage.ErrObsolete)
 }

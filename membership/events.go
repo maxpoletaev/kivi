@@ -1,5 +1,11 @@
 package membership
 
+var (
+	_ ClusterEvent = &MemberUpdated{}
+	_ ClusterEvent = &MemberJoined{}
+	_ ClusterEvent = &MemberLeft{}
+)
+
 type ClusterEvent interface {
 	isClusterEvent()
 }
@@ -28,8 +34,3 @@ type MemberUpdated struct {
 }
 
 func (*MemberUpdated) isClusterEvent() {}
-
-// Ensure event types stisfy the interface.
-var _ ClusterEvent = &MemberUpdated{}
-var _ ClusterEvent = &MemberJoined{}
-var _ ClusterEvent = &MemberLeft{}

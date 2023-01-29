@@ -40,7 +40,7 @@ type Detector struct {
 	indirectPingNodes int
 }
 
-func New(members Memberlist, connections ConnRegistry, logger log.Logger, opts ...option) *Detector {
+func New(members Memberlist, connections ConnRegistry, logger log.Logger, opts ...Option) *Detector {
 	d := &Detector{
 		logger:            logger,
 		members:           members,
@@ -215,7 +215,7 @@ func (d *Detector) indirectProbe(target *membership.Member) (bool, error) {
 		member := &members[i]
 
 		// Skip self, target and members that are already dead.
-		if member.ID == self.ID || member.ID == target.ID || !member.IsReacheable() {
+		if member.ID == self.ID || member.ID == target.ID || !member.IsReachable() {
 			continue
 		}
 

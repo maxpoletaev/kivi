@@ -29,7 +29,7 @@ type SSTable struct {
 	*SSTableInfo
 	index       *skiplist.Skiplist[string, int64]
 	dataFile    readerAtCloser
-	bloomfilter *bloom.Filter
+	bloomFilter *bloom.Filter
 }
 
 // OpenTable opens an SSTable from the given paths. All files must exist,
@@ -92,7 +92,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 			SSTableInfo: info,
 			index:       index,
 			dataFile:    dataFile,
-			bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
+			bloomFilter: bloom.New(bf.Data, int(bf.NumHashes)),
 		}, nil
 	}
 
@@ -106,15 +106,15 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 		SSTableInfo: info,
 		index:       index,
 		dataFile:    dataFile,
-		bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
+		bloomFilter: bloom.New(bf.Data, int(bf.NumHashes)),
 	}, nil
 }
 
 // Close closes the SSTable, freeing up any resources it is using.
 // Once closed, any current or subsequent calls to Get will fail.
 // Note that ine index reader is already closed during loadIndex.
-func (ss *SSTable) Close() error {
-	if err := ss.dataFile.Close(); err != nil {
+func (sst *SSTable) Close() error {
+	if err := sst.dataFile.Close(); err != nil {
 		return fmt.Errorf("failed to close data reader: %w", err)
 	}
 
@@ -132,12 +132,12 @@ func (sst *SSTable) Iterator() *Iterator {
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
 func (sst *SSTable) MayContain(key string) bool {
-	return sst.bloomfilter.Check([]byte(key))
+	return sst.bloomFilter.Check([]byte(key))
 }
 
 func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// Check the bloom filter first, if it's not there, it's not in the SSTable.
-	if !sst.bloomfilter.Check([]byte(key)) {
+	if !sst.bloomFilter.Check([]byte(key)) {
 		return nil, false, nil
 	}
 
@@ -147,8 +147,9 @@ func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 		return nil, false, nil
 	}
 
-	// We create a new reader for each get. It is important for the reader to use pread
-	// instead of read, so that we do not need to synchronize with other readers.
+	// We create a new reader for each get. It is important for the reader to use the
+	// pread syscall instead of read, so that we do not need to synchronize with
+	// other readers.
 	reader := protoio.NewReader(sst.dataFile)
 	entry := &proto.DataEntry{}
 

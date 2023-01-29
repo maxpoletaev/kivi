@@ -89,7 +89,7 @@ func Create(conf Config) (*LSMTree, error) {
 	return lsm, nil
 }
 
-func (lsm *LSMTree) sheduleFlush() error {
+func (lsm *LSMTree) scheduleFlush() error {
 	lsm.mut.RLock()
 
 	// The memtable is not full yet, no need to flush.
@@ -98,7 +98,7 @@ func (lsm *LSMTree) sheduleFlush() error {
 		return nil
 	}
 
-	// Reacquire the lock for writing, as we are goint to swap the memtable.
+	// Reacquire the lock for writing, as we are going to swap the memtable.
 	lsm.mut.RUnlock()
 	lsm.mut.Lock()
 
@@ -274,7 +274,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 }
 
 func (lsm *LSMTree) sync() error {
-	// We usage an atomic here to avoid taking the lock if we don't need to.
+	// We use an atomic here to avoid taking the lock if we don't need to.
 	if !atomic.CompareAndSwapInt32(&lsm.dirty, 1, 0) {
 		return nil
 	}
@@ -312,7 +312,7 @@ func (lsm *LSMTree) startSyncLoop() {
 
 // Get returns the value for the given key, if it exists. It checks the active memtable first,
 // then the memtables that are waiting to be flushed, and finally the sstables on disk. Note that
-// the retuned entry is a pointer to the actual entry in the memtable or sstable, so it should not
+// the returned entry is a pointer to the actual entry in the memtable or sstable, so it should not
 // be modified.
 func (lsm *LSMTree) Get(key string) (*proto.DataEntry, bool, error) {
 	lsm.mut.RLock()
@@ -394,7 +394,7 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 // and if so, it will create a new one and flush the old one to disk. If the memtable is not
 // full, it will add the entry to the active memtable.
 func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
-	if err := lsm.sheduleFlush(); err != nil {
+	if err := lsm.scheduleFlush(); err != nil {
 		return err
 	}
 

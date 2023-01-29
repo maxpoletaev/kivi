@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-
 	"google.golang.org/grpc/codes"
 
 	"github.com/maxpoletaev/kiwi/internal/grpcutil"
@@ -33,7 +32,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		needAcks  = s.writeLevel.N(len(members))
 	)
 
-	// Do not attempt to write if we know in advance that thre is not enough alive nodes.
+	// Do not attempt to write if we know in advance that there is not enough alive nodes.
 	if countAlive(members) < needAcks {
 		return nil, errNotEnoughReplicas
 	}
@@ -45,7 +44,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 		return nil, err
 	}
 
-	// We already received an ack from the local node, so skip in the map-reduce operation.
+	// We already received an ack from the primary node, so skip in the map-reduce operation.
 	ackedIDs := make(map[membership.NodeID]struct{})
 	ackedIDs[s.members.SelfID()] = struct{}{}
 

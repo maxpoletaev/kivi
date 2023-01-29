@@ -28,7 +28,17 @@ message PutResponse {
     string version = 1;
 }
 
+message ScanRequest {
+    string start_key = 1;
+}
+
+message ScanResponse {
+    string key = 1;
+    repeated VersionedValue value = 2;
+}
+
 service StorageService {
     rpc Get(GetRequest) returns (GetResponse);
     rpc Put(PutRequest) returns (PutResponse);
+    rpc Scan(ScanRequest) returns (stream ScanResponse);
 }

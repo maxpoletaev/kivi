@@ -12,10 +12,10 @@ func (id NodeID) String() string {
 }
 
 type Member struct {
-	// ID is the unique identifier of a cluser node.
+	// ID is the unique identifier of a cluster node.
 	ID NodeID
-	// RandID is node identifier that is unique on every node restart.
-	RandID uint32
+	// RunID is node identifier that is unique on every node restart.
+	RunID uint32
 	// Name is the unique human-readable name of a cluster node.
 	Name string
 	// ServerAddr is the address of a GRPC server that is advertised to other nodes.
@@ -28,7 +28,7 @@ type Member struct {
 	Status Status
 }
 
-// IsReacheable returns true if the member can be reached by other nodes.
-func (m *Member) IsReacheable() bool {
+// IsReachable returns true if the member can be reached by other nodes.
+func (m *Member) IsReachable() bool {
 	return m.Status == StatusHealthy
 }

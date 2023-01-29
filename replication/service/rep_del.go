@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+
 	"github.com/maxpoletaev/kiwi/internal/grpcutil"
 	"github.com/maxpoletaev/kiwi/membership"
 	"github.com/maxpoletaev/kiwi/nodeclient"
 	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/proto"
 	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
-	"google.golang.org/grpc/codes"
 )
 
 func validateDeleteRequest(req *proto.DeleteRequest) error {

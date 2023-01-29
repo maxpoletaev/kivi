@@ -106,7 +106,7 @@ func TestAddVersion(t *testing.T) {
 				Data:    []byte("older value"),
 				Version: vclock.New(vclock.V{1: 1}),
 			},
-			wantErr: ErrObsoleteWrite,
+			wantErr: ErrObsolete,
 		},
 		"IncomingValueIsTheSameAsCurrentValue": {
 			currentValues: []Value{
@@ -119,7 +119,7 @@ func TestAddVersion(t *testing.T) {
 				Data:    []byte("value"),
 				Version: vclock.New(vclock.V{1: 1}),
 			},
-			wantErr: ErrObsoleteWrite,
+			wantErr: ErrObsolete,
 		},
 	}
 

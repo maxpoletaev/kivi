@@ -319,7 +319,10 @@ func (g *Gossiper) processMessage(msg *proto.GossipMessage) {
 }
 
 func (g *Gossiper) askRetransmit(peer *remotePeer) error {
-	var missingSeqNums []uint64
+	var (
+		gaps           = peer.Queue.FindGaps()
+		missingSeqNums = make([]uint64, 0, len(gaps))
+	)
 
 	for _, seq := range peer.Queue.FindGaps() {
 		if _, ok := peer.Timers[seq]; ok {

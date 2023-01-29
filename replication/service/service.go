@@ -55,14 +55,14 @@ type ReplicationService struct {
 
 func New(
 	members Memberlist,
-	connections replication.ConnRegistry,
 	logger kitlog.Logger,
+	conns replication.ConnRegistry,
 	readLevel, writeLevel consistency.Level,
 ) *ReplicationService {
 	return &ReplicationService{
 		logger:       logger,
 		members:      members,
-		connections:  connections,
+		connections:  conns,
 		readTimeout:  defaultReadTimeout,
 		writeTimeout: defaultWriteTimeout,
 		readLevel:    readLevel,
@@ -72,7 +72,7 @@ func New(
 
 func countAlive(members []membership.Member) (alive int) {
 	for i := range members {
-		if members[i].IsReacheable() {
+		if members[i].IsReachable() {
 			alive++
 		}
 	}

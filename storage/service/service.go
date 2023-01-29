@@ -3,6 +3,12 @@ package service
 import (
 	"github.com/maxpoletaev/kiwi/storage"
 	"github.com/maxpoletaev/kiwi/storage/proto"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+var (
+	errNotSupported = status.New(codes.Unimplemented, "not supported").Err()
 )
 
 type StorageService struct {

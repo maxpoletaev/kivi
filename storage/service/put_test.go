@@ -73,7 +73,7 @@ func TestPut(t *testing.T) {
 				b.EXPECT().Put("key", storage.Value{
 					Version: vclock.New(),
 					Data:    []byte{},
-				}).Return(storage.ErrObsoleteWrite)
+				}).Return(storage.ErrObsolete)
 			},
 			request: &proto.PutRequest{
 				Key: "key",

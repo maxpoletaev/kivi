@@ -5,6 +5,6 @@ package membership
 // EventSender is an interface for publishing cluster events.
 type EventSender interface {
 	Broadcast(ClusterEvent) error
-	RegisterReceiver(*Member) error
-	UnregisterReceiver(*Member)
+	Register(*Member) error
+	Unregister(*Member)
 }

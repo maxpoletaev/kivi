@@ -149,5 +149,5 @@ func TestMemberlist_SetStatusFails_MemberNotFound(t *testing.T) {
 	ml := New(Member{ID: 1}, log.NewNopLogger(), ep)
 	_, err := ml.SetStatus(2, StatusFaulty)
 
-	require.ErrorIs(t, err, ErrMemberNotFound)
+	require.ErrorIs(t, err, ErrNoSuchMember)
 }

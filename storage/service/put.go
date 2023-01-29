@@ -33,7 +33,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 
 	err = s.storage.Put(req.Key, value)
 	if err != nil {
-		if errors.Is(err, storage.ErrObsoleteWrite) {
+		if errors.Is(err, storage.ErrObsolete) {
 			return nil, status.New(codes.AlreadyExists, "obsolete write").Err()
 		}
 

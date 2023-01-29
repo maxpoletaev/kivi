@@ -6,11 +6,11 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-func (c *Memberlist) handleMemberJoined(event *MemberJoined) error {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+func (ml *Memberlist) handleMemberJoined(event *MemberJoined) error {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
-	if _, ok := c.members[event.ID]; ok {
+	if _, ok := ml.members[event.ID]; ok {
 		return nil
 	}
 
@@ -23,51 +23,51 @@ func (c *Memberlist) handleMemberJoined(event *MemberJoined) error {
 		Version:    1,
 	}
 
-	if err := c.eventBus.RegisterReceiver(&member); err != nil {
+	if err := ml.eventSender.Register(&member); err != nil {
 		return fmt.Errorf("failed to register member in gossiper: %v", err)
 	}
 
-	c.members[event.ID] = member
+	ml.members[event.ID] = member
 
-	level.Debug(c.logger).Log("msg", "member joined", "name", event.Name)
+	level.Debug(ml.logger).Log("msg", "member joined", "name", event.Name)
 
 	return nil
 }
 
-func (c *Memberlist) handleMemberLeft(event *MemberLeft) (err error) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+func (ml *Memberlist) handleMemberLeft(event *MemberLeft) (err error) {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
-	member, ok := c.members[event.ID]
+	member, ok := ml.members[event.ID]
 	if !ok {
 		return
 	}
 
-	// Node is expeled from the cluster by another node.
-	if member.ID == c.selfID {
-		for _, member := range c.members {
-			if member.ID != c.selfID {
-				c.eventBus.UnregisterReceiver(&member)
+	// Node is expelled from the cluster by another node.
+	if member.ID == ml.selfID {
+		for _, member := range ml.members {
+			if member.ID != ml.selfID {
+				ml.eventSender.Unregister(&member)
 			}
 		}
 
 		// Reset the list of members to only contain the local node.
-		c.members = make(map[NodeID]Member, 1)
-		c.members[member.ID] = member
+		ml.members = make(map[NodeID]Member, 1)
+		ml.members[member.ID] = member
 	}
 
-	delete(c.members, event.ID)
-	c.eventBus.UnregisterReceiver(&member)
-	level.Debug(c.logger).Log("msg", "member left", "name", member.Name)
+	delete(ml.members, event.ID)
+	ml.eventSender.Unregister(&member)
+	level.Debug(ml.logger).Log("msg", "member left", "name", member.Name)
 
 	return
 }
 
-func (c *Memberlist) handleMemberUpdated(event *MemberUpdated) (err error) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+func (ml *Memberlist) handleMemberUpdated(event *MemberUpdated) (err error) {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
-	member, ok := c.members[event.ID]
+	member, ok := ml.members[event.ID]
 	if !ok {
 		return
 	}
@@ -79,10 +79,10 @@ func (c *Memberlist) handleMemberUpdated(event *MemberUpdated) (err error) {
 	oldStatus := member.Status
 	member.Status = event.Status
 	member.Version = event.Version
-	c.members[event.ID] = member
+	ml.members[event.ID] = member
 
 	if oldStatus != event.Status {
-		level.Debug(c.logger).Log(
+		level.Debug(ml.logger).Log(
 			"msg", "member status changed",
 			"name", member.Name,
 			"old_status", oldStatus,

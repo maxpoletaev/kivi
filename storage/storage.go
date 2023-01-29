@@ -12,9 +12,9 @@ var (
 	// ErrNotFound is returned when a key is not found in the storage.
 	ErrNotFound = errors.New("key not found")
 
-	// ErrObsoleteWrite is returned when a write operation is
-	// performed on a key that already has a newer version.
-	ErrObsoleteWrite = errors.New("obsolete write")
+	// ErrObsolete is returned when a write operation is performed on a key that
+	// already has a newer version.
+	ErrObsolete = errors.New("obsolete write")
 
 	// ErrNoMoreItems is returned when there are no more items in the iterator.
 	ErrNoMoreItems = errors.New("no more items in the iterator")
@@ -42,23 +42,20 @@ type Engine interface {
 // engines, but not all of them. In case of concurrent versions, the storage engine will
 // return all versions of the key, and it is up to the caller to decide which one to use.
 type Scannable interface {
-	Scan() ScanIterator
-	ScanFrom(key string) ScanIterator
-	ScanTo(key string) ScanIterator
-	ScanRange(from, to string) ScanIterator
+	Scan(key string) ScanIterator
 }
 
 // ScanIterator is the interface for iterating over the key-value pairs in the storage,
 // in lexicographical order. It is not usually safe for concurrent use, so we must create
 // a new iterator for each goroutine.
 type ScanIterator interface {
-	Next() (key string, value Value)
-	HasNext() bool
+	Item() (string, []Value)
+	Next() error
 }
 
 // AppendVersion appends a new version to the list of versions. In case the new version
 // overtakes the existing ones, the older existing versions are discarded. If the new
-// version is older than the existing ones, an ErrObsoleteWrite is returned. In case
+// version is older than the existing ones, an ErrObsolete is returned. In case
 // of concurrent versions, the new version is added to the list.
 func AppendVersion(values []Value, newValue Value) ([]Value, error) {
 	merged := make([]Value, 0, 1)
@@ -66,8 +63,7 @@ func AppendVersion(values []Value, newValue Value) ([]Value, error) {
 	for _, val := range values {
 		switch vclock.Compare(newValue.Version, val.Version) {
 		case vclock.Before, vclock.Equal:
-			return nil, ErrObsoleteWrite
-
+			return nil, ErrObsolete
 		case vclock.Concurrent:
 			if !val.Tombstone {
 				merged = append(merged, val)
@@ -76,7 +72,7 @@ func AppendVersion(values []Value, newValue Value) ([]Value, error) {
 	}
 
 	if len(merged) > 0 && newValue.Tombstone {
-		return nil, ErrObsoleteWrite
+		return nil, ErrObsolete
 	}
 
 	merged = append(merged, newValue)

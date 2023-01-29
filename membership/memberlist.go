@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
@@ -12,24 +13,23 @@ import (
 	"github.com/maxpoletaev/kiwi/internal/multierror"
 )
 
-var (
-	ErrMemberNotFound = errors.New("member not found")
-)
+var ErrNoSuchMember = errors.New("member not found")
 
 type Memberlist struct {
-	mut      sync.RWMutex
-	selfID   NodeID
-	members  map[NodeID]Member
-	eventBus EventSender
-	logger   log.Logger
+	mut         sync.RWMutex
+	selfID      NodeID
+	members     map[NodeID]Member
+	eventSender EventSender
+	logger      log.Logger
+	lastUpdate  time.Time
 }
 
-func New(self Member, logger log.Logger, eb EventSender) *Memberlist {
+func New(self Member, logger log.Logger, es EventSender) *Memberlist {
 	ml := &Memberlist{
-		selfID:   self.ID,
-		logger:   logger,
-		eventBus: eb,
-		members:  make(map[NodeID]Member, 1),
+		selfID:      self.ID,
+		logger:      logger,
+		eventSender: es,
+		members:     make(map[NodeID]Member, 1),
 	}
 
 	self.Status = StatusHealthy
@@ -38,38 +38,46 @@ func New(self Member, logger log.Logger, eb EventSender) *Memberlist {
 	return ml
 }
 
-func (c *Memberlist) ConsumeEvents(ch <-chan ClusterEvent) {
+func (ml *Memberlist) LastUpdate() time.Time {
+	ml.mut.RLock()
+	defer ml.mut.RUnlock()
+
+	return ml.lastUpdate
+}
+
+// ConsumeEvents consumes events from the event channel and updates the cluster state.
+func (ml *Memberlist) ConsumeEvents(ch <-chan ClusterEvent) {
 	go func() {
 		for event := range ch {
-			if err := c.handleEvent(event); err != nil {
-				level.Error(c.logger).Log("msg", "failed to handle event", "err", err)
+			if err := ml.handleEvent(event); err != nil {
+				level.Error(ml.logger).Log("msg", "failed to handle event", "err", err)
 			}
 		}
 	}()
 }
 
 // Members returns a list of known cluster members.
-func (c *Memberlist) Members() []Member {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (ml *Memberlist) Members() []Member {
+	ml.mut.RLock()
+	defer ml.mut.RUnlock()
 
-	return generic.MapValues(c.members)
+	return generic.MapValues(ml.members)
 }
 
-func (c *Memberlist) HasMember(id NodeID) bool {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (ml *Memberlist) HasMember(id NodeID) bool {
+	ml.mut.RLock()
+	defer ml.mut.RUnlock()
 
-	_, ok := c.members[id]
+	_, ok := ml.members[id]
 
 	return ok
 }
 
-func (c *Memberlist) Member(id NodeID) (Member, bool) {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (ml *Memberlist) Member(id NodeID) (Member, bool) {
+	ml.mut.RLock()
+	defer ml.mut.RUnlock()
 
-	member, found := c.members[id]
+	member, found := ml.members[id]
 	if !found {
 		return Member{}, false
 	}
@@ -77,30 +85,30 @@ func (c *Memberlist) Member(id NodeID) (Member, bool) {
 	return member, true
 }
 
-func (c *Memberlist) Self() Member {
-	c.mut.RLock()
-	defer c.mut.RUnlock()
+func (ml *Memberlist) Self() Member {
+	ml.mut.RLock()
+	defer ml.mut.RUnlock()
 
-	return c.members[c.selfID]
+	return ml.members[ml.selfID]
 }
 
-func (c *Memberlist) SelfID() NodeID {
-	return c.selfID
+func (ml *Memberlist) SelfID() NodeID {
+	return ml.selfID
 }
 
 // Add adds new members to the cluster. It is expected that if there are multiple members on
 // the list, they already form a cluster and already know about each other. Adding several
 // independent nodes requires calling this method once per each node.
-func (c *Memberlist) Add(members ...Member) error {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+func (ml *Memberlist) Add(members ...Member) error {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
 	errs := multierror.New[NodeID]()
 	newMembers := make([]Member, 0)
 
 	// Filter out the ones that we already know about.
 	for _, n := range members {
-		if _, found := c.members[n.ID]; !found {
+		if _, found := ml.members[n.ID]; !found {
 			newMembers = append(newMembers, n)
 		}
 	}
@@ -117,10 +125,7 @@ func (c *Memberlist) Add(members ...Member) error {
 			GossipAddr: m.GossipAddr,
 		}
 
-		// TODO: So far we do not care much if the broadcast fails since we also
-		//   rely on periodic state synchronization (not implemented yet).
-
-		if err := c.eventBus.Broadcast(event); err != nil {
+		if err := ml.eventSender.Broadcast(event); err != nil {
 			errs.Add(m.ID, fmt.Errorf("failed to broadcast: %w", err))
 			continue
 		}
@@ -134,82 +139,88 @@ func (c *Memberlist) Add(members ...Member) error {
 			continue
 		}
 
-		if err := c.eventBus.RegisterReceiver(m); err != nil {
+		if err := ml.eventSender.Register(m); err != nil {
 			errs.Add(m.ID, fmt.Errorf("failed to register receiver: %w", err))
 			continue
 		}
 
-		c.members[m.ID] = *m
+		ml.members[m.ID] = *m
 	}
+
+	ml.lastUpdate = time.Now()
 
 	return errs.Combined()
 }
 
-func (c *Memberlist) Expel(id NodeID) error {
+func (ml *Memberlist) Expel(id NodeID) error {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
+
 	event := &MemberLeft{
 		ID:       id,
-		SourceID: c.selfID,
+		SourceID: ml.selfID,
 	}
 
-	member, found := c.members[id]
-	if !found {
-		return ErrMemberNotFound
-	}
-
-	err := c.eventBus.Broadcast(event)
+	err := ml.eventSender.Broadcast(event)
 	if err != nil {
 		return err
 	}
 
-	c.eventBus.UnregisterReceiver(&member)
+	member, found := ml.members[id]
+	if !found {
+		return ErrNoSuchMember
+	}
 
-	delete(c.members, id)
+	ml.lastUpdate = time.Now()
+
+	ml.eventSender.Unregister(&member)
+
+	delete(ml.members, id)
 
 	return nil
 }
 
-// RemoveMember removes the given member from the cluster. All other nodes will eventually
-// recevie a message about a node leaving the cluster, but this will not happen
-// immediately. Until then the node may still receive the requests from other nodes.
-func (c *Memberlist) Leave() error {
+func (ml *Memberlist) Leave() error {
 	event := &MemberLeft{
-		ID:       c.selfID,
-		SourceID: c.selfID,
+		ID:       ml.selfID,
+		SourceID: ml.selfID,
 	}
 
 	// Notify other cluster members about the node leaving the cluster.
-	err := c.eventBus.Broadcast(event)
+	err := ml.eventSender.Broadcast(event)
 	if err != nil {
 		return err
 	}
 
-	c.mut.Lock()
-	defer c.mut.Unlock()
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
-	self := c.members[c.selfID]
+	self := ml.members[ml.selfID]
 
 	// Unregister remote members from the gossiper.
-	for _, member := range c.members {
-		if member.ID != c.selfID {
-			c.eventBus.UnregisterReceiver(&member)
+	for _, member := range ml.members {
+		if member.ID != ml.selfID {
+			ml.eventSender.Unregister(&member)
 		}
 	}
 
 	// Reset the list of members to only contain the local node.
-	c.members = make(map[NodeID]Member, 1)
-	c.members[self.ID] = self
+	ml.members = make(map[NodeID]Member, 1)
+	ml.members[self.ID] = self
+
+	ml.lastUpdate = time.Now()
 
 	return nil
 }
 
 // SetStatus changes member status across all other members of the cluster.
-func (c *Memberlist) SetStatus(id NodeID, status Status) (Status, error) {
-	c.mut.Lock()
-	defer c.mut.Unlock()
+func (ml *Memberlist) SetStatus(id NodeID, status Status) (Status, error) {
+	ml.mut.Lock()
+	defer ml.mut.Unlock()
 
-	member, ok := c.members[id]
+	member, ok := ml.members[id]
 	if !ok {
-		return 0, ErrMemberNotFound
+		return 0, ErrNoSuchMember
 	}
 
 	if member.Status == status {
@@ -222,8 +233,8 @@ func (c *Memberlist) SetStatus(id NodeID, status Status) (Status, error) {
 
 	member.Version++
 
-	err := c.eventBus.Broadcast(&MemberUpdated{
-		SourceID: c.selfID,
+	err := ml.eventSender.Broadcast(&MemberUpdated{
+		SourceID: ml.selfID,
 		ID:       member.ID,
 		Version:  member.Version,
 		Status:   status,
@@ -232,23 +243,31 @@ func (c *Memberlist) SetStatus(id NodeID, status Status) (Status, error) {
 		return 0, fmt.Errorf("failed to publish NodeStatusChanged event: %w", err)
 	}
 
-	c.members[id] = member
+	ml.members[id] = member
+
+	ml.lastUpdate = time.Now()
 
 	return oldStatus, nil
 }
 
-func (c *Memberlist) handleEvent(e ClusterEvent) error {
+func (ml *Memberlist) handleEvent(e ClusterEvent) error {
 	var err error
 
 	switch event := e.(type) {
 	case *MemberJoined:
-		err = c.handleMemberJoined(event)
+		err = ml.handleMemberJoined(event)
 	case *MemberLeft:
-		err = c.handleMemberLeft(event)
+		err = ml.handleMemberLeft(event)
 	case *MemberUpdated:
-		err = c.handleMemberUpdated(event)
+		err = ml.handleMemberUpdated(event)
 	default:
 		err = fmt.Errorf("unknown event type: %T", event)
+	}
+
+	if err != nil {
+		ml.mut.Lock()
+		ml.lastUpdate = time.Now()
+		ml.mut.Unlock()
 	}
 
 	return err

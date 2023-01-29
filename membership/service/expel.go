@@ -15,7 +15,7 @@ import (
 func (s *MembershipService) Expel(ctx context.Context, req *proto.ExpelRequest) (*emptypb.Empty, error) {
 	if err := s.memberlist.Expel(membership.NodeID(req.MemberId)); err != nil {
 		st := status.New(codes.Internal, err.Error())
-		if errors.Is(err, membership.ErrMemberNotFound) {
+		if errors.Is(err, membership.ErrNoSuchMember) {
 			st = status.New(codes.NotFound, err.Error())
 		}
 

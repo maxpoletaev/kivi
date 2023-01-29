@@ -63,7 +63,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 	for i := range o.ReplicaSet {
 		member := &o.ReplicaSet[i]
 
-		if !member.IsReacheable() {
+		if !member.IsReachable() {
 			wg.Done()
 			continue
 		}

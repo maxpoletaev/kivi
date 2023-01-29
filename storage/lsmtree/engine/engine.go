@@ -7,19 +7,19 @@ import (
 	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
-type LSMTEngine struct {
+type Engine struct {
 	locks *lockmap.Map[string]
 	lsm   *lsmtree.LSMTree
 }
 
-func New(lsm *lsmtree.LSMTree) *LSMTEngine {
-	return &LSMTEngine{
+func New(lsm *lsmtree.LSMTree) *Engine {
+	return &Engine{
 		locks: lockmap.New[string](),
 		lsm:   lsm,
 	}
 }
 
-func (s *LSMTEngine) Get(key string) ([]storage.Value, error) {
+func (s *Engine) Get(key string) ([]storage.Value, error) {
 	entry, found, err := s.lsm.Get(key)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func (s *LSMTEngine) Get(key string) ([]storage.Value, error) {
 	return fromProtoValues(entry.Values), nil
 }
 
-func (s *LSMTEngine) Put(key string, value storage.Value) error {
+func (s *Engine) Put(key string, value storage.Value) error {
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 

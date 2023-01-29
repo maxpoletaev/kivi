@@ -6,23 +6,23 @@ import (
 	"github.com/maxpoletaev/kiwi/storage"
 )
 
-type InMemoryEngine struct {
+type Engine struct {
 	data  *skiplist.Skiplist[string, []storage.Value]
 	locks *lockmap.Map[string]
 }
 
-func New() *InMemoryEngine {
+func New() *Engine {
 	return newWithData(skiplist.New[string, []storage.Value](skiplist.StringComparator))
 }
 
-func newWithData(data *skiplist.Skiplist[string, []storage.Value]) *InMemoryEngine {
-	return &InMemoryEngine{
+func newWithData(data *skiplist.Skiplist[string, []storage.Value]) *Engine {
+	return &Engine{
 		locks: lockmap.New[string](),
 		data:  data,
 	}
 }
 
-func (s *InMemoryEngine) Get(key string) ([]storage.Value, error) {
+func (s *Engine) Get(key string) ([]storage.Value, error) {
 	values, found := s.data.Get(key)
 	if !found {
 		return nil, storage.ErrNotFound
@@ -31,7 +31,7 @@ func (s *InMemoryEngine) Get(key string) ([]storage.Value, error) {
 	return values, nil
 }
 
-func (s *InMemoryEngine) Put(key string, value storage.Value) error {
+func (s *Engine) Put(key string, value storage.Value) error {
 	// Since we read the value before updating it, we need to lock the key to avoid
 	// loosing versions during concurrent updates of the same key. The skiplist
 	// itself is thread-safe, that is why we do not lock it in Get.
@@ -48,4 +48,9 @@ func (s *InMemoryEngine) Put(key string, value storage.Value) error {
 	s.data.Insert(key, values)
 
 	return nil
+}
+
+func (s *Engine) Scan(key string) storage.ScanIterator {
+	it := s.data.ScanFrom(key)
+	return &Iterator{it: it}
 }

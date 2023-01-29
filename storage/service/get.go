@@ -8,7 +8,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kiwi/internal/vclock"
 	"github.com/maxpoletaev/kiwi/storage"
 	"github.com/maxpoletaev/kiwi/storage/proto"
 )
@@ -26,24 +25,8 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 	}
 
 	resp := &proto.GetResponse{
-		Value: toResponseValues(values),
+		Value: toProtoValues(values),
 	}
 
 	return resp, nil
-}
-
-func toResponseValues(values []storage.Value) []*proto.VersionedValue {
-	versionedValues := make(
-		[]*proto.VersionedValue, 0, len(values),
-	)
-
-	for _, value := range values {
-		versionedValues = append(versionedValues, &proto.VersionedValue{
-			Version:   vclock.MustEncode(value.Version),
-			Tombstone: value.Tombstone,
-			Data:      value.Data,
-		})
-	}
-
-	return versionedValues
 }

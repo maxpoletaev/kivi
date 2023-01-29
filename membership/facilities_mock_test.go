@@ -48,9 +48,9 @@ func (mr *MockEventSenderMockRecorder) Broadcast(arg0 interface{}) *gomock.Call 
 }
 
 // RegisterReceiver mocks base method.
-func (m *MockEventSender) RegisterReceiver(arg0 *Member) error {
+func (m *MockEventSender) Register(arg0 *Member) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterReceiver", arg0)
+	ret := m.ctrl.Call(m, "Register", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
@@ -58,17 +58,17 @@ func (m *MockEventSender) RegisterReceiver(arg0 *Member) error {
 // RegisterReceiver indicates an expected call of RegisterReceiver.
 func (mr *MockEventSenderMockRecorder) RegisterReceiver(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterReceiver", reflect.TypeOf((*MockEventSender)(nil).RegisterReceiver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockEventSender)(nil).Register), arg0)
 }
 
 // UnregisterReceiver mocks base method.
-func (m *MockEventSender) UnregisterReceiver(arg0 *Member) {
+func (m *MockEventSender) Unregister(arg0 *Member) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "UnregisterReceiver", arg0)
+	m.ctrl.Call(m, "Unregister", arg0)
 }
 
 // UnregisterReceiver indicates an expected call of UnregisterReceiver.
 func (mr *MockEventSenderMockRecorder) UnregisterReceiver(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnregisterReceiver", reflect.TypeOf((*MockEventSender)(nil).UnregisterReceiver), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Unregister", reflect.TypeOf((*MockEventSender)(nil).Unregister), arg0)
 }

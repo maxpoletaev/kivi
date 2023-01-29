@@ -10,13 +10,13 @@ func TestNodeID_String(t *testing.T) {
 	assert.Equal(t, "1", NodeID(1).String())
 }
 
-func TestMember_IsReacheable(t *testing.T) {
+func TestMember_IsReachable(t *testing.T) {
 	m := &Member{Status: StatusHealthy}
-	assert.True(t, m.IsReacheable())
+	assert.True(t, m.IsReachable())
 
 	m.Status = StatusFaulty
-	assert.False(t, m.IsReacheable())
+	assert.False(t, m.IsReachable())
 
 	m.Status = Status(0)
-	assert.False(t, m.IsReacheable())
+	assert.False(t, m.IsReachable())
 }

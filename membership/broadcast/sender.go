@@ -19,13 +19,13 @@ func NewSender(gossiper *gossip.Gossiper) *EventSender {
 	}
 }
 
-func (p *EventSender) RegisterReceiver(member *membership.Member) error {
-	_, err := p.gossiper.AddPeer(gossip.PeerID(member.RandID), member.GossipAddr)
+func (p *EventSender) Register(member *membership.Member) error {
+	_, err := p.gossiper.AddPeer(gossip.PeerID(member.RunID), member.GossipAddr)
 	return err
 }
 
-func (p *EventSender) UnregisterReceiver(member *membership.Member) {
-	p.gossiper.RemovePeer(gossip.PeerID(member.RandID))
+func (p *EventSender) Unregister(member *membership.Member) {
+	p.gossiper.RemovePeer(gossip.PeerID(member.RunID))
 }
 
 func (p *EventSender) Broadcast(event membership.ClusterEvent) error {
