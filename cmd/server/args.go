@@ -30,7 +30,7 @@ func parseCliArgs() cliArgs {
 	flag.StringVar(&args.gossipBindAddr, "gossip-bind-addr", "", "address to bind gossip listener")
 	flag.StringVar(&args.gossipPublicAddr, "gossip-public-addr", "", "address to advertise to other nodes")
 
-	flag.StringVar(&args.joinAddr, "join-addr", "", "address of a node to join the cluster")
+	flag.StringVar(&args.joinAddr, "join-addr", "", "address of a node to join the membership")
 
 	flag.BoolVar(&args.verbose, "verbose", false, "verbose mode")
 

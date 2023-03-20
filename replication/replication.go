@@ -10,7 +10,7 @@ import (
 	loglevel "github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 )
 
 var (
@@ -32,20 +32,30 @@ func (r *NodeReply[T]) Error(err error) {
 }
 
 type Opts[T any] struct {
-	Conns      ConnRegistry
+	Cluster    Cluster
 	Logger     kitlog.Logger
-	MinAcks    int
-	Timeout    time.Duration
-	ReplicaSet []membership.Member
+	ReplicaSet []membership.Node
 	AckedIDs   map[membership.NodeID]struct{}
+	Timeout    time.Duration
 	Background bool
+	MinAcks    int
 }
 
-type MapFn[T any] func(context.Context, membership.NodeID, nodeclient.Conn, *NodeReply[T])
+// MapFn is called for each node in the replica set. The function should send a
+// request to the node and call the reply.Ok() or reply.Error() function with the
+// result. The reply is then passed to the reduceFn.
+type MapFn[T any] func(context.Context, membership.NodeID, nodeapi.Client, *NodeReply[T])
 
+// ReduceFn is called for each reply. If the function returns an error, the whole
+// operation is cancelled. The cancel function can be used to cancel the
+// operation without failing it, for example, if the reply is already known to be
+// stale.
 type ReduceFn[T any] func(cancel func(), nodeID membership.NodeID, reply T, err error) error
 
-func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceFn[T]) error {
+// Distribute sends a request to all nodes in the replica set and ensures that
+// enough nodes have acknowledged the request. The mapFn is called for each node
+// in the replica set, and the reduceFn is called for each reply.
+func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn ReduceFn[T]) error {
 	if o.AckedIDs == nil {
 		o.AckedIDs = make(map[membership.NodeID]struct{})
 	}
@@ -76,7 +86,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 		go func(nodeID membership.NodeID) {
 			defer wg.Done()
 
-			conn, err := o.Conns.Get(nodeID)
+			conn, err := o.Cluster.Conn(nodeID)
 			if err != nil {
 				loglevel.Warn(
 					kitlog.With(o.Logger, "node_id", nodeID),
@@ -112,7 +122,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 	}
 
 	cancelCalled := false
-	cancel := func() {
+	cancelCallback := func() {
 		cancelCalled = true
 		cancelMap() // nolint:wsl
 	}
@@ -126,7 +136,7 @@ func (o Opts[T]) MapReduce(ctx context.Context, mapFn MapFn[T], reduceFn ReduceF
 				return ErrNotEnoughAcks
 			}
 
-			err := reduceFn(cancel, reply.nodeID, reply.reply, reply.err)
+			err := reduceFn(cancelCallback, reply.nodeID, reply.reply, reply.err)
 
 			if cancelCalled {
 				return err

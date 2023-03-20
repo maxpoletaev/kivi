@@ -40,7 +40,7 @@ type loggedState struct {
 }
 
 // newLoggedState creates a new state manager. If the log file already exists, the state will be
-// restored from it, otherwise a new log file will be created. All chages are immediately
+// restored from it, otherwise a new log file will be created. All changes are immediately
 // flushed to the disk due to the file opened with O_SYNC flag.
 func newLoggedState(prefix string) (*loggedState, error) {
 	logFile, err := os.OpenFile(
@@ -158,8 +158,8 @@ func (sm *loggedState) logAndApply(change *proto.StateLogEntry) error {
 	return nil
 }
 
-// MemtableCreated is called when a new memtable is created.
-func (sm *loggedState) MemtableCreated(memtInfo *MemtableInfo) error {
+// LogMemtableCreated is called when a new memtable is created.
+func (sm *loggedState) LogMemtableCreated(memtInfo *MemtableInfo) error {
 	return sm.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENT_CREATED,
@@ -169,8 +169,8 @@ func (sm *loggedState) MemtableCreated(memtInfo *MemtableInfo) error {
 	})
 }
 
-// MemtableFlushed is called when a memtable is flushed to a new sstable.
-func (sm *loggedState) MemtableFlushed(memtID int64, sstInfo *SSTableInfo) error {
+// LogMemtableFlushed is called when a memtable is flushed to a new sstable.
+func (sm *loggedState) LogMemtableFlushed(memtID int64, sstInfo *SSTableInfo) error {
 	return sm.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENT_FLUSHED,
@@ -181,8 +181,8 @@ func (sm *loggedState) MemtableFlushed(memtID int64, sstInfo *SSTableInfo) error
 	})
 }
 
-// TablesMerged is called when a set of sstables are merged into a new sstable.
-func (sm *loggedState) TablesMerged(oldTableIDs []int64, newTableInfo *SSTableInfo) error {
+// LogSSTablesMerged is called when a set of sstables are merged into a new sstable.
+func (sm *loggedState) LogSSTablesMerged(oldTableIDs []int64, newTableInfo *SSTableInfo) error {
 	return sm.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENTS_MERGED,

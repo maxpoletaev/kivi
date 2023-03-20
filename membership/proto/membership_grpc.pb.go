@@ -11,7 +11,6 @@ import (
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 // This is a compile-time assertion to ensure that this generated file
@@ -19,158 +18,122 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// MembershipServiceClient is the client API for MembershipService service.
+// MembershipClient is the client API for Membership service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type MembershipServiceClient interface {
-	Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error)
-	Expel(ctx context.Context, in *ExpelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	Members(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MembersResponse, error)
+type MembershipClient interface {
+	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
+	PullPushState(ctx context.Context, in *PullPushStateRequest, opts ...grpc.CallOption) (*PullPushStateResponse, error)
 }
 
-type membershipServiceClient struct {
+type membershipClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewMembershipServiceClient(cc grpc.ClientConnInterface) MembershipServiceClient {
-	return &membershipServiceClient{cc}
+func NewMembershipClient(cc grpc.ClientConnInterface) MembershipClient {
+	return &membershipClient{cc}
 }
 
-func (c *membershipServiceClient) Join(ctx context.Context, in *JoinRequest, opts ...grpc.CallOption) (*JoinResponse, error) {
-	out := new(JoinResponse)
-	err := c.cc.Invoke(ctx, "/membership.MembershipService/Join", in, out, opts...)
+func (c *membershipClient) ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error) {
+	out := new(ListNodesResponse)
+	err := c.cc.Invoke(ctx, "/membership.Membership/ListNodes", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *membershipServiceClient) Expel(ctx context.Context, in *ExpelRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
-	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/membership.MembershipService/Expel", in, out, opts...)
+func (c *membershipClient) PullPushState(ctx context.Context, in *PullPushStateRequest, opts ...grpc.CallOption) (*PullPushStateResponse, error) {
+	out := new(PullPushStateResponse)
+	err := c.cc.Invoke(ctx, "/membership.Membership/PullPushState", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *membershipServiceClient) Members(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*MembersResponse, error) {
-	out := new(MembersResponse)
-	err := c.cc.Invoke(ctx, "/membership.MembershipService/Members", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-// MembershipServiceServer is the server API for MembershipService service.
-// All implementations must embed UnimplementedMembershipServiceServer
+// MembershipServer is the server API for Membership service.
+// All implementations must embed UnimplementedMembershipServer
 // for forward compatibility
-type MembershipServiceServer interface {
-	Join(context.Context, *JoinRequest) (*JoinResponse, error)
-	Expel(context.Context, *ExpelRequest) (*emptypb.Empty, error)
-	Members(context.Context, *emptypb.Empty) (*MembersResponse, error)
-	mustEmbedUnimplementedMembershipServiceServer()
+type MembershipServer interface {
+	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
+	PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error)
+	mustEmbedUnimplementedMembershipServer()
 }
 
-// UnimplementedMembershipServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedMembershipServiceServer struct {
+// UnimplementedMembershipServer must be embedded to have forward compatible implementations.
+type UnimplementedMembershipServer struct {
 }
 
-func (UnimplementedMembershipServiceServer) Join(context.Context, *JoinRequest) (*JoinResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Join not implemented")
+func (UnimplementedMembershipServer) ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNodes not implemented")
 }
-func (UnimplementedMembershipServiceServer) Expel(context.Context, *ExpelRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Expel not implemented")
+func (UnimplementedMembershipServer) PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PullPushState not implemented")
 }
-func (UnimplementedMembershipServiceServer) Members(context.Context, *emptypb.Empty) (*MembersResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Members not implemented")
-}
-func (UnimplementedMembershipServiceServer) mustEmbedUnimplementedMembershipServiceServer() {}
+func (UnimplementedMembershipServer) mustEmbedUnimplementedMembershipServer() {}
 
-// UnsafeMembershipServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to MembershipServiceServer will
+// UnsafeMembershipServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MembershipServer will
 // result in compilation errors.
-type UnsafeMembershipServiceServer interface {
-	mustEmbedUnimplementedMembershipServiceServer()
+type UnsafeMembershipServer interface {
+	mustEmbedUnimplementedMembershipServer()
 }
 
-func RegisterMembershipServiceServer(s grpc.ServiceRegistrar, srv MembershipServiceServer) {
-	s.RegisterService(&MembershipService_ServiceDesc, srv)
+func RegisterMembershipServer(s grpc.ServiceRegistrar, srv MembershipServer) {
+	s.RegisterService(&Membership_ServiceDesc, srv)
 }
 
-func _MembershipService_Join_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(JoinRequest)
+func _Membership_ListNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNodesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MembershipServiceServer).Join(ctx, in)
+		return srv.(MembershipServer).ListNodes(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/membership.MembershipService/Join",
+		FullMethod: "/membership.Membership/ListNodes",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MembershipServiceServer).Join(ctx, req.(*JoinRequest))
+		return srv.(MembershipServer).ListNodes(ctx, req.(*ListNodesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MembershipService_Expel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ExpelRequest)
+func _Membership_PullPushState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PullPushStateRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MembershipServiceServer).Expel(ctx, in)
+		return srv.(MembershipServer).PullPushState(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/membership.MembershipService/Expel",
+		FullMethod: "/membership.Membership/PullPushState",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MembershipServiceServer).Expel(ctx, req.(*ExpelRequest))
+		return srv.(MembershipServer).PullPushState(ctx, req.(*PullPushStateRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MembershipService_Members_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(emptypb.Empty)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(MembershipServiceServer).Members(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/membership.MembershipService/Members",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MembershipServiceServer).Members(ctx, req.(*emptypb.Empty))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-// MembershipService_ServiceDesc is the grpc.ServiceDesc for MembershipService service.
+// Membership_ServiceDesc is the grpc.ServiceDesc for Membership service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var MembershipService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "membership.MembershipService",
-	HandlerType: (*MembershipServiceServer)(nil),
+var Membership_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "membership.Membership",
+	HandlerType: (*MembershipServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Join",
-			Handler:    _MembershipService_Join_Handler,
+			MethodName: "ListNodes",
+			Handler:    _Membership_ListNodes_Handler,
 		},
 		{
-			MethodName: "Expel",
-			Handler:    _MembershipService_Expel_Handler,
-		},
-		{
-			MethodName: "Members",
-			Handler:    _MembershipService_Members_Handler,
+			MethodName: "PullPushState",
+			Handler:    _Membership_PullPushState_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

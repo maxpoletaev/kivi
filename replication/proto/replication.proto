@@ -37,7 +37,7 @@ message DeleteRequest {
 message DeleteResponse {
 }
 
-service CoordinatorService {
+service Replication {
     rpc ReplicatedGet(GetRequest) returns (GetResponse);
     rpc ReplicatedPut(PutRequest) returns (PutResponse);
     rpc ReplicatedDelete(DeleteRequest) returns (DeleteResponse);

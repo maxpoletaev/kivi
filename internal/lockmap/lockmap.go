@@ -24,10 +24,10 @@ func (lm *Map[K]) Lock(key K) {
 	lm.locks[key].Lock()
 }
 
-func (m *Map[K]) Unlock(key K) {
-	m.mut.Lock()
-	defer m.mut.Unlock()
+func (lm *Map[K]) Unlock(key K) {
+	lm.mut.Lock()
+	defer lm.mut.Unlock()
 
-	m.locks[key].Unlock()
-	delete(m.locks, key)
+	lm.locks[key].Unlock()
+	delete(lm.locks, key)
 }

@@ -3,17 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+
 	"google.golang.org/grpc/codes"
 
 	"github.com/maxpoletaev/kiwi/internal/grpcutil"
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/proto"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
-func (s *ReplicationService) validatePutRequest(req *proto.PutRequest) error {
+func (s *ReplicationServer) validatePutRequest(req *proto.PutRequest) error {
 	if len(req.Key) == 0 {
 		return errMissingKey
 	}
@@ -21,14 +21,14 @@ func (s *ReplicationService) validatePutRequest(req *proto.PutRequest) error {
 	return nil
 }
 
-func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (s *ReplicationServer) ReplicatedPut(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if err := s.validatePutRequest(req); err != nil {
 		return nil, err
 	}
 
 	var (
-		members   = s.members.Members()
-		localConn = s.connections.Local()
+		members   = s.cluster.Nodes()
+		localConn = s.cluster.LocalConn()
 		needAcks  = s.writeLevel.N(len(members))
 	)
 
@@ -46,19 +46,19 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 
 	// We already received an ack from the primary node, so skip in the map-reduce operation.
 	ackedIDs := make(map[membership.NodeID]struct{})
-	ackedIDs[s.members.SelfID()] = struct{}{}
+	ackedIDs[s.cluster.SelfID()] = struct{}{}
 
 	err = replication.Opts[string]{
 		MinAcks:    needAcks,
 		ReplicaSet: members,
 		AckedIDs:   ackedIDs,
-		Conns:      s.connections,
+		Cluster:    s.cluster,
 		Logger:     s.logger,
 		Timeout:    s.writeTimeout,
 		Background: true,
-	}.MapReduce(
+	}.Distribute(
 		ctx,
-		func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[string]) {
+		func(ctx context.Context, nodeID membership.NodeID, conn nodeapi.Client, reply *replication.NodeReply[string]) {
 			version, err := putValue(ctx, conn, req.Key, req.Value.Data, version, false)
 			if err != nil {
 				reply.Error(err)
@@ -80,7 +80,7 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 	if err != nil {
 		// If we did not receive enough acks, return a special error that will be
 		// converted to a Unavailable response. This is done to distinguish between
-		// a write that failed because of a network partition and a write that failed
+		// a write that failed because of a membership partition and a write that failed
 		// because of a write quorum not being satisfied.
 		if errors.Is(err, replication.ErrNotEnoughAcks) {
 			return nil, errLevelNotSatisfied
@@ -96,22 +96,17 @@ func (s *ReplicationService) ReplicatedPut(ctx context.Context, req *proto.PutRe
 
 func putValue(
 	ctx context.Context,
-	conn nodeclient.Conn,
+	conn nodeapi.Client,
 	key string,
 	value []byte,
 	version string,
 	primary bool,
 ) (string, error) {
-	req := &storagepb.PutRequest{
-		Key:     key,
-		Primary: primary,
-		Value: &storagepb.VersionedValue{
-			Version: version,
-			Data:    value,
-		},
-	}
+	resp, err := conn.Put(ctx, key, nodeapi.VersionedValue{
+		Version: version,
+		Data:    value,
+	}, primary)
 
-	resp, err := conn.Put(ctx, req)
 	if err != nil {
 		return "", err
 	}

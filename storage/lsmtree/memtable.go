@@ -124,34 +124,18 @@ func (mt *Memtable) Size() int64 {
 	return atomic.LoadInt64(&mt.dataSize)
 }
 
-// Close closes the underlying WAL file. The memtable can still be used for reads
-// after closing, but the writes will cause panic. Close should not be called
-// concurrently with Put.
-func (mt *Memtable) Close() error {
+// Discard removes data files associated with the memtable. It is used when
+// the memtable is no longer needed, e.g. when it is merged into a SSTable.
+func (mt *Memtable) Discard() error {
 	if err := mt.walFile.Close(); err != nil {
 		return fmt.Errorf("failed to close wal file: %w", err)
 	}
 
-	return nil
-}
-
-// Discard removes data files associated with the memtable. It is used when
-// the memtable is no longer needed, e.g. when it is merged into a SSTable.
-// Memtable should be closed before calling this method.
-func (mt *Memtable) Discard() error {
 	if err := os.Remove(mt.walFile.Name()); err != nil {
 		return fmt.Errorf("failed to remove wal file: %w", err)
 	}
 
 	return nil
-}
-
-func (mt *Memtable) CloseAndDiscard() error {
-	if err := mt.Close(); err != nil {
-		return err
-	}
-
-	return mt.Discard()
 }
 
 func (mt *Memtable) Sync() error {

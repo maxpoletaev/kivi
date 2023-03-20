@@ -5,10 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/maxpoletaev/kiwi/internal/protoio"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/maxpoletaev/kiwi/internal/protoio"
+	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
 )
 
 func TestCreateMemtable(t *testing.T) {
@@ -17,7 +18,7 @@ func TestCreateMemtable(t *testing.T) {
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
 
-	defer memt.CloseAndDiscard()
+	defer memt.Discard()
 
 	require.Equal(t, 0, memt.Len())
 	require.FileExists(t, filepath.Join(tempDir, memt.WALFile))
@@ -49,7 +50,7 @@ func TestOpenMemtable(t *testing.T) {
 	}, tempDir)
 	require.NoError(t, err)
 
-	defer memt.CloseAndDiscard()
+	defer memt.Discard()
 
 	got, ok := memt.Get("key")
 	require.True(t, ok)
@@ -66,7 +67,7 @@ func TestMemtable_GetAfterPut(t *testing.T) {
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
 
-	defer memt.CloseAndDiscard()
+	defer memt.Discard()
 
 	memt.Put(&proto.DataEntry{
 		Key: "key",
@@ -93,7 +94,7 @@ func TestMemtable_PutRecordedInWAL(t *testing.T) {
 	memt, err := createMemtable(tempDir)
 	require.NoError(t, err)
 
-	defer memt.CloseAndDiscard()
+	defer memt.Discard()
 
 	memt.Put(&proto.DataEntry{
 		Key: "key",

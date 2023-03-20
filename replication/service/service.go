@@ -8,10 +8,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/consistency"
 	"github.com/maxpoletaev/kiwi/replication/proto"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 const (
@@ -29,23 +29,22 @@ var (
 
 type nodeValue struct {
 	NodeID membership.NodeID
-	*storagepb.VersionedValue
+	nodeapi.VersionedValue
 }
 
-type serviceOption func(s *ReplicationService)
+type serviceOption func(s *ReplicationServer)
 
 func WithConsistencyLevel(read, write consistency.Level) serviceOption {
-	return func(s *ReplicationService) {
+	return func(s *ReplicationServer) {
 		s.readLevel = read
 		s.writeLevel = write
 	}
 }
 
-type ReplicationService struct {
-	proto.UnimplementedCoordinatorServiceServer
+type ReplicationServer struct {
+	proto.UnimplementedReplicationServer
 
-	connections  replication.ConnRegistry
-	members      Memberlist
+	cluster      replication.Cluster
 	logger       kitlog.Logger
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -53,24 +52,18 @@ type ReplicationService struct {
 	writeLevel   consistency.Level
 }
 
-func New(
-	members Memberlist,
-	logger kitlog.Logger,
-	conns replication.ConnRegistry,
-	readLevel, writeLevel consistency.Level,
-) *ReplicationService {
-	return &ReplicationService{
+func New(cluster replication.Cluster, logger kitlog.Logger) *ReplicationServer {
+	return &ReplicationServer{
 		logger:       logger,
-		members:      members,
-		connections:  conns,
+		cluster:      cluster,
 		readTimeout:  defaultReadTimeout,
 		writeTimeout: defaultWriteTimeout,
-		readLevel:    readLevel,
-		writeLevel:   writeLevel,
+		readLevel:    defaultConsistencyLevel,
+		writeLevel:   defaultConsistencyLevel,
 	}
 }
 
-func countAlive(members []membership.Member) (alive int) {
+func countAlive(members []membership.Node) (alive int) {
 	for i := range members {
 		if members[i].IsReachable() {
 			alive++

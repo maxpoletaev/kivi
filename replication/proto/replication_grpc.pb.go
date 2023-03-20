@@ -18,158 +18,158 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// CoordinatorServiceClient is the client API for CoordinatorService service.
+// ReplicationClient is the client API for Replication service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type CoordinatorServiceClient interface {
+type ReplicationClient interface {
 	ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	ReplicatedPut(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 	ReplicatedDelete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
 }
 
-type coordinatorServiceClient struct {
+type replicationClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewCoordinatorServiceClient(cc grpc.ClientConnInterface) CoordinatorServiceClient {
-	return &coordinatorServiceClient{cc}
+func NewReplicationClient(cc grpc.ClientConnInterface) ReplicationClient {
+	return &replicationClient{cc}
 }
 
-func (c *coordinatorServiceClient) ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *replicationClient) ReplicatedGet(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, "/replication.CoordinatorService/ReplicatedGet", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/replication.Replication/ReplicatedGet", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *coordinatorServiceClient) ReplicatedPut(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
+func (c *replicationClient) ReplicatedPut(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
 	out := new(PutResponse)
-	err := c.cc.Invoke(ctx, "/replication.CoordinatorService/ReplicatedPut", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/replication.Replication/ReplicatedPut", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *coordinatorServiceClient) ReplicatedDelete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
+func (c *replicationClient) ReplicatedDelete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	out := new(DeleteResponse)
-	err := c.cc.Invoke(ctx, "/replication.CoordinatorService/ReplicatedDelete", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/replication.Replication/ReplicatedDelete", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// CoordinatorServiceServer is the server API for CoordinatorService service.
-// All implementations must embed UnimplementedCoordinatorServiceServer
+// ReplicationServer is the server API for Replication service.
+// All implementations must embed UnimplementedReplicationServer
 // for forward compatibility
-type CoordinatorServiceServer interface {
+type ReplicationServer interface {
 	ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error)
 	ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error)
 	ReplicatedDelete(context.Context, *DeleteRequest) (*DeleteResponse, error)
-	mustEmbedUnimplementedCoordinatorServiceServer()
+	mustEmbedUnimplementedReplicationServer()
 }
 
-// UnimplementedCoordinatorServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedCoordinatorServiceServer struct {
+// UnimplementedReplicationServer must be embedded to have forward compatible implementations.
+type UnimplementedReplicationServer struct {
 }
 
-func (UnimplementedCoordinatorServiceServer) ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedReplicationServer) ReplicatedGet(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedGet not implemented")
 }
-func (UnimplementedCoordinatorServiceServer) ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error) {
+func (UnimplementedReplicationServer) ReplicatedPut(context.Context, *PutRequest) (*PutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedPut not implemented")
 }
-func (UnimplementedCoordinatorServiceServer) ReplicatedDelete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
+func (UnimplementedReplicationServer) ReplicatedDelete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicatedDelete not implemented")
 }
-func (UnimplementedCoordinatorServiceServer) mustEmbedUnimplementedCoordinatorServiceServer() {}
+func (UnimplementedReplicationServer) mustEmbedUnimplementedReplicationServer() {}
 
-// UnsafeCoordinatorServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to CoordinatorServiceServer will
+// UnsafeReplicationServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ReplicationServer will
 // result in compilation errors.
-type UnsafeCoordinatorServiceServer interface {
-	mustEmbedUnimplementedCoordinatorServiceServer()
+type UnsafeReplicationServer interface {
+	mustEmbedUnimplementedReplicationServer()
 }
 
-func RegisterCoordinatorServiceServer(s grpc.ServiceRegistrar, srv CoordinatorServiceServer) {
-	s.RegisterService(&CoordinatorService_ServiceDesc, srv)
+func RegisterReplicationServer(s grpc.ServiceRegistrar, srv ReplicationServer) {
+	s.RegisterService(&Replication_ServiceDesc, srv)
 }
 
-func _CoordinatorService_ReplicatedGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Replication_ReplicatedGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoordinatorServiceServer).ReplicatedGet(ctx, in)
+		return srv.(ReplicationServer).ReplicatedGet(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/replication.CoordinatorService/ReplicatedGet",
+		FullMethod: "/replication.Replication/ReplicatedGet",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServiceServer).ReplicatedGet(ctx, req.(*GetRequest))
+		return srv.(ReplicationServer).ReplicatedGet(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CoordinatorService_ReplicatedPut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Replication_ReplicatedPut_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PutRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoordinatorServiceServer).ReplicatedPut(ctx, in)
+		return srv.(ReplicationServer).ReplicatedPut(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/replication.CoordinatorService/ReplicatedPut",
+		FullMethod: "/replication.Replication/ReplicatedPut",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServiceServer).ReplicatedPut(ctx, req.(*PutRequest))
+		return srv.(ReplicationServer).ReplicatedPut(ctx, req.(*PutRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _CoordinatorService_ReplicatedDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Replication_ReplicatedDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(CoordinatorServiceServer).ReplicatedDelete(ctx, in)
+		return srv.(ReplicationServer).ReplicatedDelete(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/replication.CoordinatorService/ReplicatedDelete",
+		FullMethod: "/replication.Replication/ReplicatedDelete",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(CoordinatorServiceServer).ReplicatedDelete(ctx, req.(*DeleteRequest))
+		return srv.(ReplicationServer).ReplicatedDelete(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// CoordinatorService_ServiceDesc is the grpc.ServiceDesc for CoordinatorService service.
+// Replication_ServiceDesc is the grpc.ServiceDesc for Replication service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var CoordinatorService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "replication.CoordinatorService",
-	HandlerType: (*CoordinatorServiceServer)(nil),
+var Replication_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "replication.Replication",
+	HandlerType: (*ReplicationServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "ReplicatedGet",
-			Handler:    _CoordinatorService_ReplicatedGet_Handler,
+			Handler:    _Replication_ReplicatedGet_Handler,
 		},
 		{
 			MethodName: "ReplicatedPut",
-			Handler:    _CoordinatorService_ReplicatedPut_Handler,
+			Handler:    _Replication_ReplicatedPut_Handler,
 		},
 		{
 			MethodName: "ReplicatedDelete",
-			Handler:    _CoordinatorService_ReplicatedDelete_Handler,
+			Handler:    _Replication_ReplicatedDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

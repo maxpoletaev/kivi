@@ -4,8 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
-	"github.com/maxpoletaev/kiwi/internal/vclock/pb"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/maxpoletaev/kiwi/internal/vclock/pb"
 )
 
 // Encode encodes the vector clock into a base64-encoded string.

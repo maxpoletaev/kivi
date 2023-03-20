@@ -40,10 +40,10 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 	var err error
 
 	defer func() {
-		og.CloseAll()
+		_ = og.CloseAll()
 
 		if err != nil {
-			og.RemoveAll()
+			_ = og.RemoveAll()
 		}
 	}()
 
@@ -137,7 +137,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 
 	// The size of the bloom filter is based on the number of entries in the data file.
 	// We did not know the number of entries in advance, so we have to re-read the entire data file.
-	bloomfilter := bloom.NewWithProbability(int(info.NumEntries), opts.bloomProb)
+	bloomFilter := bloom.NewWithProbability(int(info.NumEntries), opts.bloomProb)
 	dataReader := protoio.NewReader(dataFile)
 	entry := &proto.DataEntry{}
 
@@ -150,7 +150,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 			return nil, fmt.Errorf("failed to read data entry: %w", err)
 		}
 
-		bloomfilter.Add([]byte(entry.Key))
+		bloomFilter.Add([]byte(entry.Key))
 	}
 
 	var (
@@ -158,12 +158,13 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 		sst       *SSTable
 	)
 
-	if bloomData, err = protobuf.Marshal(&proto.BloomFilter{
-		Crc32:     crc32.ChecksumIEEE(bloomfilter.Bytes()),
-		NumHashes: int32(bloomfilter.Hashes()),
-		NumBytes:  int32(bloomfilter.SizeBytes()),
-		Data:      bloomfilter.Bytes(),
-	}); err != nil {
+	bloomData, err = protobuf.Marshal(&proto.BloomFilter{
+		Crc32:     crc32.ChecksumIEEE(bloomFilter.Bytes()),
+		NumHashes: int32(bloomFilter.Hashes()),
+		NumBytes:  int32(bloomFilter.SizeBytes()),
+		Data:      bloomFilter.Bytes(),
+	})
+	if err != nil {
 		return nil, fmt.Errorf("failed to marshal bloom filter: %w", err)
 	}
 

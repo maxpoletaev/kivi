@@ -9,13 +9,12 @@ import (
 	"github.com/maxpoletaev/kiwi/internal/generic"
 	"github.com/maxpoletaev/kiwi/internal/vclock"
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/proto"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
-func (s *ReplicationService) validateGetRequest(req *proto.GetRequest) error {
+func (s *ReplicationServer) validateGetRequest(req *proto.GetRequest) error {
 	if len(req.Key) == 0 {
 		return errMissingKey
 	}
@@ -23,46 +22,46 @@ func (s *ReplicationService) validateGetRequest(req *proto.GetRequest) error {
 	return nil
 }
 
-func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
+func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
 	if err := s.validateGetRequest(req); err != nil {
 		return nil, err
 	}
 
 	var (
-		members    = s.members.Members()
+		members    = s.cluster.Nodes()
 		needAcks   = s.readLevel.N(len(members))
 		staleIDs   = map[membership.NodeID]struct{}{}
 		repliedIDs = map[membership.NodeID]struct{}{}
 		allValues  = make([]nodeValue, 0)
 	)
 
-	err := replication.Opts[[]*storagepb.VersionedValue]{
-		Conns:      s.connections,
+	err := replication.Opts[[]nodeapi.VersionedValue]{
+		Cluster:    s.cluster,
 		ReplicaSet: members,
 		AckedIDs:   repliedIDs,
 		MinAcks:    needAcks,
 		Logger:     s.logger,
 		Timeout:    s.readTimeout,
-	}.MapReduce(
+	}.Distribute(
 		ctx,
 		func(
 			ctx context.Context,
 			nodeID membership.NodeID,
-			conn nodeclient.Conn,
-			reply *replication.NodeReply[[]*storagepb.VersionedValue],
+			conn nodeapi.Client,
+			reply *replication.NodeReply[[]nodeapi.VersionedValue],
 		) {
-			res, err := conn.Get(ctx, &storagepb.GetRequest{Key: req.Key})
+			values, err := conn.Get(ctx, req.Key)
 			if err != nil {
 				reply.Error(err)
 				return
 			}
 
-			reply.Ok(res.Value)
+			reply.Ok(values)
 		},
 		func(
 			cancel func(),
 			nodeID membership.NodeID,
-			values []*storagepb.VersionedValue,
+			values []nodeapi.VersionedValue,
 			err error,
 		) error {
 			if len(values) == 0 {
@@ -98,7 +97,7 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 			"repair_replicas", fmt.Sprintf("%v", generic.MapKeys(staleIDs)),
 		)
 
-		var toRepair []membership.Member
+		var toRepair []membership.Node
 
 		for _, member := range members {
 			if _, ok := staleIDs[member.ID]; ok {
@@ -114,12 +113,12 @@ func (s *ReplicationService) ReplicatedGet(ctx context.Context, req *proto.GetRe
 		err := replication.Opts[int]{
 			MinAcks:    len(toRepair),
 			ReplicaSet: toRepair,
-			Conns:      s.connections,
+			Cluster:    s.cluster,
 			Timeout:    s.writeTimeout,
 			Logger:     s.logger,
-		}.MapReduce(
+		}.Distribute(
 			ctx,
-			func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[int]) {
+			func(ctx context.Context, nodeID membership.NodeID, conn nodeapi.Client, reply *replication.NodeReply[int]) {
 				if len(data) == 0 {
 					if _, err := putTombstone(ctx, conn, req.Key, merged.Version, false); err != nil {
 						reply.Error(err)

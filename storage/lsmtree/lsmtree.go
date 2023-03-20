@@ -108,12 +108,6 @@ func (lsm *LSMTree) scheduleFlush() error {
 		return nil
 	}
 
-	// Close the memtable to make it read-only.
-	if err := lsm.memtable.Close(); err != nil {
-		lsm.mut.Unlock()
-		return fmt.Errorf("failed to close memtable: %w", err)
-	}
-
 	// The active memtable is moved to the flush queue and will be flushed to disk in background.
 	lsm.flushQueue.PushBack(lsm.memtable)
 	lsm.memtable = nil
@@ -160,9 +154,9 @@ func (lsm *LSMTree) flushWaiting() error {
 		// Unlock before flushing, so that we can continue accepting writes.
 		lsm.mut.Unlock()
 
-		// Flush the memtable to disk. This will close the memtable and remove the WAL file.
-		// As long as it's in the list, the memtable remains readable. At this point, the active
-		// memtable is already replaced with a new one, so no new writes will be added to this one.
+		// Flush the memtable to disk. As long as it's in the list, the memtable remains readable.
+		// At this point, the active memtable is already replaced with a new one, so no new writes
+		// will be added to this one.
 		sst, err := flushToDisk(memt, flushOpts{
 			bloomProb: lsm.conf.BloomFilterProbability,
 			indexGap:  lsm.conf.SparseIndexGapBytes,
@@ -173,22 +167,18 @@ func (lsm *LSMTree) flushWaiting() error {
 			return fmt.Errorf("failed to flush: %w", err)
 		}
 
-		// Atomically replace the memtable with the ssTable, and reflect that in the state.
-		if err := func() error {
-			lsm.mut.Lock()
-			defer lsm.mut.Unlock()
+		lsm.mut.Lock()
 
-			if err := lsm.state.MemtableFlushed(memt.ID, sst.SSTableInfo); err != nil {
-				return fmt.Errorf("failed to log segment flushed: %w", err)
-			}
-
-			lsm.flushQueue.Remove(el)
-			lsm.ssTables.PushBack(sst)
-
-			return nil
-		}(); err != nil {
-			return err
+		err = lsm.state.LogMemtableFlushed(memt.ID, sst.SSTableInfo)
+		if err != nil {
+			lsm.mut.Unlock()
+			return fmt.Errorf("failed to log segment flushed: %w", err)
 		}
+
+		// Swap the memtable with an ssTable.
+		lsm.flushQueue.Remove(el)
+		lsm.ssTables.PushBack(sst)
+		lsm.mut.Unlock()
 
 		// Discard the memtable. This will remove the WAL file.
 		if err := memt.Discard(); err != nil {
@@ -201,7 +191,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.RLock()
 
 	var (
-		selected  []*SSTable
+		toMerge   []*SSTable
 		levelSize int64
 	)
 
@@ -209,7 +199,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 		sst := el.Value.(*SSTable)
 
 		if sst.Level == rule.Level {
-			selected = append(selected, sst)
+			toMerge = append(toMerge, sst)
 			levelSize += sst.Size
 		}
 	}
@@ -217,20 +207,20 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.RUnlock()
 
 	switch {
-	case len(selected) < 2:
+	case len(toMerge) < 2:
 		return nil // Nothing to compact.
 	case rule.MaxSegments == 0 && rule.MaxLevelSize == 0:
 		return nil // Empty/invalid compaction rule.
-	case rule.MaxSegments > 0 && len(selected) < rule.MaxSegments:
+	case rule.MaxSegments > 0 && len(toMerge) < rule.MaxSegments:
 		return nil // Not enough segments to compact.
 	case rule.MaxLevelSize > 0 && levelSize < rule.MaxLevelSize:
 		return nil // Level is not big enough to compact.
 	}
 
 	level.Info(lsm.logger).Log(
-		"msg", "compacting", "level", rule.Level, "num_segments", len(selected))
+		"msg", "compacting", "level", rule.Level, "num_segments", len(toMerge))
 
-	sst, err := mergeTables(selected, flushOpts{
+	sst, err := mergeTables(toMerge, flushOpts{
 		bloomProb: lsm.conf.BloomFilterProbability,
 		indexGap:  lsm.conf.SparseIndexGapBytes,
 		mmapOpen:  lsm.conf.MmapDataFiles,
@@ -238,6 +228,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 		level:     rule.TargetLevel,
 		prefix:    lsm.dataRoot,
 	})
+
 	if err != nil {
 		return fmt.Errorf("failed to merge tables: %w", err)
 	}
@@ -245,29 +236,31 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.Lock()
 	defer lsm.mut.Unlock()
 
-	oldTableIDs := make([]int64, len(selected))
-	for i, sst := range selected {
-		oldTableIDs[i] = sst.ID
+	mergedIDs := make([]int64, len(toMerge))
+	for i, sst := range toMerge {
+		mergedIDs[i] = sst.ID
 	}
 
-	if err := lsm.state.TablesMerged(oldTableIDs, sst.SSTableInfo); err != nil {
+	if err := lsm.state.LogSSTablesMerged(mergedIDs, sst.SSTableInfo); err != nil {
 		return fmt.Errorf("failed to log segment compacted: %w", err)
 	}
 
-	idsToRemove := make(map[int64]struct{}, len(oldTableIDs))
-	for _, id := range oldTableIDs {
-		idsToRemove[id] = struct{}{}
+	mergedSet := make(map[int64]struct{}, len(mergedIDs))
+	for _, id := range mergedIDs {
+		mergedSet[id] = struct{}{}
 	}
 
+	// Remove the merged tables from the list.
 	for el := lsm.ssTables.Front(); el != nil; {
 		s := el.Value.(*SSTable)
 		el = el.Next()
 
-		if _, ok := idsToRemove[s.ID]; ok {
+		if _, ok := mergedSet[s.ID]; ok {
 			lsm.ssTables.Remove(el)
 		}
 	}
 
+	// Add the new table to the list.
 	lsm.ssTables.PushBack(sst)
 
 	return nil
@@ -376,9 +369,12 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 				return fmt.Errorf("failed to create memtable: %w", err)
 			}
 
-			if err := lsm.state.MemtableCreated(memt.MemtableInfo); err != nil {
+			if err := lsm.state.LogMemtableCreated(memt.MemtableInfo); err != nil {
 				lsm.mut.Unlock()
-				memt.CloseAndDiscard()
+
+				if err := memt.Discard(); err != nil {
+					level.Error(lsm.logger).Log("msg", "failed to discard memtable", "err", err)
+				}
 
 				return fmt.Errorf("failed to log segment created: %w", err)
 			}

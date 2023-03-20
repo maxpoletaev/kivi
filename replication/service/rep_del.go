@@ -7,10 +7,9 @@ import (
 
 	"github.com/maxpoletaev/kiwi/internal/grpcutil"
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 	"github.com/maxpoletaev/kiwi/replication"
 	"github.com/maxpoletaev/kiwi/replication/proto"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
 )
 
 func validateDeleteRequest(req *proto.DeleteRequest) error {
@@ -25,7 +24,7 @@ func validateDeleteRequest(req *proto.DeleteRequest) error {
 	return nil
 }
 
-func (s *ReplicationService) ReplicatedDelete(
+func (s *ReplicationServer) ReplicatedDelete(
 	ctx context.Context, req *proto.DeleteRequest,
 ) (*proto.DeleteResponse, error) {
 	if err := validateDeleteRequest(req); err != nil {
@@ -33,13 +32,13 @@ func (s *ReplicationService) ReplicatedDelete(
 	}
 
 	var (
-		members  = s.members.Members()
+		members  = s.cluster.Nodes()
 		needAcks = s.writeLevel.N(len(members))
 	)
 
 	repliedIDs := make(map[membership.NodeID]struct{})
-	repliedIDs[s.members.SelfID()] = struct{}{}
-	localConn := s.connections.Local()
+	repliedIDs[s.cluster.SelfID()] = struct{}{}
+	localConn := s.cluster.LocalConn()
 
 	version, err := putTombstone(
 		ctx, localConn, req.Key, req.Version, true)
@@ -51,16 +50,16 @@ func (s *ReplicationService) ReplicatedDelete(
 		ReplicaSet: members,
 		MinAcks:    needAcks,
 		AckedIDs:   repliedIDs,
-		Conns:      s.connections,
+		Cluster:    s.cluster,
 		Logger:     s.logger,
 		Timeout:    s.writeTimeout,
 		Background: true,
-	}.MapReduce(
+	}.Distribute(
 		ctx,
 		func(
 			ctx context.Context,
 			nodeID membership.NodeID,
-			conn nodeclient.Conn,
+			conn nodeapi.Client,
 			reply *replication.NodeReply[string],
 		) {
 			version, err := putTombstone(ctx, conn, req.Key, version, false)
@@ -89,15 +88,12 @@ func (s *ReplicationService) ReplicatedDelete(
 	return &proto.DeleteResponse{}, nil
 }
 
-func putTombstone(ctx context.Context, conn nodeclient.Conn, key, version string, primary bool) (string, error) {
-	resp, err := conn.Put(ctx, &storagepb.PutRequest{
-		Key:     key,
-		Primary: primary,
-		Value: &storagepb.VersionedValue{
-			Version:   version,
-			Tombstone: true,
-		},
-	})
+func putTombstone(ctx context.Context, conn nodeapi.Client, key, version string, primary bool) (string, error) {
+	resp, err := conn.Put(ctx, key, nodeapi.VersionedValue{
+		Version:   version,
+		Tombstone: true,
+	}, primary)
+
 	if err != nil {
 		return "", err
 	}

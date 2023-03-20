@@ -16,7 +16,8 @@ const (
 type Comparator[K any] func(a, b K) int
 
 // Skiplist is a generic skiplist implementation. It is thread safe and supports concurrent reads and writes.
-// It allows to mutiple readers to access the list simultaneously, but only one writer.
+// It allows to multiple readers to access the list simultaneously, but only a single writer. The writer
+// does not block the readers, and the readers do not block the writer.
 type Skiplist[K any, V any] struct {
 	head        *listNode[K, V]
 	compareKeys Comparator[K]

@@ -37,7 +37,7 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 // Get mocks base method.
 func (m *MockEngine) Get(key string) ([]storage.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Get", key)
+	ret := m.ctrl.Call(m, "Conn", key)
 	ret0, _ := ret[0].([]storage.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -46,7 +46,7 @@ func (m *MockEngine) Get(key string) ([]storage.Value, error) {
 // Get indicates an expected call of Get.
 func (mr *MockEngineMockRecorder) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockEngine)(nil).Get), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conn", reflect.TypeOf((*MockEngine)(nil).Get), key)
 }
 
 // Put mocks base method.

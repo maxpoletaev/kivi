@@ -28,6 +28,16 @@ func (m *SyncMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 	return value, false
 }
 
+func (m *SyncMap[K, V]) LoadAndDelete(key K) (value V, loaded bool) {
+	if v, loaded := m.m.LoadAndDelete(key); loaded {
+		return v.(V), true
+	}
+
+	var zero V
+
+	return zero, false
+}
+
 func (m *SyncMap[K, V]) Range(f func(key K, value V) bool) {
 	m.m.Range(func(key, value interface{}) bool {
 		return f(key.(K), value.(V))

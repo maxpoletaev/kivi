@@ -4,17 +4,12 @@ package replication
 
 import (
 	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeclient"
-	"time"
+	"github.com/maxpoletaev/kiwi/nodeapi"
 )
 
-type Memberlist interface {
-	Member(membership.NodeID) (membership.Member, bool)
-	Members() []membership.Member
-	LastUpdate() time.Time
-}
-
-type ConnRegistry interface {
-	Local() nodeclient.Conn
-	Get(nodeID membership.NodeID) (nodeclient.Conn, error)
+type Cluster interface {
+	Nodes() []membership.Node
+	SelfID() membership.NodeID
+	LocalConn() nodeapi.Client
+	Conn(nodeID membership.NodeID) (nodeapi.Client, error)
 }

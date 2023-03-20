@@ -34,7 +34,7 @@ func (s *Engine) Get(key string) ([]storage.Value, error) {
 func (s *Engine) Put(key string, value storage.Value) error {
 	// Since we read the value before updating it, we need to lock the key to avoid
 	// loosing versions during concurrent updates of the same key. The skiplist
-	// itself is thread-safe, that is why we do not lock it in Get.
+	// itself is thread-safe, that is why we do not lock it in Conn.
 	s.locks.Lock(key)
 	defer s.locks.Unlock(key)
 
