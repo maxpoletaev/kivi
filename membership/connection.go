@@ -16,7 +16,11 @@ func withLock(l sync.Locker, f func()) {
 }
 
 func (cl *Cluster) startGC() {
+	cl.wg.Add(1)
+
 	go func() {
+		defer cl.wg.Done()
+
 		ticker := time.NewTicker(cl.gcInterval)
 		defer ticker.Stop()
 
@@ -151,9 +155,9 @@ func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeapi.Client, erro
 		return nil, fmt.Errorf("node not found")
 	}
 
-	dialAddr := node.Address
-	if node.LocalAddress != "" {
-		dialAddr = node.LocalAddress
+	dialAddr := node.PublicAddr
+	if node.LocalAddr != "" {
+		dialAddr = node.LocalAddr
 	}
 
 	// Dial the node, this may take a while.

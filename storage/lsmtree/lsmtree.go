@@ -81,6 +81,12 @@ func Create(conf Config) (*LSMTree, error) {
 		if err := lsm.flushWaiting(); err != nil {
 			return nil, err
 		}
+
+		for _, rule := range lsm.conf.CompactionRules {
+			if err := lsm.compactLevel(&rule); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Periodically sync the contents of the WAL to disk.
@@ -154,6 +160,8 @@ func (lsm *LSMTree) flushWaiting() error {
 		// Unlock before flushing, so that we can continue accepting writes.
 		lsm.mut.Unlock()
 
+		level.Info(lsm.logger).Log("msg", "flushing memtable to disk", "id", memt.ID)
+
 		// Flush the memtable to disk. As long as it's in the list, the memtable remains readable.
 		// At this point, the active memtable is already replaced with a new one, so no new writes
 		// will be added to this one.
@@ -178,6 +186,7 @@ func (lsm *LSMTree) flushWaiting() error {
 		// Swap the memtable with an ssTable.
 		lsm.flushQueue.Remove(el)
 		lsm.ssTables.PushBack(sst)
+
 		lsm.mut.Unlock()
 
 		// Discard the memtable. This will remove the WAL file.
@@ -218,7 +227,11 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	}
 
 	level.Info(lsm.logger).Log(
-		"msg", "compacting", "level", rule.Level, "num_segments", len(toMerge))
+		"msg", "compacting",
+		"level", rule.Level,
+		"num_segments", len(toMerge),
+		"target_level", rule.TargetLevel,
+	)
 
 	sst, err := mergeTables(toMerge, flushOpts{
 		bloomProb: lsm.conf.BloomFilterProbability,
@@ -251,11 +264,10 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	}
 
 	// Remove the merged tables from the list.
-	for el := lsm.ssTables.Front(); el != nil; {
-		s := el.Value.(*SSTable)
-		el = el.Next()
+	for el := lsm.ssTables.Front(); el != nil; el = el.Next() {
+		sst := el.Value.(*SSTable)
 
-		if _, ok := mergedSet[s.ID]; ok {
+		if _, ok := mergedSet[sst.ID]; ok {
 			lsm.ssTables.Remove(el)
 		}
 	}
