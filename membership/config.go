@@ -9,6 +9,10 @@ import (
 )
 
 type Config struct {
+	NodeID        NodeID
+	NodeName      string
+	PublicAddr    string
+	LocalAddr     string
 	Dialer        nodeapi.Dialer
 	Logger        kitlog.Logger
 	DialTimeout   time.Duration

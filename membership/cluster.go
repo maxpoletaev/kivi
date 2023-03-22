@@ -3,15 +3,21 @@ package membership
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
 	kitlog "github.com/go-kit/log"
 
 	"github.com/maxpoletaev/kiwi/internal/generic"
-	"github.com/maxpoletaev/kiwi/internal/overflow"
 	"github.com/maxpoletaev/kiwi/nodeapi"
 )
+
+func withLock(l sync.Locker, f func()) {
+	l.Lock()
+	defer l.Unlock()
+	f()
+}
 
 type Cluster struct {
 	mut           sync.RWMutex
@@ -19,6 +25,7 @@ type Cluster struct {
 	nodes         map[NodeID]Node
 	connections   map[NodeID]nodeapi.Client
 	waiting       *generic.SyncMap[NodeID, chan struct{}]
+	lastSync      map[NodeID]time.Time
 	dialer        nodeapi.Dialer
 	logger        kitlog.Logger
 	dialTimeout   time.Duration
@@ -26,11 +33,21 @@ type Cluster struct {
 	probeInterval time.Duration
 	gcInterval    time.Duration
 	stop          chan struct{}
+	wg            sync.WaitGroup
 }
 
-func NewCluster(localNode Node, conf Config) *Cluster {
+func NewCluster(conf Config) *Cluster {
+	localNode := Node{
+		ID:         conf.NodeID,
+		Name:       conf.NodeName,
+		PublicAddr: conf.PublicAddr,
+		LocalAddr:  conf.LocalAddr,
+		Status:     StatusHealthy,
+		RunID:      time.Now().Unix(),
+		Gen:        1,
+	}
+
 	nodes := make(map[NodeID]Node, 1)
-	localNode.Status = StatusHealthy
 	nodes[localNode.ID] = localNode
 
 	return &Cluster{
@@ -38,6 +55,7 @@ func NewCluster(localNode Node, conf Config) *Cluster {
 		selfID:        localNode.ID,
 		connections:   make(map[NodeID]nodeapi.Client),
 		waiting:       new(generic.SyncMap[NodeID, chan struct{}]),
+		lastSync:      make(map[NodeID]time.Time),
 		dialer:        conf.Dialer,
 		logger:        conf.Logger,
 		probeTimeout:  conf.ProbeTimeout,
@@ -49,7 +67,7 @@ func NewCluster(localNode Node, conf Config) *Cluster {
 }
 
 // Start schedules background tasks for managing the cluster state, such as
-// probing nodes and garbage collecting unreachable nodes.
+// probing nodes and garbage collecting nodes that have left the cluster.
 func (cl *Cluster) Start() {
 	cl.startDetector()
 	cl.startGC()
@@ -80,6 +98,10 @@ func (cl *Cluster) Nodes() []Node {
 		nodes = append(nodes, node)
 	}
 
+	sort.Slice(nodes, func(i, j int) bool {
+		return nodes[i].ID < nodes[j].ID
+	})
+
 	return nodes
 }
 
@@ -90,98 +112,6 @@ func (cl *Cluster) Node(id NodeID) (Node, bool) {
 	node, ok := cl.nodes[id]
 
 	return node, ok
-}
-
-// Leave removes the current node from the cluster. The leave call blocks until
-// at least one other node acknowledges the leave request.
-func (cl *Cluster) Leave(ctx context.Context) error {
-	cl.setNodeStats(cl.selfID, StatusLeft)
-
-	if err := cl.broadcast(ctx); err != nil {
-		return fmt.Errorf("broadcast state: %w", err)
-	}
-
-	cl.mut.Lock()
-	defer cl.mut.Unlock()
-
-	self := cl.nodes[cl.selfID]
-	nodes := make(map[NodeID]Node, 1)
-	nodes[cl.selfID] = self
-	cl.nodes = nodes
-
-	for id, conn := range cl.connections {
-		delete(cl.connections, id)
-
-		_ = conn.Close()
-	}
-
-	close(cl.stop)
-
-	return nil
-}
-
-func (cl *Cluster) broadcast(ctx context.Context) error {
-	nodes := cl.Nodes()
-
-	// There are no other nodes in the cluster, so there is nothing to broadcast.
-	if len(nodes) == 1 {
-		return nil
-	}
-
-	wg := sync.WaitGroup{}
-	replies := make(chan struct{})
-
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	nodesInfo := make([]nodeapi.NodeInfo, len(nodes))
-	for i, node := range nodes {
-		nodesInfo[i] = toApiNodeInfo(&node)
-	}
-
-	for _, node := range nodes {
-		if node.ID == cl.selfID || node.Status != StatusHealthy {
-			continue
-		}
-
-		wg.Add(1)
-
-		go func(node Node) {
-			defer wg.Done()
-
-			conn, err := cl.ConnContext(ctx, node.ID)
-			if err != nil {
-				return
-			}
-
-			if _, err = conn.PullPushState(ctx, nodesInfo); err != nil {
-				return
-			}
-
-			replies <- struct{}{}
-		}(node)
-	}
-
-	go func() {
-		wg.Wait()
-		cancel()
-		close(replies)
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case _, ok := <-replies:
-			if !ok {
-				return fmt.Errorf("not enough acknoledgements")
-			}
-
-			cancel()
-
-			return nil
-		}
-	}
 }
 
 // Join adds the current node to the cluster with the given address.
@@ -201,41 +131,80 @@ func (cl *Cluster) Join(ctx context.Context, addr string) error {
 		return fmt.Errorf("pull push state: %w", err)
 	}
 
-	cl.ApplyState(fromApiNodesInfo(nodes))
+	cl.ApplyState(State{
+		Nodes: fromApiNodesInfo(nodes),
+	})
 
 	return nil
 }
 
-// ApplyState merges the given nodes with the current cluster state and returns
-// the list of all nodes in the cluster after the merge.
-func (cl *Cluster) ApplyState(nodes []Node) []Node {
-	cl.mut.Lock()
-	defer cl.mut.Unlock()
+// Leave removes the current node from the cluster. The leave call blocks until
+// at least one other node acknowledges the leave request.
+func (cl *Cluster) Leave(ctx context.Context) error {
+	cl.setStatus(cl.selfID, StatusLeft, nil)
 
-	for _, node := range nodes {
-		curr, ok := cl.nodes[node.ID]
-		if !ok {
-			cl.nodes[node.ID] = node
-			continue
+	if err := cl.waitForSync(ctx); err != nil {
+		return err
+	}
+
+	close(cl.stop)
+
+	withLock(&cl.mut, func() {
+		self := cl.nodes[cl.selfID]
+		nodes := make(map[NodeID]Node, 1)
+		nodes[cl.selfID] = self
+		cl.nodes = nodes
+
+		for id, conn := range cl.connections {
+			delete(cl.connections, id)
+
+			_ = conn.Close()
+		}
+	})
+
+	cl.wg.Wait()
+
+	return nil
+}
+
+func (cl *Cluster) waitForSync(ctx context.Context) error {
+	var (
+		start = time.Now()
+		done  bool
+	)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+			// noop
 		}
 
-		// Node with the higher generation, or the same generation but with the worst status is preferred.
-		switch overflow.CompareInt32(curr.Generation, node.Generation) {
-		case overflow.Less:
-			curr.Update(&node)
-			cl.nodes[node.ID] = curr
-		case overflow.Equal:
-			if node.Status > curr.Status {
-				curr.Update(&node)
-				cl.nodes[node.ID] = curr
+		withLock(cl.mut.RLocker(), func() {
+			var numAlive int
+
+			for _, node := range cl.nodes {
+				if node.ID != cl.selfID && node.Status == StatusHealthy {
+					numAlive++
+				}
 			}
+
+			if numAlive == 0 {
+				done = true
+				return
+			}
+
+			for _, t := range cl.lastSync {
+				if t.After(start) {
+					done = true
+					return
+				}
+			}
+		})
+
+		if done {
+			return nil
 		}
 	}
-
-	nodes = make([]Node, 0, len(cl.nodes))
-	for _, node := range cl.nodes {
-		nodes = append(nodes, node)
-	}
-
-	return nodes
 }

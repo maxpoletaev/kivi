@@ -46,7 +46,7 @@ func (h *Heap[T]) down(i0, n int) bool {
 
 	for {
 		j1 := 2*i + 1
-		if j1 >= n || j1 < 0 { // j1 < 0 after int overflow
+		if j1 >= n || j1 < 0 { // j1 < 0 after int rolling
 			break
 		}
 

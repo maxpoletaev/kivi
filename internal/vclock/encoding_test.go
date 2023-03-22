@@ -37,7 +37,7 @@ func TestEncodeDecode(t *testing.T) {
 func TestEncodeConsistency(t *testing.T) {
 	m := make(V, 100)
 	for i := 0; i < 100; i++ {
-		m[uint32(i)] = uint32(i)
+		m[uint32(i)] = int32(i)
 	}
 
 	v := New(m)

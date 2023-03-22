@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -27,30 +26,25 @@ import (
 )
 
 func main() {
-	appctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
+	appCtx, cancelApp := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancelApp()
 
 	args := parseCliArgs()
-	rnd := rand.New(rand.NewSource(int64(args.nodeID)))
 	logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stderr))
 
 	if !args.verbose {
 		logger = level.NewFilter(logger, level.AllowInfo())
 	}
 
-	localNode := membership.Node{
-		ID:           membership.NodeID(args.nodeID),
-		Address:      args.grpcPublicAddr,
-		LocalAddress: args.grpcLocalAddr,
-		Name:         args.nodeName,
-		RunID:        rnd.Uint32(),
-	}
-
 	clusterConfig := membership.DefaultConfig()
+	clusterConfig.NodeID = membership.NodeID(args.nodeID)
+	clusterConfig.NodeName = args.nodeName
+	clusterConfig.PublicAddr = args.grpcPublicAddr
+	clusterConfig.LocalAddr = args.grpcLocalAddr
 	clusterConfig.Dialer = nodegrpc.Dial
 	clusterConfig.Logger = logger
 
-	cluster := membership.NewCluster(localNode, clusterConfig)
+	cluster := membership.NewCluster(clusterConfig)
 	cluster.Start()
 
 	lsmConfig := lsmtree.DefaultConfig()
@@ -87,12 +81,10 @@ func main() {
 		defer wg.Done()
 
 		for len(args.joinAddr) > 0 {
-			ctx, cancel := context.WithTimeout(appctx, 10*time.Second)
-
-			level.Info(logger).Log("msg", "attempting to join the membership", "addr", args.joinAddr)
+			ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
 
 			if err := cluster.Join(ctx, args.joinAddr); err != nil {
-				level.Error(logger).Log("msg", "failed to join the membership", "addr", args.joinAddr, "err", err)
+				level.Error(logger).Log("msg", "failed to join the cluster", "addr", args.joinAddr, "err", err)
 				cancel()
 
 				continue
@@ -113,7 +105,10 @@ func main() {
 
 		level.Info(logger).Log("msg", "shutting down the server")
 
-		if err := cluster.Leave(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := cluster.Leave(ctx); err != nil {
 			logger.Log("msg", "failed to leave the cluster", "err", err)
 		}
 

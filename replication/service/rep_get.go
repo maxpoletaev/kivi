@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kiwi/internal/generic"
@@ -50,9 +51,15 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 			conn nodeapi.Client,
 			reply *replication.NodeReply[[]nodeapi.VersionedValue],
 		) {
+			l := kitlog.With(s.logger, "node_id", nodeID, "key", req.Key)
+
+			level.Debug(l).Log("msg", "getting value from node")
+
 			values, err := conn.Get(ctx, req.Key)
 			if err != nil {
+				level.Error(l).Log("msg", "failed to get value from node", "err", err)
 				reply.Error(err)
+
 				return
 			}
 
@@ -89,7 +96,9 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 		staleIDs[id] = struct{}{}
 	}
 
-	if len(staleIDs) > 0 && len(merged.Values) <= 1 {
+	if len(staleIDs) > 0 && len(merged.Values) == 1 {
+		value := merged.Values[0]
+
 		level.Debug(s.logger).Log(
 			"msg", "repairing stale replicas",
 			"key", req.Key,
@@ -105,31 +114,35 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 			}
 		}
 
-		var data []byte
-		if len(merged.Values) > 0 {
-			data = merged.Values[0].Data
-		}
-
 		err := replication.Opts[int]{
 			MinAcks:    len(toRepair),
 			ReplicaSet: toRepair,
 			Cluster:    s.cluster,
 			Timeout:    s.writeTimeout,
 			Logger:     s.logger,
+			Background: true,
 		}.Distribute(
 			ctx,
 			func(ctx context.Context, nodeID membership.NodeID, conn nodeapi.Client, reply *replication.NodeReply[int]) {
-				if len(data) == 0 {
+				l := kitlog.With(s.logger, "key", req.Key, "node_id", nodeID, "tomb", value.Tombstone)
+
+				if value.Tombstone {
 					if _, err := putTombstone(ctx, conn, req.Key, merged.Version, false); err != nil {
+						level.Error(l).Log("msg", "failed to repair", "err", err)
 						reply.Error(err)
+
 						return
 					}
 				}
 
-				if _, err := putValue(ctx, conn, req.Key, data, merged.Version, false); err != nil {
+				if _, err := putValue(ctx, conn, req.Key, value.Data, merged.Version, false); err != nil {
+					level.Error(l).Log("msg", "failed to repair", "err", err)
 					reply.Error(err)
+
 					return
 				}
+
+				level.Debug(l).Log("msg", "replica repaired")
 
 				reply.Ok(0)
 			},
@@ -144,13 +157,14 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 
 	return &proto.GetResponse{
 		Version: merged.Version,
-		Values: func() []*proto.Value {
-			pv := make([]*proto.Value, len(merged.Values))
-			for i := range merged.Values {
-				pv[i] = &proto.Value{Data: merged.Values[i].Data}
+		Values: func() (pv []*proto.Value) {
+			for _, val := range merged.Values {
+				if !val.Tombstone {
+					pv = append(pv, &proto.Value{Data: val.Data})
+				}
 			}
 
-			return pv
+			return
 		}(),
 	}, nil
 }
@@ -210,10 +224,6 @@ func mergeVersions(values []nodeValue) (mergeResult, error) {
 		// Keep track of the replicas that returned outdated values.
 		if vclock.Compare(valueVersion[i], highest) == vclock.Before {
 			staleReplicas = append(staleReplicas, value.NodeID)
-			continue
-		}
-
-		if value.Tombstone {
 			continue
 		}
 

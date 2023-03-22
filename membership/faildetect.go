@@ -8,7 +8,11 @@ import (
 )
 
 func (cl *Cluster) startDetector() {
+	cl.wg.Add(1)
+
 	go func() {
+		defer cl.wg.Done()
+
 		ticker := time.NewTicker(cl.probeInterval)
 		defer ticker.Stop()
 
@@ -30,7 +34,7 @@ func (cl *Cluster) pickRandomNode() *Node {
 	generic.Shuffle(nodes)
 
 	for _, node := range nodes {
-		if node.ID != cl.selfID {
+		if node.ID != cl.selfID && node.Status != StatusLeft {
 			return &node
 		}
 	}
@@ -38,7 +42,7 @@ func (cl *Cluster) pickRandomNode() *Node {
 	return nil
 }
 
-func (cl *Cluster) setNodeStats(id NodeID, status Status) {
+func (cl *Cluster) setStatus(id NodeID, status Status, err error) {
 	cl.mut.Lock()
 	defer cl.mut.Unlock()
 
@@ -48,21 +52,23 @@ func (cl *Cluster) setNodeStats(id NodeID, status Status) {
 	}
 
 	if node.Status != status {
-		node.Generation++
-
-		oldStatus := node.Status
-
-		node.Status = status
-
-		cl.nodes[id] = node
-
 		cl.logger.Log(
 			"msg", "node status changed",
-			"node", id,
+			"node_id", id,
 			"status", status,
-			"old_status", oldStatus,
-			"generation", node.Generation,
+			"error", err,
+			"generation", node.Gen,
 		)
+
+		node.Status = status
+		node.Error = ""
+		node.Gen++
+
+		if err != nil {
+			node.Error = err.Error()
+		}
+
+		cl.nodes[id] = node
 	}
 }
 
@@ -80,19 +86,22 @@ func (cl *Cluster) detectFailures() {
 func (cl *Cluster) directProbe(ctx context.Context, node *Node) {
 	conn, err := cl.Conn(node.ID)
 	if err != nil {
-		cl.logger.Log("msg", "failed to connect to node", "node", node.ID, "err", err)
-		cl.setNodeStats(node.ID, StatusUnhealthy)
+		cl.setStatus(node.ID, StatusUnhealthy, err)
 		return
 	}
 
-	nodes, err := conn.PullPushState(ctx, toApiNodesInfo(cl.Nodes()))
+	nodesInfo, err := conn.PullPushState(ctx, toApiNodesInfo(cl.Nodes()))
 	if err != nil {
-		cl.logger.Log("msg", "failed to pull/push state from node", "node", node.ID, "err", err)
-		cl.setNodeStats(node.ID, StatusUnhealthy)
+		cl.setStatus(node.ID, StatusUnhealthy, err)
 		return
 	}
 
-	cl.setNodeStats(node.ID, StatusHealthy)
+	cl.setStatus(node.ID, StatusHealthy, nil)
 
-	cl.ApplyState(fromApiNodesInfo(nodes))
+	nodes := fromApiNodesInfo(nodesInfo)
+
+	cl.ApplyState(State{
+		SourceID: node.ID,
+		Nodes:    nodes,
+	})
 }

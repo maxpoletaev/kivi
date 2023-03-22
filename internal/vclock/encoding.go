@@ -14,8 +14,7 @@ import (
 // so it can safely be used for comparison.
 func Encode(v *Vector) (string, error) {
 	vc := &pb.VectorClock{
-		Clocks:    v.clocks,
-		Rollovers: v.rollovers,
+		Clocks: v.clocks,
 	}
 
 	// TODO: Protobuf docs say that deterministic encoding is not guaranteed
@@ -64,14 +63,8 @@ func Decode(s string) (*Vector, error) {
 		clocks = make(V)
 	}
 
-	rollovers := vc.Rollovers
-	if rollovers == nil {
-		rollovers = make(map[uint32]bool)
-	}
-
 	return &Vector{
-		clocks:    clocks,
-		rollovers: rollovers,
+		clocks: clocks,
 	}, nil
 }
 

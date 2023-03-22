@@ -3,17 +3,10 @@ package membership
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/maxpoletaev/kiwi/nodeapi"
 )
-
-func withLock(l sync.Locker, f func()) {
-	l.Lock()
-	defer l.Unlock()
-	f()
-}
 
 func (cl *Cluster) startGC() {
 	cl.wg.Add(1)

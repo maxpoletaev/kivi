@@ -16,9 +16,11 @@ func fromApiNodeInfo(nodeinfo *nodeapi.NodeInfo) Node {
 
 	return Node{
 		ID:         NodeID(nodeinfo.ID),
-		Generation: nodeinfo.Gen,
-		Address:    nodeinfo.Addr,
+		Gen:        nodeinfo.Gen,
+		PublicAddr: nodeinfo.Addr,
 		Status:     status,
+		Error:      nodeinfo.Error,
+		RunID:      nodeinfo.RunID,
 	}
 }
 
@@ -45,9 +47,11 @@ func toApiNodeInfo(node *Node) nodeapi.NodeInfo {
 
 	return nodeapi.NodeInfo{
 		ID:     nodeapi.NodeID(node.ID),
-		Gen:    node.Generation,
-		Addr:   node.Address,
+		Gen:    node.Gen,
+		Addr:   node.PublicAddr,
 		Status: status,
+		Error:  node.Error,
+		RunID:  node.RunID,
 	}
 }
 

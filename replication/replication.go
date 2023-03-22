@@ -3,12 +3,14 @@ package replication
 import (
 	"context"
 	"errors"
+	"math/rand"
 	"sync"
 	"time"
 
 	kitlog "github.com/go-kit/log"
 	loglevel "github.com/go-kit/log/level"
 
+	"github.com/maxpoletaev/kiwi/internal/grpcutil"
 	"github.com/maxpoletaev/kiwi/membership"
 	"github.com/maxpoletaev/kiwi/nodeapi"
 )
@@ -70,7 +72,11 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 	wg := sync.WaitGroup{}
 	wg.Add(len(o.ReplicaSet))
 
-	for i := range o.ReplicaSet {
+	// Randomize the order of nodes to avoid sending requests to the same node first.
+	rand.Seed(time.Now().UnixNano())
+	indices := rand.Perm(len(o.ReplicaSet))
+
+	for _, i := range indices {
 		member := &o.ReplicaSet[i]
 
 		if !member.IsReachable() {
@@ -99,7 +105,7 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 			mapFn(mapCtx, nodeID, conn, reply)
 
 			if reply.err != nil {
-				if !errors.Is(reply.err, context.Canceled) {
+				if !errors.Is(reply.err, context.Canceled) && !grpcutil.IsCanceled(reply.err) {
 					loglevel.Warn(
 						kitlog.With(o.Logger, "node_id", nodeID),
 					).Log("msg", "failed to replicate", "err", reply.err)

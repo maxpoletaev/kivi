@@ -4,7 +4,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestVector_String(t *testing.T) {
@@ -21,15 +21,15 @@ func TestVector_String(t *testing.T) {
 			wantString: "{1=10}",
 		},
 		"MultipleValues": {
-			vector:     New(V{1: 10, 3: 20, 2: 5, 0: 1}),
-			wantString: "{0=1, 1=10, 2=5, 3=20}",
+			vector:     New(V{1: 10, 3: 20, 2: 5, 0: 1, 4: -10}),
+			wantString: "{0=1,1=10,2=5,3=20,4=!10}",
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			s := tt.vector.String()
-			assert.Equal(t, tt.wantString, s)
+			require.Equal(t, tt.wantString, s)
 		})
 	}
 }
@@ -65,22 +65,22 @@ func TestCompare(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			result := Compare(tt.a, tt.b)
-			assert.Equal(t, tt.expected, result)
+			require.Equal(t, tt.expected, result)
 		})
 	}
 }
 
 func TestCompare_WithRollover(t *testing.T) {
-	a := New(V{1: math.MaxUint32 - 1})
-	b := New(V{1: math.MaxUint32})
-	assert.Equal(t, Compare(a, b), Before)
+	a := New(V{1: math.MaxInt32 - 1})
+	b := New(V{1: math.MaxInt32})
+	require.Equal(t, Before, Compare(a, b))
 
 	a.Update(1)
-	assert.Equal(t, Compare(a, b), Equal)
+	require.Equal(t, Equal, Compare(a, b))
 
 	a.Update(1) // Overflows, but should still be greater than b.
-	assert.Equal(t, uint32(0), a.clocks[1])
-	assert.Equal(t, Compare(a, b), After)
+	require.Equal(t, int32(math.MinInt32), a.clocks[1])
+	require.Equal(t, After, Compare(a, b), "a=%d, b=%d", a, b)
 }
 
 func TestMerge(t *testing.T) {
@@ -90,25 +90,14 @@ func TestMerge(t *testing.T) {
 	)
 
 	want := New(V{1: 10, 2: 10, 3: 100})
-	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
+	require.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }
 
 func TestMerge_WithRollover(t *testing.T) {
-	a := New(V{1: math.MaxUint32, 2: 1})
-	b := New(V{1: math.MaxUint32, 2: 2})
-
-	a.Update(1)
-	a.Update(1)
+	a := New(V{1: math.MaxInt32, 2: 1})
+	b := New(V{1: math.MaxInt32, 2: 2})
 
 	got := Merge(a, b)
-	want := New(V{1: 1, 2: 2})
-	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
-
-	// Ensure that the newly produced vector correctly keeps the info aboutrollovers.
-	// The value in the vector c is larger but do not have the rollover flag set, so
-	// in the merge we shold still get {1=1, 2=2}.
-	c := New(V{1: math.MaxUint32})
-	got = Merge(got, c)
-	want = New(V{1: 1, 2: 2})
-	assert.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
+	want := New(V{1: int32(math.MinInt32) + 1, 2: 2})
+	require.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }

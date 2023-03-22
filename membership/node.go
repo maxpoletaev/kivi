@@ -15,6 +15,7 @@ const (
 	StatusLeft
 )
 
+// String returns the string representation of the status.
 func (s Status) String() string {
 	switch s {
 	case StatusHealthy:
@@ -28,25 +29,21 @@ func (s Status) String() string {
 	}
 }
 
-// Node represents a single cluster member.
-type Node struct {
-	ID           NodeID
-	RunID        uint32
-	Name         string
-	Address      string
-	LocalAddress string
-	Status       Status
-	Generation   int32
+// WorseThan returns true if the status is worse than the other status.
+func (s Status) WorseThan(other Status) bool {
+	return s > other
 }
 
-// Update updates the node with the values from other node.
-// The need for this method is that we don't want LocalAddress overridden.
-func (n *Node) Update(other *Node) {
-	n.RunID = other.RunID
-	n.Name = other.Name
-	n.Address = other.Address
-	n.Status = other.Status
-	n.Generation = other.Generation
+// Node represents a single cluster member.
+type Node struct {
+	ID         NodeID
+	RunID      int64
+	Name       string
+	PublicAddr string
+	LocalAddr  string
+	Error      string
+	Status     Status
+	Gen        int32
 }
 
 // IsReachable returns true if the node is reachable.

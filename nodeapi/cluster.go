@@ -17,6 +17,8 @@ type NodeInfo struct {
 	Status NodeStatus
 	Addr   string
 	Gen    int32
+	Error  string
+	RunID  int64
 }
 
 type clusterClient interface {

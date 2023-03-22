@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kiwi/internal/rolling"
 )
 
 // Causality is a type that represents the causality relationship between two vectors.
@@ -33,7 +34,7 @@ func (c Causality) String() string {
 	}
 }
 
-type V map[uint32]uint32
+type V map[uint32]int32
 
 // Vector represents a vector clock, which is a mapping of node IDs to clock values.
 // The clock value is a monotonically increasing counter that is incremented every time
@@ -46,8 +47,7 @@ type V map[uint32]uint32
 // the causality relationship between two events can be determined even if the clock
 // value has rolled over.
 type Vector struct {
-	clocks    V
-	rollovers map[uint32]bool
+	clocks V
 }
 
 // New returns a new vector clock. If the given values are not empty, the new vector
@@ -66,44 +66,30 @@ func New(values ...V) *Vector {
 	}
 
 	return &Vector{
-		clocks:    clocks,
-		rollovers: make(map[uint32]bool, len(clocks)),
+		clocks: clocks,
 	}
 }
 
 // Get returns the clock value for the given node ID.
-func (v *Vector) Get(id uint32) uint32 {
-	return v.clocks[id]
-}
-
-// Rollover inverts the rollover flag for the given node ID.
-func (v *Vector) Rollover(id uint32) {
-	v.rollovers[id] = !v.rollovers[id]
+func (vc *Vector) Get(id uint32) int32 {
+	return vc.clocks[id]
 }
 
 // Update increments the clock value for the given node ID.
 // If the clock value has rolled over, the rollover flag is inverted.
 func (vc *Vector) Update(id uint32) {
-	old := vc.clocks[id]
 	vc.clocks[id]++
-
-	if old > vc.clocks[id] {
-		// Clock value has rolled over.
-		vc.rollovers[id] = !vc.rollovers[id]
-	}
 }
 
 // Clone returns a copy of the vector clock. The copy is a deep copy,
 // so that the original vector clock can be modified without affecting
 // the copy.
-func (v *Vector) Clone() *Vector {
+func (vc *Vector) Clone() *Vector {
 	newvec := &Vector{
-		clocks:    make(map[uint32]uint32, len(v.clocks)),
-		rollovers: make(map[uint32]bool, len(v.rollovers)),
+		clocks: make(V, len(vc.clocks)),
 	}
 
-	generic.MapCopy(v.clocks, newvec.clocks)
-	generic.MapCopy(v.rollovers, newvec.rollovers)
+	generic.MapCopy(vc.clocks, newvec.clocks)
 
 	return newvec
 }
@@ -112,12 +98,12 @@ func (v *Vector) Clone() *Vector {
 // The string representation is a comma-separated list of key=value pairs, where the
 // key is the node ID and the value is the clock value: {1=1, 2=2}. If the clock value
 // has rolled over, the value is prefixed with an exclamation mark: {1=1, 2=!2}.
-func (v Vector) String() string {
+func (vc *Vector) String() string {
 	b := strings.Builder{}
 
 	b.WriteString("{")
 
-	keys := generic.MapKeys(v.clocks)
+	keys := generic.MapKeys(vc.clocks)
 
 	sort.Slice(keys, func(i, j int) bool {
 		return keys[i] < keys[j]
@@ -125,17 +111,19 @@ func (v Vector) String() string {
 
 	for i, key := range keys {
 		if i > 0 {
-			b.WriteString(", ")
+			b.WriteString(",")
 		}
 
 		b.WriteString(fmt.Sprint(key))
 		b.WriteString("=")
 
-		if v.rollovers[key] {
+		value := vc.clocks[key]
+		if value < 0 {
 			b.WriteString("!")
+			value = -value
 		}
 
-		b.WriteString(fmt.Sprint(v.clocks[key]))
+		b.WriteString(fmt.Sprint(value))
 	}
 
 	b.WriteString("}")
@@ -157,22 +145,11 @@ func Compare(a, b *Vector) Causality {
 	var greater, less bool
 
 	for _, key := range generic.MapKeys(a.clocks, b.clocks) {
-		// If the rollover flags are different, it means that the value
-		// has wrapped around and we need to invert the comparison.
-		wrapped := a.rollovers[key] != b.rollovers[key]
-
-		if a.clocks[key] > b.clocks[key] {
-			if !wrapped {
-				greater = true
-			} else {
-				less = true
-			}
-		} else if a.clocks[key] < b.clocks[key] {
-			if !wrapped {
-				less = true
-			} else {
-				greater = true
-			}
+		switch rolling.Compare(a.clocks[key], b.clocks[key]) {
+		case rolling.Less:
+			less = true
+		case rolling.Greater:
+			greater = true
 		}
 	}
 
@@ -198,38 +175,13 @@ func IsEqual(a, b *Vector) bool {
 // Merge(a, Merge(b, c)) == Merge(Merge(a, b), c).
 func Merge(a, b *Vector) *Vector {
 	keys := generic.MapKeys(a.clocks, b.clocks)
-
-	clock := &Vector{
-		clocks:    make(map[uint32]uint32, len(keys)),
-		rollovers: make(map[uint32]bool, len(keys)),
-	}
+	clock := &Vector{clocks: make(V, len(keys))}
 
 	for _, key := range keys {
-		// TODO: this is a bit ugly, but it works.
-		if a.rollovers[key] == b.rollovers[key] {
-			if a.clocks[key] > b.clocks[key] {
-				clock.clocks[key] = a.clocks[key]
-				if rollover, ok := a.rollovers[key]; ok {
-					clock.rollovers[key] = rollover
-				}
-			} else {
-				clock.clocks[key] = b.clocks[key]
-				if rollover, ok := b.rollovers[key]; ok {
-					clock.rollovers[key] = rollover
-				}
-			}
+		if rolling.Compare(a.clocks[key], b.clocks[key]) == rolling.Greater {
+			clock.clocks[key] = a.clocks[key]
 		} else {
-			if a.clocks[key] < b.clocks[key] {
-				clock.clocks[key] = a.clocks[key]
-				if rollover, ok := a.rollovers[key]; ok {
-					clock.rollovers[key] = rollover
-				}
-			} else {
-				clock.clocks[key] = b.clocks[key]
-				if rollover, ok := b.rollovers[key]; ok {
-					clock.rollovers[key] = rollover
-				}
-			}
+			clock.clocks[key] = b.clocks[key]
 		}
 	}
 

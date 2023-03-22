@@ -12,6 +12,10 @@ type Unsigned interface {
 	uint | uint8 | uint16 | uint32 | uint64
 }
 
+type Signed interface {
+	int | int8 | int16 | int32 | int64
+}
+
 func Sum[V Number](values ...V) (sum V) {
 	for _, n := range values {
 		sum += n
@@ -50,4 +54,12 @@ func Min[V Number](values ...V) V {
 	}
 
 	return current
+}
+
+func Abs[V Signed](value V) V {
+	if value < 0 {
+		return -value
+	}
+
+	return value
 }

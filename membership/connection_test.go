@@ -23,12 +23,14 @@ func TestCluster_Conn(t *testing.T) {
 	var dialerCalled int
 
 	conf := membership.DefaultConfig()
+	conf.NodeID = 1
+
 	conf.Dialer = func(ctx context.Context, addr string) (nodeapi.Client, error) {
 		dialerCalled++
 		return conn, nil
 	}
 
-	cluster := membership.NewCluster(membership.Node{}, conf)
+	cluster := membership.NewCluster(conf)
 	defer cluster.Leave(context.Background())
 
 	conn2, err := cluster.Conn(cluster.SelfID())
@@ -44,7 +46,7 @@ func TestCluster_Conn_AlreadyConnected(t *testing.T) {
 		return nil, nil
 	}
 
-	cluster := membership.NewCluster(membership.Node{ID: 1}, conf)
+	cluster := membership.NewCluster(conf)
 	defer cluster.Leave(context.Background())
 
 	ctrl := gomock.NewController(t)
@@ -62,7 +64,10 @@ func TestCluster_Conn_Concurrent(t *testing.T) {
 	var dialerCalled int32
 
 	ctrl := gomock.NewController(t)
+
 	clusterConf := membership.DefaultConfig()
+	clusterConf.NodeID = 1
+
 	clusterConf.Dialer = func(ctx context.Context, addr string) (nodeapi.Client, error) {
 		atomic.AddInt32(&dialerCalled, 1)
 		time.Sleep(100 * time.Millisecond) // Simulate membership latency.
@@ -76,7 +81,7 @@ func TestCluster_Conn_Concurrent(t *testing.T) {
 	errs := make([]error, concurrency)
 	connections := make([]nodeapi.Client, concurrency)
 
-	cluster := membership.NewCluster(membership.Node{ID: 1}, clusterConf)
+	cluster := membership.NewCluster(clusterConf)
 	defer cluster.Leave(context.Background())
 
 	wg := sync.WaitGroup{}

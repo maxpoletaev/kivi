@@ -96,6 +96,8 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([
 			Id:         uint32(n.ID),
 			Address:    n.Addr,
 			Generation: n.Gen,
+			Error:      n.Error,
+			RunId:      n.RunID,
 		}
 
 		switch n.Status {
@@ -116,9 +118,11 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([
 	nodes = make([]nodeapi.NodeInfo, len(resp.Nodes))
 	for idx, n := range resp.Nodes {
 		nodes[idx] = nodeapi.NodeInfo{
-			ID:   nodeapi.NodeID(n.Id),
-			Gen:  n.Generation,
-			Addr: n.Address,
+			ID:    nodeapi.NodeID(n.Id),
+			Gen:   n.Generation,
+			Addr:  n.Address,
+			RunID: n.RunId,
+			Error: n.Error,
 		}
 
 		switch n.Status {
