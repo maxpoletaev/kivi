@@ -1,4 +1,4 @@
-module github.com/maxpoletaev/kiwi
+module github.com/maxpoletaev/kivi
 
 go 1.19
 

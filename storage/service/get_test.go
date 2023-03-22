@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 
-	"github.com/maxpoletaev/kiwi/internal/grpcutil"
-	"github.com/maxpoletaev/kiwi/internal/vclock"
-	"github.com/maxpoletaev/kiwi/storage"
-	storagemock "github.com/maxpoletaev/kiwi/storage/mock"
-	"github.com/maxpoletaev/kiwi/storage/proto"
+	"github.com/maxpoletaev/kivi/internal/grpcutil"
+	"github.com/maxpoletaev/kivi/internal/vclock"
+	"github.com/maxpoletaev/kivi/storage"
+	storagemock "github.com/maxpoletaev/kivi/storage/mock"
+	"github.com/maxpoletaev/kivi/storage/proto"
 )
 
 func TestGet(t *testing.T) {

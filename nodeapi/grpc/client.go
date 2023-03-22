@@ -4,10 +4,10 @@ import (
 	"context"
 	"sync/atomic"
 
-	"github.com/maxpoletaev/kiwi/internal/multierror"
-	"github.com/maxpoletaev/kiwi/membership/proto"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
+	"github.com/maxpoletaev/kivi/internal/multierror"
+	"github.com/maxpoletaev/kivi/membership/proto"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
 var (

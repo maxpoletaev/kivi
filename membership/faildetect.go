@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
 func (cl *Cluster) startDetector() {

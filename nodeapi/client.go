@@ -1,6 +1,6 @@
 package nodeapi
 
-//go:generate mockgen -destination=mock/client_mock.go -package=mock github.com/maxpoletaev/kiwi/nodeapi Client
+//go:generate mockgen -destination=mock/client_mock.go -package=mock github.com/maxpoletaev/kivi/nodeapi Client
 
 import "context"
 

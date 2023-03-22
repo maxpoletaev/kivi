@@ -1,9 +1,9 @@
 package engine
 
 import (
-	"github.com/maxpoletaev/kiwi/internal/vclock"
-	"github.com/maxpoletaev/kiwi/storage"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/internal/vclock"
+	"github.com/maxpoletaev/kivi/storage"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 func fromProtoValue(v *proto.Value) storage.Value {

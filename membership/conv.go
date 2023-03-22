@@ -1,6 +1,6 @@
 package membership
 
-import "github.com/maxpoletaev/kiwi/nodeapi"
+import "github.com/maxpoletaev/kivi/nodeapi"
 
 func fromApiNodeInfo(nodeinfo *nodeapi.NodeInfo) Node {
 	var status Status

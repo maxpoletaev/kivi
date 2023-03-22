@@ -1,8 +1,8 @@
 .DEFAULT_GOAL := help
 
 TEST_PACKAGE = ./...
-IMAGE_NAME = maxpoletaev/kiwi
-GO_MODULE = github.com/maxpoletaev/kiwi
+IMAGE_NAME = maxpoletaev/kivi
+GO_MODULE = github.com/maxpoletaev/kivi
 PROTO_FILES = $(shell find . -type f -name '*.proto')
 
 PLATFORM = $(shell uname)

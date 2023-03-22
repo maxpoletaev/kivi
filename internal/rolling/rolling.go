@@ -1,7 +1,7 @@
 package rolling
 
 import (
-	"github.com/maxpoletaev/kiwi/internal/generic"
+	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
 const (

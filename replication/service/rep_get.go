@@ -7,12 +7,12 @@ import (
 	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kiwi/internal/generic"
-	"github.com/maxpoletaev/kiwi/internal/vclock"
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	"github.com/maxpoletaev/kiwi/replication"
-	"github.com/maxpoletaev/kiwi/replication/proto"
+	"github.com/maxpoletaev/kivi/internal/generic"
+	"github.com/maxpoletaev/kivi/internal/vclock"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/replication"
+	"github.com/maxpoletaev/kivi/replication/proto"
 )
 
 func (s *ReplicationServer) validateGetRequest(req *proto.GetRequest) error {

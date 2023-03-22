@@ -1,6 +1,6 @@
 package service
 
-import "github.com/maxpoletaev/kiwi/membership"
+import "github.com/maxpoletaev/kivi/membership"
 
 type Cluster interface {
 	ApplyState(state membership.State) membership.State

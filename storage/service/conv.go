@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kiwi/internal/vclock"
-	"github.com/maxpoletaev/kiwi/storage"
-	"github.com/maxpoletaev/kiwi/storage/proto"
+	"github.com/maxpoletaev/kivi/internal/vclock"
+	"github.com/maxpoletaev/kivi/storage"
+	"github.com/maxpoletaev/kivi/storage/proto"
 )
 
 func toProtoValues(values []storage.Value) []*proto.VersionedValue {

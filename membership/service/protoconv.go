@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/membership/proto"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/membership/proto"
 )
 
 func fromProtoNode(node *proto.Node) membership.Node {

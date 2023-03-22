@@ -1,10 +1,10 @@
 package engine
 
 import (
-	"github.com/maxpoletaev/kiwi/internal/lockmap"
-	"github.com/maxpoletaev/kiwi/storage"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/internal/lockmap"
+	"github.com/maxpoletaev/kivi/storage"
+	"github.com/maxpoletaev/kivi/storage/lsmtree"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 type Engine struct {

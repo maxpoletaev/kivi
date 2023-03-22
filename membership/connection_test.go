@@ -10,9 +10,9 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	nodeapimock "github.com/maxpoletaev/kiwi/nodeapi/mock"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	nodeapimock "github.com/maxpoletaev/kivi/nodeapi/mock"
 )
 
 func TestCluster_Conn(t *testing.T) {

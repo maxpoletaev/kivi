@@ -3,7 +3,7 @@ package storage
 import (
 	"testing"
 
-	"github.com/maxpoletaev/kiwi/internal/vclock"
+	"github.com/maxpoletaev/kivi/internal/vclock"
 	"github.com/stretchr/testify/require"
 )
 

@@ -7,9 +7,9 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	membershippb "github.com/maxpoletaev/kiwi/membership/proto"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
+	membershippb "github.com/maxpoletaev/kivi/membership/proto"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
 func Dial(ctx context.Context, addr string) (nodeapi.Client, error) {

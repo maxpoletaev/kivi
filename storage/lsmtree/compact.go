@@ -10,11 +10,11 @@ import (
 
 	protobuf "google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kiwi/internal/bloom"
-	"github.com/maxpoletaev/kiwi/internal/heap"
-	"github.com/maxpoletaev/kiwi/internal/opengroup"
-	"github.com/maxpoletaev/kiwi/internal/protoio"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/internal/bloom"
+	"github.com/maxpoletaev/kivi/internal/heap"
+	"github.com/maxpoletaev/kivi/internal/opengroup"
+	"github.com/maxpoletaev/kivi/internal/protoio"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 type heapItem struct {

@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/maxpoletaev/kiwi/storage"
-	"github.com/maxpoletaev/kiwi/storage/proto"
+	"github.com/maxpoletaev/kivi/storage"
+	"github.com/maxpoletaev/kivi/storage/proto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

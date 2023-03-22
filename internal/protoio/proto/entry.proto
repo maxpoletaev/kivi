@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package protoio;
 
-option go_package = "github.com/maxpoletaev/kiwi/internal/protoio/proto";
+option go_package = "github.com/maxpoletaev/kivi/internal/protoio/proto";
 
 message TestEntry {
     int64 id = 1;

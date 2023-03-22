@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/membership/proto"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/membership/proto"
 )
 
 type MembershipServer struct {

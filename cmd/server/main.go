@@ -13,16 +13,16 @@ import (
 	"github.com/go-kit/log/level"
 	"google.golang.org/grpc"
 
-	"github.com/maxpoletaev/kiwi/membership"
-	membershippb "github.com/maxpoletaev/kiwi/membership/proto"
-	membershipsvc "github.com/maxpoletaev/kiwi/membership/service"
-	nodegrpc "github.com/maxpoletaev/kiwi/nodeapi/grpc"
-	replicationpb "github.com/maxpoletaev/kiwi/replication/proto"
-	replicationsvc "github.com/maxpoletaev/kiwi/replication/service"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/engine"
-	storagepb "github.com/maxpoletaev/kiwi/storage/proto"
-	storagesvc "github.com/maxpoletaev/kiwi/storage/service"
+	"github.com/maxpoletaev/kivi/membership"
+	membershippb "github.com/maxpoletaev/kivi/membership/proto"
+	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
+	nodegrpc "github.com/maxpoletaev/kivi/nodeapi/grpc"
+	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
+	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
+	"github.com/maxpoletaev/kivi/storage/lsmtree"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/engine"
+	storagepb "github.com/maxpoletaev/kivi/storage/proto"
+	storagesvc "github.com/maxpoletaev/kivi/storage/service"
 )
 
 func main() {

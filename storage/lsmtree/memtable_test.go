@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kiwi/internal/protoio"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/internal/protoio"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 func TestCreateMemtable(t *testing.T) {

@@ -12,7 +12,7 @@ import (
 	"github.com/go-kit/log"
 	"github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 // LSMTree is a persistent key-value store based on the LSM-Tree data structure. It is a

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kiwi/membership"
+	"github.com/maxpoletaev/kivi/membership"
 )
 
 func TestCluster_ApplyState(t *testing.T) {

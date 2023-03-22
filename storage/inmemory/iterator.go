@@ -1,8 +1,8 @@
 package inmemory
 
 import (
-	"github.com/maxpoletaev/kiwi/internal/skiplist"
-	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kivi/internal/skiplist"
+	"github.com/maxpoletaev/kivi/storage"
 )
 
 type Iterator struct {

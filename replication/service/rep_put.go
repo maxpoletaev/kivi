@@ -6,11 +6,11 @@ import (
 
 	"google.golang.org/grpc/codes"
 
-	"github.com/maxpoletaev/kiwi/internal/grpcutil"
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	"github.com/maxpoletaev/kiwi/replication"
-	"github.com/maxpoletaev/kiwi/replication/proto"
+	"github.com/maxpoletaev/kivi/internal/grpcutil"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/replication"
+	"github.com/maxpoletaev/kivi/replication/proto"
 )
 
 func (s *ReplicationServer) validatePutRequest(req *proto.PutRequest) error {

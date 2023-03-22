@@ -7,11 +7,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeapi"
-	"github.com/maxpoletaev/kiwi/replication"
-	"github.com/maxpoletaev/kiwi/replication/consistency"
-	"github.com/maxpoletaev/kiwi/replication/proto"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/replication"
+	"github.com/maxpoletaev/kivi/replication/consistency"
+	"github.com/maxpoletaev/kivi/replication/proto"
 )
 
 const (

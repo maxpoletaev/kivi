@@ -9,8 +9,8 @@ import (
 
 	kitlog "github.com/go-kit/log"
 
-	"github.com/maxpoletaev/kiwi/internal/generic"
-	"github.com/maxpoletaev/kiwi/nodeapi"
+	"github.com/maxpoletaev/kivi/internal/generic"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 func withLock(l sync.Locker, f func()) {

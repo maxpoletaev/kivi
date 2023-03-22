@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package replication;
 
-option go_package = "github.com/maxpoletaev/kiwi/replication/proto";
+option go_package = "github.com/maxpoletaev/kivi/replication/proto";
 
 message Empty {}
 

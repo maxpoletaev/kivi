@@ -10,9 +10,9 @@ import (
 	kitlog "github.com/go-kit/log"
 	loglevel "github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kiwi/internal/grpcutil"
-	"github.com/maxpoletaev/kiwi/membership"
-	"github.com/maxpoletaev/kiwi/nodeapi"
+	"github.com/maxpoletaev/kivi/internal/grpcutil"
+	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 var (

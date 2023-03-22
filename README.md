@@ -1,4 +1,4 @@
-# 🥝 Kiwi DB
+# 🥝 Kivi DB
 
 The goal of the project is to build a simple distributed key-value store from
 scratch, without relying much on third-party libraries. The project falls into

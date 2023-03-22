@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maxpoletaev/kiwi/internal/skiplist"
-	"github.com/maxpoletaev/kiwi/internal/vclock"
-	"github.com/maxpoletaev/kiwi/storage"
+	"github.com/maxpoletaev/kivi/internal/skiplist"
+	"github.com/maxpoletaev/kivi/internal/vclock"
+	"github.com/maxpoletaev/kivi/storage"
 )
 
 func TestGet(t *testing.T) {

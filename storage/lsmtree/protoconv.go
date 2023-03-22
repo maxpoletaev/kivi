@@ -1,6 +1,6 @@
 package lsmtree
 
-import "github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+import "github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 
 func fromProtoMemtableInfo(info *proto.MemtableInfo) *MemtableInfo {
 	return &MemtableInfo{

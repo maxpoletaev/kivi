@@ -4,8 +4,8 @@ import (
 	"errors"
 	"io"
 
-	"github.com/maxpoletaev/kiwi/internal/protoio"
-	"github.com/maxpoletaev/kiwi/storage/lsmtree/proto"
+	"github.com/maxpoletaev/kivi/internal/protoio"
+	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
 
 type Iterator struct {

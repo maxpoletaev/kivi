@@ -5,7 +5,7 @@ import (
 
 	kitlog "github.com/go-kit/log"
 
-	"github.com/maxpoletaev/kiwi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 type Config struct {

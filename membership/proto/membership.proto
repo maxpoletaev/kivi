@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package membership;
 
-option go_package = "github.com/maxpoletaev/kiwi/membership/proto";
+option go_package = "github.com/maxpoletaev/kivi/membership/proto";
 
 enum Status {
     HEALTHY = 0;

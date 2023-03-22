@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/maxpoletaev/kiwi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 func (cl *Cluster) startGC() {

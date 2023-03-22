@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/maxpoletaev/kiwi/internal/rolling"
+	"github.com/maxpoletaev/kivi/internal/rolling"
 )
 
 type State struct {

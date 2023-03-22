@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	"github.com/maxpoletaev/kiwi/internal/vclock/pb"
+	"github.com/maxpoletaev/kivi/internal/vclock/pb"
 )
 
 // Encode encodes the vector clock into a base64-encoded string.

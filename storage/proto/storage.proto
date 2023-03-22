@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package storage;
 
-option go_package = "github.com/maxpoletaev/kiwi/storage/proto";
+option go_package = "github.com/maxpoletaev/kivi/storage/proto";
 
 message GetRequest {
     string key = 1;
