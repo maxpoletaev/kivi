@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/maxpoletaev/kiwi/internal/protoio"
@@ -33,18 +32,18 @@ type SSTableInfo struct {
 // in use. The state itself is stored as a sequence of changes in a log file. It is not safe
 // to modify the state concurrently, so additional synchronization is required.
 type loggedState struct {
-	logFile   *os.File
-	logWriter protoio.SequentialWriter
-	memtables []*MemtableInfo
-	sstables  []*SSTableInfo
+	logFile        *os.File
+	logWriter      protoio.SequentialWriter
+	memtables      []*MemtableInfo
+	sstables       []*SSTableInfo
+	mergedSSTables []*SSTableInfo
 }
 
 // newLoggedState creates a new state manager. If the log file already exists, the state will be
 // restored from it, otherwise a new log file will be created. All changes are immediately
 // flushed to the disk due to the file opened with O_SYNC flag.
-func newLoggedState(prefix string) (*loggedState, error) {
-	logFile, err := os.OpenFile(
-		filepath.Join(prefix, "STATE"), os.O_RDWR|os.O_CREATE|os.O_SYNC, 0o644)
+func newLoggedState(filename string) (*loggedState, error) {
+	logFile, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE|os.O_SYNC, 0o644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
@@ -68,6 +67,11 @@ func newLoggedState(prefix string) (*loggedState, error) {
 	}
 
 	return sm, nil
+}
+
+// Garbage returns the list of sstables that are no longer in use and can be deleted.
+func (sm *loggedState) Garbage() []*SSTableInfo {
+	return sm.mergedSSTables
 }
 
 // Memtables returns the list of currently active memtables.
@@ -94,6 +98,7 @@ func (sm *loggedState) applySegmentFlushed(c *proto.SegmentFlushed) {
 	}
 
 	sm.sstables = append(sm.sstables, fromProtoSSTableInfo(c.Sstable))
+
 	sm.memtables = memtables
 }
 
@@ -103,15 +108,21 @@ func (sm *loggedState) applySegmentsMerged(c *proto.SegmentsMerged) {
 		removedIDs[id] = struct{}{}
 	}
 
-	sstables := make([]*SSTableInfo, 0)
+	kept := make([]*SSTableInfo, 0, len(sm.sstables)-len(removedIDs))
+	removed := make([]*SSTableInfo, 0, len(removedIDs))
+
 	for _, sstable := range sm.sstables {
-		if _, ok := removedIDs[sstable.ID]; !ok {
-			sstables = append(sstables, sstable)
+		if _, ok := removedIDs[sstable.ID]; ok {
+			removed = append(removed, sstable)
+			continue
 		}
+
+		kept = append(kept, sstable)
 	}
 
-	sstables = append(sstables, fromProtoSSTableInfo(c.NewSstable))
-	sm.sstables = sstables
+	sm.sstables = append(kept, fromProtoSSTableInfo(c.NewSstable))
+
+	sm.mergedSSTables = append(sm.mergedSSTables, removed...)
 }
 
 func (sm *loggedState) applyChange(change *proto.StateLogEntry) {

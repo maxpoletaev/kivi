@@ -3,6 +3,8 @@ package lsmtree
 import (
 	"container/list"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,11 +36,14 @@ type LSMTree struct {
 // It restores the state of the tree from the previous run if it exists. Otherwise
 // it creates a new tree.
 func Create(conf Config) (*LSMTree, error) {
-	logger := log.With(conf.Logger, "component", "lsm")
-	flushQueue := list.New()
-	sstables := list.New()
+	var (
+		logger     = log.With(conf.Logger, "component", "lsm")
+		stateFile  = filepath.Join(conf.DataRoot, "STATE")
+		flushQueue = list.New()
+		sstables   = list.New()
+	)
 
-	state, err := newLoggedState(conf.DataRoot)
+	state, err := newLoggedState(stateFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create state: %w", err)
 	}
@@ -86,6 +91,10 @@ func Create(conf Config) (*LSMTree, error) {
 			if err := lsm.compactLevel(&rule); err != nil {
 				return nil, err
 			}
+		}
+
+		if err := lsm.collectGarbage(); err != nil {
+			return nil, err
 		}
 	}
 
@@ -138,6 +147,11 @@ func (lsm *LSMTree) scheduleFlush() error {
 					level.Error(lsm.logger).Log("msg", "failed to compact", "err", err)
 					return
 				}
+			}
+
+			if err := lsm.collectGarbage(); err != nil {
+				level.Error(lsm.logger).Log("msg", "failed to collect garbage", "err", err)
+				return
 			}
 		}()
 	}
@@ -313,6 +327,83 @@ func (lsm *LSMTree) startSyncLoop() {
 			}
 		}
 	}()
+}
+
+func (lsm *LSMTree) collectGarbage() error {
+	lsm.mut.RLock()
+	toRemove := make([]*SSTableInfo, len(lsm.state.Garbage()))
+	copy(toRemove, lsm.state.Garbage())
+	lsm.mut.RUnlock()
+
+	if len(toRemove) == 0 {
+		return nil
+	}
+
+	var (
+		statePath    = filepath.Join(lsm.dataRoot, "STATE")
+		newStatePath = filepath.Join(lsm.dataRoot, "STATE.new")
+	)
+
+	// Create a new state file next to the old one.
+	newState, err := newLoggedState(newStatePath)
+	if err != nil {
+		return fmt.Errorf("failed to create new logged state: %w", err)
+	}
+
+	unlockOnReturn := true
+	lsm.mut.Lock()
+
+	defer func() {
+		if unlockOnReturn {
+			lsm.mut.Unlock()
+		}
+	}()
+
+	// Copy the actual sstables to the new state.
+	for _, sstInfo := range lsm.state.SSTables() {
+		if err := newState.LogSSTablesMerged(nil, sstInfo); err != nil {
+			return fmt.Errorf("failed write to the new state: %w", err)
+		}
+	}
+
+	// Copy the active memtables to the new state.
+	for _, memtInfo := range lsm.state.Memtables() {
+		if err := newState.LogMemtableCreated(memtInfo); err != nil {
+			return fmt.Errorf("failed write to the new state: %w", err)
+		}
+	}
+
+	_ = lsm.state.Close()
+	_ = newState.Close()
+
+	// Replace the old state file with the new one.
+	if err := os.Rename(newStatePath, statePath); err != nil {
+		return fmt.Errorf("failed to rename new state file: %w", err)
+	}
+
+	// Reopen the state file and replace the state in the LSM tree.
+	lsm.state, err = newLoggedState(statePath)
+	if err != nil {
+		return fmt.Errorf("failed to open new state file: %w", err)
+	}
+
+	// Release the lock before we start removing the garbage files, so that we don’t
+	// block the tree for too long while doing I/O.
+	unlockOnReturn = false
+	lsm.mut.Unlock()
+
+	for _, sstInfo := range toRemove {
+		filesToRemove := []string{sstInfo.IndexFile, sstInfo.DataFile, sstInfo.BloomFile}
+		level.Debug(lsm.logger).Log("msg", "removing garbage sstable", "id", sstInfo.ID)
+
+		for _, filename := range filesToRemove {
+			if err := os.Remove(filepath.Join(lsm.dataRoot, filename)); err != nil {
+				level.Error(lsm.logger).Log("msg", "failed to remove garbage file", "filename", filename, "err", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // Get returns the value for the given key, if it exists. It checks the active memtable first,
