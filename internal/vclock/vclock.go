@@ -2,7 +2,6 @@ package vclock
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
@@ -105,9 +104,7 @@ func (vc *Vector) String() string {
 
 	keys := generic.MapKeys(vc.clocks)
 
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
+	generic.SortSlice(keys, false)
 
 	for i, key := range keys {
 		if i > 0 {
@@ -120,6 +117,7 @@ func (vc *Vector) String() string {
 		value := vc.clocks[key]
 		if value < 0 {
 			b.WriteString("!")
+
 			value = -value
 		}
 

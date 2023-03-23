@@ -56,7 +56,7 @@ func TestPut_NewValue(t *testing.T) {
 	assert.True(t, found)
 	assert.Len(t, listValues, 1)
 	assert.Equal(t, []byte("value"), listValues[0].Data)
-	assert.Equal(t, uint32(1), listValues[0].Version.Get(99))
+	assert.Equal(t, int32(1), listValues[0].Version.Get(99))
 }
 
 // TestPut_NewVersion verifies the case when there is already a value in the store

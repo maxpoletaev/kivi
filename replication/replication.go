@@ -12,7 +12,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
 var (
@@ -46,7 +46,7 @@ type Opts[T any] struct {
 // MapFn is called for each node in the replica set. The function should send a
 // request to the node and call the reply.Ok() or reply.Error() function with the
 // result. The reply is then passed to the reduceFn.
-type MapFn[T any] func(context.Context, membership.NodeID, nodeapi.Client, *NodeReply[T])
+type MapFn[T any] func(context.Context, membership.NodeID, nodeclient.Conn, *NodeReply[T])
 
 // ReduceFn is called for each reply. If the function returns an error, the whole
 // operation is cancelled. The cancel function can be used to cancel the

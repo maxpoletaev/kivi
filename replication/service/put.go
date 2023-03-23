@@ -8,7 +8,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 	"github.com/maxpoletaev/kivi/replication"
 	"github.com/maxpoletaev/kivi/replication/proto"
 )
@@ -21,7 +21,7 @@ func (s *ReplicationServer) validatePutRequest(req *proto.PutRequest) error {
 	return nil
 }
 
-func (s *ReplicationServer) ReplicatedPut(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
+func (s *ReplicationServer) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	if err := s.validatePutRequest(req); err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s *ReplicationServer) ReplicatedPut(ctx context.Context, req *proto.PutReq
 		Background: true,
 	}.Distribute(
 		ctx,
-		func(ctx context.Context, nodeID membership.NodeID, conn nodeapi.Client, reply *replication.NodeReply[string]) {
+		func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[string]) {
 			version, err := putValue(ctx, conn, req.Key, req.Value.Data, version, false)
 			if err != nil {
 				reply.Error(err)
@@ -96,13 +96,13 @@ func (s *ReplicationServer) ReplicatedPut(ctx context.Context, req *proto.PutReq
 
 func putValue(
 	ctx context.Context,
-	conn nodeapi.Client,
+	conn nodeclient.Conn,
 	key string,
 	value []byte,
 	version string,
 	primary bool,
 ) (string, error) {
-	resp, err := conn.Put(ctx, key, nodeapi.VersionedValue{
+	resp, err := conn.StoragePut(ctx, key, nodeclient.VersionedValue{
 		Version: version,
 		Data:    value,
 	}, primary)

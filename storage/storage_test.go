@@ -3,8 +3,9 @@ package storage
 import (
 	"testing"
 
-	"github.com/maxpoletaev/kivi/internal/vclock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/maxpoletaev/kivi/internal/vclock"
 )
 
 func TestAddVersion(t *testing.T) {

@@ -35,10 +35,11 @@ message DeleteRequest {
 }
 
 message DeleteResponse {
+    string version = 1;
 }
 
 service Replication {
-    rpc ReplicatedGet(GetRequest) returns (GetResponse);
-    rpc ReplicatedPut(PutRequest) returns (PutResponse);
-    rpc ReplicatedDelete(DeleteRequest) returns (DeleteResponse);
+    rpc Get(GetRequest) returns (GetResponse);
+    rpc Put(PutRequest) returns (PutResponse);
+    rpc Delete(DeleteRequest) returns (DeleteResponse);
 }

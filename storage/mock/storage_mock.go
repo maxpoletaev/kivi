@@ -37,7 +37,7 @@ func (m *MockEngine) EXPECT() *MockEngineMockRecorder {
 // Get mocks base method.
 func (m *MockEngine) Get(key string) ([]storage.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Conn", key)
+	ret := m.ctrl.Call(m, "Get", key)
 	ret0, _ := ret[0].([]storage.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
@@ -46,7 +46,7 @@ func (m *MockEngine) Get(key string) ([]storage.Value, error) {
 // Get indicates an expected call of Get.
 func (mr *MockEngineMockRecorder) Get(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conn", reflect.TypeOf((*MockEngine)(nil).Get), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockEngine)(nil).Get), key)
 }
 
 // Put mocks base method.
@@ -87,59 +87,17 @@ func (m *MockScannable) EXPECT() *MockScannableMockRecorder {
 }
 
 // Scan mocks base method.
-func (m *MockScannable) Scan() storage.ScanIterator {
+func (m *MockScannable) Scan(key string) storage.ScanIterator {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Scan")
+	ret := m.ctrl.Call(m, "Scan", key)
 	ret0, _ := ret[0].(storage.ScanIterator)
 	return ret0
 }
 
 // Scan indicates an expected call of Scan.
-func (mr *MockScannableMockRecorder) Scan() *gomock.Call {
+func (mr *MockScannableMockRecorder) Scan(key interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scan", reflect.TypeOf((*MockScannable)(nil).Scan))
-}
-
-// ScanFrom mocks base method.
-func (m *MockScannable) ScanFrom(key string) storage.ScanIterator {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScanFrom", key)
-	ret0, _ := ret[0].(storage.ScanIterator)
-	return ret0
-}
-
-// ScanFrom indicates an expected call of ScanFrom.
-func (mr *MockScannableMockRecorder) ScanFrom(key interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanFrom", reflect.TypeOf((*MockScannable)(nil).ScanFrom), key)
-}
-
-// ScanRange mocks base method.
-func (m *MockScannable) ScanRange(from, to string) storage.ScanIterator {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScanRange", from, to)
-	ret0, _ := ret[0].(storage.ScanIterator)
-	return ret0
-}
-
-// ScanRange indicates an expected call of ScanRange.
-func (mr *MockScannableMockRecorder) ScanRange(from, to interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanRange", reflect.TypeOf((*MockScannable)(nil).ScanRange), from, to)
-}
-
-// ScanTo mocks base method.
-func (m *MockScannable) ScanTo(key string) storage.ScanIterator {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ScanTo", key)
-	ret0, _ := ret[0].(storage.ScanIterator)
-	return ret0
-}
-
-// ScanTo indicates an expected call of ScanTo.
-func (mr *MockScannableMockRecorder) ScanTo(key interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ScanTo", reflect.TypeOf((*MockScannable)(nil).ScanTo), key)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scan", reflect.TypeOf((*MockScannable)(nil).Scan), key)
 }
 
 // MockScanIterator is a mock of ScanIterator interface.
@@ -165,27 +123,27 @@ func (m *MockScanIterator) EXPECT() *MockScanIteratorMockRecorder {
 	return m.recorder
 }
 
-// HasNext mocks base method.
-func (m *MockScanIterator) HasNext() bool {
+// Item mocks base method.
+func (m *MockScanIterator) Item() (string, []storage.Value) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "HasNext")
-	ret0, _ := ret[0].(bool)
-	return ret0
+	ret := m.ctrl.Call(m, "Item")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].([]storage.Value)
+	return ret0, ret1
 }
 
-// HasNext indicates an expected call of HasNext.
-func (mr *MockScanIteratorMockRecorder) HasNext() *gomock.Call {
+// Item indicates an expected call of Item.
+func (mr *MockScanIteratorMockRecorder) Item() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasNext", reflect.TypeOf((*MockScanIterator)(nil).HasNext))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Item", reflect.TypeOf((*MockScanIterator)(nil).Item))
 }
 
 // Next mocks base method.
-func (m *MockScanIterator) Next() (string, storage.Value) {
+func (m *MockScanIterator) Next() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Next")
-	ret0, _ := ret[0].(string)
-	ret1, _ := ret[1].(storage.Value)
-	return ret0, ret1
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Next indicates an expected call of Next.

@@ -1,21 +1,22 @@
 package membership
 
-import "github.com/maxpoletaev/kivi/nodeapi"
+import "github.com/maxpoletaev/kivi/nodeclient"
 
-func fromApiNodeInfo(nodeinfo *nodeapi.NodeInfo) Node {
+func fromApiNodeInfo(nodeinfo *nodeclient.NodeInfo) Node {
 	var status Status
 
 	switch nodeinfo.Status {
-	case nodeapi.NodeStatusHealthy:
+	case nodeclient.NodeStatusHealthy:
 		status = StatusHealthy
-	case nodeapi.NodeStatusUnhealthy:
+	case nodeclient.NodeStatusUnhealthy:
 		status = StatusUnhealthy
-	case nodeapi.NodeStatusLeft:
+	case nodeclient.NodeStatusLeft:
 		status = StatusLeft
 	}
 
 	return Node{
 		ID:         NodeID(nodeinfo.ID),
+		Name:       nodeinfo.Name,
 		Gen:        nodeinfo.Gen,
 		PublicAddr: nodeinfo.Addr,
 		Status:     status,
@@ -24,7 +25,7 @@ func fromApiNodeInfo(nodeinfo *nodeapi.NodeInfo) Node {
 	}
 }
 
-func fromApiNodesInfo(nodesInfo []nodeapi.NodeInfo) []Node {
+func fromApiNodesInfo(nodesInfo []nodeclient.NodeInfo) []Node {
 	nodes := make([]Node, len(nodesInfo))
 	for i, nodeInfo := range nodesInfo {
 		nodes[i] = fromApiNodeInfo(&nodeInfo)
@@ -33,20 +34,21 @@ func fromApiNodesInfo(nodesInfo []nodeapi.NodeInfo) []Node {
 	return nodes
 }
 
-func toApiNodeInfo(node *Node) nodeapi.NodeInfo {
-	var status nodeapi.NodeStatus
+func toApiNodeInfo(node *Node) nodeclient.NodeInfo {
+	var status nodeclient.NodeStatus
 
 	switch node.Status {
 	case StatusHealthy:
-		status = nodeapi.NodeStatusHealthy
+		status = nodeclient.NodeStatusHealthy
 	case StatusUnhealthy:
-		status = nodeapi.NodeStatusUnhealthy
+		status = nodeclient.NodeStatusUnhealthy
 	case StatusLeft:
-		status = nodeapi.NodeStatusLeft
+		status = nodeclient.NodeStatusLeft
 	}
 
-	return nodeapi.NodeInfo{
-		ID:     nodeapi.NodeID(node.ID),
+	return nodeclient.NodeInfo{
+		ID:     nodeclient.NodeID(node.ID),
+		Name:   node.Name,
 		Gen:    node.Gen,
 		Addr:   node.PublicAddr,
 		Status: status,
@@ -55,8 +57,8 @@ func toApiNodeInfo(node *Node) nodeapi.NodeInfo {
 	}
 }
 
-func toApiNodesInfo(nodes []Node) []nodeapi.NodeInfo {
-	nodesInfo := make([]nodeapi.NodeInfo, len(nodes))
+func toApiNodesInfo(nodes []Node) []nodeclient.NodeInfo {
+	nodesInfo := make([]nodeclient.NodeInfo, len(nodes))
 	for i, node := range nodes {
 		nodesInfo[i] = toApiNodeInfo(&node)
 	}

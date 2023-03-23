@@ -49,6 +49,7 @@ func (cl *Cluster) ApplyState(state State) State {
 		if next.Status == StatusLeft {
 			next.Gen = rolling.Max(curr.Gen, next.Gen)
 			cl.nodes[next.ID] = next
+
 			continue
 		}
 

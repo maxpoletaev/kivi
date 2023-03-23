@@ -1,13 +1,14 @@
-package nodeapi
+package nodeclient
 
-//go:generate mockgen -destination=mock/client_mock.go -package=mock github.com/maxpoletaev/kivi/nodeapi Client
+//go:generate mockgen -destination=mock/client_mock.go -package=mock github.com/maxpoletaev/kivi/nodeclient Conn
 
 import "context"
 
-// Client is a client to a cluster node.
-type Client interface {
+// Conn is a client to a cluster node.
+type Conn interface {
 	storageClient
 	clusterClient
+	replicationClient
 
 	// IsClosed returns true if the connection to the cluster node is closed, and
 	// connection to the node cannot be used. This method is not intended to be
@@ -23,4 +24,4 @@ type Client interface {
 }
 
 // Dialer is a function that establishes a connection with a cluster node.
-type Dialer func(ctx context.Context, addr string) (Client, error)
+type Dialer func(ctx context.Context, addr string) (Conn, error)

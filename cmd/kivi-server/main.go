@@ -13,10 +13,11 @@ import (
 	"github.com/go-kit/log/level"
 	"google.golang.org/grpc"
 
+	"github.com/maxpoletaev/kivi/api"
 	"github.com/maxpoletaev/kivi/membership"
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
-	nodegrpc "github.com/maxpoletaev/kivi/nodeapi/grpc"
+	nodegrpc "github.com/maxpoletaev/kivi/nodeclient/grpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
 	"github.com/maxpoletaev/kivi/storage/lsmtree"
@@ -74,6 +75,21 @@ func main() {
 	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+
+		serverCtx, cancelServer := context.WithCancel(appCtx)
+		defer cancelServer()
+
+		level.Info(logger).Log("msg", "starting the REST API server", "addr", args.restapiBindAddr)
+
+		if err := api.StartServer(serverCtx, cluster, logger, args.restapiBindAddr); err != nil {
+			logger.Log("msg", "failed to start the REST API server", "err", err)
+		}
+	}()
 
 	wg.Add(1)
 

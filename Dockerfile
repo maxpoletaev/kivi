@@ -6,11 +6,11 @@ ADD go.mod go.sum ./
 RUN go mod download
 ADD . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
-    go build github.com/maxpoletaev/kivi/cmd/server
+    go build github.com/maxpoletaev/kivi/cmd/kivi-server
 
 
 FROM alpine:3.17.1
 WORKDIR /app
 ENV PATH /app
-COPY --from=build /src/server .
-EXPOSE 3000
+COPY --from=build /src/kivi-server .
+EXPOSE 3000 8000

@@ -1,4 +1,4 @@
-package nodeapi
+package nodeclient
 
 import "context"
 
@@ -14,6 +14,7 @@ const (
 
 type NodeInfo struct {
 	ID     NodeID
+	Name   string
 	Status NodeStatus
 	Addr   string
 	Gen    int32
@@ -22,5 +23,6 @@ type NodeInfo struct {
 }
 
 type clusterClient interface {
+	// PullPushState exchanges the state of the cluster with the remote node.
 	PullPushState(ctx context.Context, nodes []NodeInfo) ([]NodeInfo, error)
 }

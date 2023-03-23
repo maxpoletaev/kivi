@@ -10,7 +10,7 @@ import (
 	kitlog "github.com/go-kit/log"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
 func withLock(l sync.Locker, f func()) {
@@ -23,10 +23,10 @@ type Cluster struct {
 	mut           sync.RWMutex
 	selfID        NodeID
 	nodes         map[NodeID]Node
-	connections   map[NodeID]nodeapi.Client
+	connections   map[NodeID]nodeclient.Conn
 	waiting       *generic.SyncMap[NodeID, chan struct{}]
 	lastSync      map[NodeID]time.Time
-	dialer        nodeapi.Dialer
+	dialer        nodeclient.Dialer
 	logger        kitlog.Logger
 	dialTimeout   time.Duration
 	probeTimeout  time.Duration
@@ -47,17 +47,18 @@ func NewCluster(conf Config) *Cluster {
 		Gen:        1,
 	}
 
+	logger := kitlog.With(conf.Logger, "package", "membership")
 	nodes := make(map[NodeID]Node, 1)
 	nodes[localNode.ID] = localNode
 
 	return &Cluster{
 		nodes:         nodes,
 		selfID:        localNode.ID,
-		connections:   make(map[NodeID]nodeapi.Client),
+		connections:   make(map[NodeID]nodeclient.Conn),
 		waiting:       new(generic.SyncMap[NodeID, chan struct{}]),
 		lastSync:      make(map[NodeID]time.Time),
 		dialer:        conf.Dialer,
-		logger:        conf.Logger,
+		logger:        logger,
 		probeTimeout:  conf.ProbeTimeout,
 		probeInterval: conf.ProbeInterval,
 		dialTimeout:   conf.DialTimeout,
@@ -178,7 +179,6 @@ func (cl *Cluster) waitForSync(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(500 * time.Millisecond):
-			// noop
 		}
 
 		withLock(cl.mut.RLocker(), func() {

@@ -25,8 +25,6 @@ func (cl *Cluster) startDetector() {
 			}
 		}
 	}()
-
-	cl.logger.Log("msg", "failure detector loop started")
 }
 
 func (cl *Cluster) pickRandomNode() *Node {
@@ -57,7 +55,6 @@ func (cl *Cluster) setStatus(id NodeID, status Status, err error) {
 			"node_id", id,
 			"status", status,
 			"error", err,
-			"generation", node.Gen,
 		)
 
 		node.Status = status

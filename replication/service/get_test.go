@@ -7,7 +7,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/vclock"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
 func TestMergeValues(t *testing.T) {
@@ -26,7 +26,7 @@ func TestMergeValues(t *testing.T) {
 			values: []nodeValue{
 				{
 					NodeID: 1,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 1}),
 					},
 				},
@@ -35,7 +35,7 @@ func TestMergeValues(t *testing.T) {
 				Values: []nodeValue{
 					{
 						NodeID: 1,
-						VersionedValue: nodeapi.VersionedValue{
+						VersionedValue: nodeclient.VersionedValue{
 							Version: vclock.NewEncoded(vclock.V{1: 1}),
 						},
 					},
@@ -48,35 +48,35 @@ func TestMergeValues(t *testing.T) {
 			values: []nodeValue{
 				{
 					NodeID: 1,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 1}),
 						Data:    []byte("older value"),
 					},
 				},
 				{
 					NodeID: 2,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 						Data:    []byte("newer value"),
 					},
 				},
 				{
 					NodeID: 3,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 1}),
 						Data:    []byte("older value"),
 					},
 				},
 				{
 					NodeID: 4,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 2, 2: 1}),
 						Data:    []byte("newer concurrent value"),
 					},
 				},
 				{
 					NodeID: 5,
-					VersionedValue: nodeapi.VersionedValue{
+					VersionedValue: nodeclient.VersionedValue{
 						Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 						Data:    []byte("newer value duplicate"),
 					},
@@ -86,14 +86,14 @@ func TestMergeValues(t *testing.T) {
 				Values: []nodeValue{
 					{
 						NodeID: 2,
-						VersionedValue: nodeapi.VersionedValue{
+						VersionedValue: nodeclient.VersionedValue{
 							Version: vclock.NewEncoded(vclock.V{1: 1, 2: 2}),
 							Data:    []byte("newer value"),
 						},
 					},
 					{
 						NodeID: 4,
-						VersionedValue: nodeapi.VersionedValue{
+						VersionedValue: nodeclient.VersionedValue{
 							Version: vclock.NewEncoded(vclock.V{1: 2, 2: 1}),
 							Data:    []byte("newer concurrent value"),
 						},

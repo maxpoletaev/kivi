@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
 func (cl *Cluster) startGC() {
@@ -26,8 +26,6 @@ func (cl *Cluster) startGC() {
 			}
 		}
 	}()
-
-	cl.logger.Log("msg", "garbage collector loop started")
 }
 
 func (cl *Cluster) collectGarbage() {
@@ -46,7 +44,7 @@ func (cl *Cluster) collectGarbage() {
 	}
 }
 
-func (cl *Cluster) loadConn(id NodeID) (nodeapi.Client, bool) {
+func (cl *Cluster) loadConn(id NodeID) (nodeclient.Conn, bool) {
 	cl.mut.RLock()
 
 	conn, ok := cl.connections[id]
@@ -80,7 +78,7 @@ func (cl *Cluster) loadConn(id NodeID) (nodeapi.Client, bool) {
 	return conn, ok
 }
 
-func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeapi.Client, error) {
+func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeclient.Conn, error) {
 	ctx, cancel := context.WithTimeout(ctx, cl.dialTimeout)
 	defer cancel()
 
@@ -112,7 +110,7 @@ func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeapi.Client, erro
 		}
 
 		var (
-			conn nodeapi.Client
+			conn nodeclient.Conn
 			ok   bool
 		)
 
@@ -177,7 +175,7 @@ func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeapi.Client, erro
 
 // Conn returns a connection to the member with the given ID. If the connection
 // is not present, it attempts to dial the member and create a new connection.
-func (cl *Cluster) Conn(id NodeID) (nodeapi.Client, error) {
+func (cl *Cluster) Conn(id NodeID) (nodeclient.Conn, error) {
 	if conn, ok := cl.loadConn(id); ok {
 		return conn, nil
 	}
@@ -188,7 +186,7 @@ func (cl *Cluster) Conn(id NodeID) (nodeapi.Client, error) {
 // ConnContext returns a connection to the member with the given ID. If the
 // connection is not present, it attempts to dial the member and create a new
 // connection. The context is used to cancel the dialing process.
-func (cl *Cluster) ConnContext(ctx context.Context, id NodeID) (nodeapi.Client, error) {
+func (cl *Cluster) ConnContext(ctx context.Context, id NodeID) (nodeclient.Conn, error) {
 	if conn, ok := cl.loadConn(id); ok {
 		return conn, nil
 	}
@@ -198,9 +196,9 @@ func (cl *Cluster) ConnContext(ctx context.Context, id NodeID) (nodeapi.Client, 
 
 // LocalConn returns a connection to the local member. It assumes that the local
 // connection is always stable, so it panics if it is not present.
-func (cl *Cluster) LocalConn() nodeapi.Client {
+func (cl *Cluster) LocalConn() nodeclient.Conn {
 	var (
-		conn nodeapi.Client
+		conn nodeclient.Conn
 		err  error
 		ok   bool
 	)
@@ -219,7 +217,7 @@ func (cl *Cluster) LocalConn() nodeapi.Client {
 // AddConn adds a connection to the cluster. If a connection to the same member
 // already exists, the old connection is closed. This method is intended to be
 // used during tests or during the cluster bootstrap.
-func (cl *Cluster) AddConn(id NodeID, conn nodeapi.Client) {
+func (cl *Cluster) AddConn(id NodeID, conn nodeclient.Conn) {
 	cl.mut.Lock()
 	defer cl.mut.Unlock()
 

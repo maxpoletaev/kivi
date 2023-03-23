@@ -14,18 +14,18 @@ services:
     image: maxpoletaev/kivi
     container_name: replica1
     command: >
-      server
+      kivi-server
         -node-id=1
         -node-name=replica1
         -grpc-bind-addr=0.0.0.0:3000
         -grpc-public-addr=172.24.2.1:3000
         -grpc-local-addr=127.0.0.1:3000
-        -gossip-bind-addr=0.0.0.0:4000
-        -gossip-public-addr=172.24.2.1:4000
+        -restapi-bind-addr=0.0.0.0:8000
         -data-dir=/data
         -verbose
     ports:
       - 3001:3000
+      - 8001:8000
     networks:
       kv_net:
         ipv4_address: 172.24.2.1
@@ -38,19 +38,19 @@ services:
     image: maxpoletaev/kivi
     container_name: replica2
     command: >
-      server
+      kivi-server
         -node-id=2
         -node-name=replica2
         -grpc-bind-addr=0.0.0.0:3000
         -grpc-public-addr=172.24.2.2:3000
         -grpc-local-addr=127.0.0.1:3000
-        -gossip-bind-addr=0.0.0.0:4000
-        -gossip-public-addr=172.24.2.2:4000
+        -restapi-bind-addr=0.0.0.0:8000
         -join-addr=replica1:3000
         -data-dir=/data
         -verbose
     ports:
       - 3002:3000
+      - 8002:8000
     networks:
       kv_net:
         ipv4_address: 172.24.2.2
@@ -63,19 +63,19 @@ services:
     image: maxpoletaev/kivi
     container_name: replica3
     command: >
-      server
+      kivi-server
         -node-id=3
         -node-name=replica3
         -grpc-bind-addr=0.0.0.0:3000
         -grpc-public-addr=172.24.2.3:3000
         -grpc-local-addr=127.0.0.1:3000
-        -gossip-bind-addr=0.0.0.0:4000
-        -gossip-public-addr=172.24.2.3:4000
+        -restapi-bind-addr=0.0.0.0:8000
         -join-addr=replica2:3000
         -data-dir=/data
         -verbose
     ports:
       - 3003:3000
+      - 8003:8000
     networks:
       kv_net:
         ipv4_address: 172.24.2.3

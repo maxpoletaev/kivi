@@ -4,12 +4,12 @@ package replication
 
 import (
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
 type Cluster interface {
 	Nodes() []membership.Node
 	SelfID() membership.NodeID
-	LocalConn() nodeapi.Client
-	Conn(nodeID membership.NodeID) (nodeapi.Client, error)
+	LocalConn() nodeclient.Conn
+	Conn(nodeID membership.NodeID) (nodeclient.Conn, error)
 }

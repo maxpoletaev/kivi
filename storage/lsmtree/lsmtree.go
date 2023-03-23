@@ -37,7 +37,7 @@ type LSMTree struct {
 // it creates a new tree.
 func Create(conf Config) (*LSMTree, error) {
 	var (
-		logger     = log.With(conf.Logger, "component", "lsm")
+		logger     = log.With(conf.Logger, "package", "lsmtree")
 		stateFile  = filepath.Join(conf.DataRoot, "STATE")
 		flushQueue = list.New()
 		sstables   = list.New()
@@ -350,8 +350,8 @@ func (lsm *LSMTree) collectGarbage() error {
 		return fmt.Errorf("failed to create new logged state: %w", err)
 	}
 
-	unlockOnReturn := true
 	lsm.mut.Lock()
+	unlockOnReturn := true
 
 	defer func() {
 		if unlockOnReturn {

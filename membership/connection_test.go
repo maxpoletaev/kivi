@@ -11,13 +11,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
-	nodeapimock "github.com/maxpoletaev/kivi/nodeapi/mock"
+	"github.com/maxpoletaev/kivi/nodeclient"
+	nodeclientmock "github.com/maxpoletaev/kivi/nodeclient/mock"
 )
 
 func TestCluster_Conn(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	conn := nodeapimock.NewMockClient(ctrl)
+	conn := nodeclientmock.NewMockConn(ctrl)
 	conn.EXPECT().Close().Return(nil).Times(1)
 
 	var dialerCalled int
@@ -25,7 +25,7 @@ func TestCluster_Conn(t *testing.T) {
 	conf := membership.DefaultConfig()
 	conf.NodeID = 1
 
-	conf.Dialer = func(ctx context.Context, addr string) (nodeapi.Client, error) {
+	conf.Dialer = func(ctx context.Context, addr string) (nodeclient.Conn, error) {
 		dialerCalled++
 		return conn, nil
 	}
@@ -41,7 +41,7 @@ func TestCluster_Conn(t *testing.T) {
 
 func TestCluster_Conn_AlreadyConnected(t *testing.T) {
 	conf := membership.DefaultConfig()
-	conf.Dialer = func(ctx context.Context, addr string) (nodeapi.Client, error) {
+	conf.Dialer = func(ctx context.Context, addr string) (nodeclient.Conn, error) {
 		t.Fatal("dialer should not be called")
 		return nil, nil
 	}
@@ -50,7 +50,7 @@ func TestCluster_Conn_AlreadyConnected(t *testing.T) {
 	defer cluster.Leave(context.Background())
 
 	ctrl := gomock.NewController(t)
-	conn := nodeapimock.NewMockClient(ctrl)
+	conn := nodeclientmock.NewMockConn(ctrl)
 	conn.EXPECT().IsClosed().Return(false).Times(1)
 	conn.EXPECT().Close().Return(nil).Times(1)
 	cluster.AddConn(cluster.SelfID(), conn)
@@ -68,10 +68,10 @@ func TestCluster_Conn_Concurrent(t *testing.T) {
 	clusterConf := membership.DefaultConfig()
 	clusterConf.NodeID = 1
 
-	clusterConf.Dialer = func(ctx context.Context, addr string) (nodeapi.Client, error) {
+	clusterConf.Dialer = func(ctx context.Context, addr string) (nodeclient.Conn, error) {
 		atomic.AddInt32(&dialerCalled, 1)
 		time.Sleep(100 * time.Millisecond) // Simulate membership latency.
-		conn := nodeapimock.NewMockClient(ctrl)
+		conn := nodeclientmock.NewMockConn(ctrl)
 		conn.EXPECT().IsClosed().Return(false).AnyTimes()
 		conn.EXPECT().Close().Return(nil).Times(1)
 		return conn, nil
@@ -79,7 +79,7 @@ func TestCluster_Conn_Concurrent(t *testing.T) {
 
 	concurrency := 10
 	errs := make([]error, concurrency)
-	connections := make([]nodeapi.Client, concurrency)
+	connections := make([]nodeclient.Conn, concurrency)
 
 	cluster := membership.NewCluster(clusterConf)
 	defer cluster.Leave(context.Background())

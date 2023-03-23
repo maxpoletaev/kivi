@@ -9,7 +9,10 @@ import (
 )
 
 func TestCluster_ApplyState(t *testing.T) {
-	cluster := membership.NewCluster(membership.DefaultConfig())
+	config := membership.DefaultConfig()
+	config.NodeID = 1
+
+	cluster := membership.NewCluster(config)
 
 	cluster.ApplyState(membership.State{
 		Nodes: []membership.Node{

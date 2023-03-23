@@ -10,7 +10,7 @@ import (
 	"github.com/maxpoletaev/kivi/internal/generic"
 	"github.com/maxpoletaev/kivi/internal/vclock"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 	"github.com/maxpoletaev/kivi/replication"
 	"github.com/maxpoletaev/kivi/replication/proto"
 )
@@ -23,7 +23,7 @@ func (s *ReplicationServer) validateGetRequest(req *proto.GetRequest) error {
 	return nil
 }
 
-func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
+func (s *ReplicationServer) Get(ctx context.Context, req *proto.GetRequest) (*proto.GetResponse, error) {
 	if err := s.validateGetRequest(req); err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 		allValues  = make([]nodeValue, 0)
 	)
 
-	err := replication.Opts[[]nodeapi.VersionedValue]{
+	err := replication.Opts[[]nodeclient.VersionedValue]{
 		Cluster:    s.cluster,
 		ReplicaSet: members,
 		AckedIDs:   repliedIDs,
@@ -48,14 +48,14 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 		func(
 			ctx context.Context,
 			nodeID membership.NodeID,
-			conn nodeapi.Client,
-			reply *replication.NodeReply[[]nodeapi.VersionedValue],
+			conn nodeclient.Conn,
+			reply *replication.NodeReply[[]nodeclient.VersionedValue],
 		) {
 			l := kitlog.With(s.logger, "node_id", nodeID, "key", req.Key)
 
 			level.Debug(l).Log("msg", "getting value from node")
 
-			values, err := conn.Get(ctx, req.Key)
+			values, err := conn.StorageGet(ctx, req.Key)
 			if err != nil {
 				level.Error(l).Log("msg", "failed to get value from node", "err", err)
 				reply.Error(err)
@@ -68,7 +68,7 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 		func(
 			cancel func(),
 			nodeID membership.NodeID,
-			values []nodeapi.VersionedValue,
+			values []nodeclient.VersionedValue,
 			err error,
 		) error {
 			if len(values) == 0 {
@@ -123,7 +123,7 @@ func (s *ReplicationServer) ReplicatedGet(ctx context.Context, req *proto.GetReq
 			Background: true,
 		}.Distribute(
 			ctx,
-			func(ctx context.Context, nodeID membership.NodeID, conn nodeapi.Client, reply *replication.NodeReply[int]) {
+			func(ctx context.Context, nodeID membership.NodeID, conn nodeclient.Conn, reply *replication.NodeReply[int]) {
 				l := kitlog.With(s.logger, "key", req.Key, "node_id", nodeID, "tomb", value.Tombstone)
 
 				if value.Tombstone {

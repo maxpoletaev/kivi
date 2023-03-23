@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 	"github.com/maxpoletaev/kivi/replication"
 	"github.com/maxpoletaev/kivi/replication/consistency"
 	"github.com/maxpoletaev/kivi/replication/proto"
@@ -29,7 +29,7 @@ var (
 
 type nodeValue struct {
 	NodeID membership.NodeID
-	nodeapi.VersionedValue
+	nodeclient.VersionedValue
 }
 
 type serviceOption func(s *ReplicationServer)

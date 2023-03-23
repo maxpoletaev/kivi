@@ -7,7 +7,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/nodeclient"
 	"github.com/maxpoletaev/kivi/replication"
 	"github.com/maxpoletaev/kivi/replication/proto"
 )
@@ -24,9 +24,7 @@ func validateDeleteRequest(req *proto.DeleteRequest) error {
 	return nil
 }
 
-func (s *ReplicationServer) ReplicatedDelete(
-	ctx context.Context, req *proto.DeleteRequest,
-) (*proto.DeleteResponse, error) {
+func (s *ReplicationServer) Delete(ctx context.Context, req *proto.DeleteRequest) (*proto.DeleteResponse, error) {
 	if err := validateDeleteRequest(req); err != nil {
 		return nil, err
 	}
@@ -59,7 +57,7 @@ func (s *ReplicationServer) ReplicatedDelete(
 		func(
 			ctx context.Context,
 			nodeID membership.NodeID,
-			conn nodeapi.Client,
+			conn nodeclient.Conn,
 			reply *replication.NodeReply[string],
 		) {
 			version, err := putTombstone(ctx, conn, req.Key, version, false)
@@ -85,11 +83,13 @@ func (s *ReplicationServer) ReplicatedDelete(
 		return nil, err
 	}
 
-	return &proto.DeleteResponse{}, nil
+	return &proto.DeleteResponse{
+		Version: version,
+	}, nil
 }
 
-func putTombstone(ctx context.Context, conn nodeapi.Client, key, version string, primary bool) (string, error) {
-	resp, err := conn.Put(ctx, key, nodeapi.VersionedValue{
+func putTombstone(ctx context.Context, conn nodeclient.Conn, key, version string, primary bool) (string, error) {
+	resp, err := conn.StoragePut(ctx, key, nodeclient.VersionedValue{
 		Version:   version,
 		Tombstone: true,
 	}, primary)

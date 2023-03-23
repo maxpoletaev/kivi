@@ -18,12 +18,12 @@ func MapKeys[K comparable, V any](maps ...map[K]V) []K {
 }
 
 func MapValues[K comparable, V any](maps ...map[K]V) []V {
-	var cap int
+	var c int
 	for _, m := range maps {
-		cap += len(m)
+		c += len(m)
 	}
 
-	values := make([]V, 0, cap)
+	values := make([]V, 0, c)
 
 	for _, m := range maps {
 		for _, v := range m {

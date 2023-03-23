@@ -26,3 +26,8 @@ func TestMin(t *testing.T) {
 		Min[int]()
 	})
 }
+
+func TestAbs(t *testing.T) {
+	assert.Equal(t, 5, Abs(-5))
+	assert.Equal(t, 5, Abs(5))
+}
