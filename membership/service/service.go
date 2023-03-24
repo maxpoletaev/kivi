@@ -27,12 +27,17 @@ func (s *MembershipServer) ListNodes(ctx context.Context, req *proto.ListNodesRe
 }
 
 func (s *MembershipServer) PullPushState(ctx context.Context, req *proto.PullPushStateRequest) (*proto.PullPushStateResponse, error) {
-	state := s.cluster.ApplyState(membership.State{
-		SourceID: membership.NodeID(req.NodeId),
-		Nodes:    fromProtoNodes(req.Nodes),
-	})
+	remoteNodes := fromProtoNodes(req.Nodes)
+	sourceID := membership.NodeID(req.NodeId)
+	localNodes := s.cluster.ApplyState(remoteNodes, sourceID)
 
 	return &proto.PullPushStateResponse{
-		Nodes: toProtoNodes(state.Nodes),
+		Nodes: toProtoNodes(localNodes),
+	}, nil
+}
+
+func (s *MembershipServer) GetStateHash(ctx context.Context, req *proto.GetStateHashRequest) (*proto.GetStateHashResponse, error) {
+	return &proto.GetStateHashResponse{
+		Hash: s.cluster.StateHash(),
 	}, nil
 }

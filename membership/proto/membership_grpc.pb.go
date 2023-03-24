@@ -23,6 +23,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MembershipClient interface {
 	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
+	GetStateHash(ctx context.Context, in *GetStateHashRequest, opts ...grpc.CallOption) (*GetStateHashResponse, error)
 	PullPushState(ctx context.Context, in *PullPushStateRequest, opts ...grpc.CallOption) (*PullPushStateResponse, error)
 }
 
@@ -43,6 +44,15 @@ func (c *membershipClient) ListNodes(ctx context.Context, in *ListNodesRequest, 
 	return out, nil
 }
 
+func (c *membershipClient) GetStateHash(ctx context.Context, in *GetStateHashRequest, opts ...grpc.CallOption) (*GetStateHashResponse, error) {
+	out := new(GetStateHashResponse)
+	err := c.cc.Invoke(ctx, "/membership.Membership/GetStateHash", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *membershipClient) PullPushState(ctx context.Context, in *PullPushStateRequest, opts ...grpc.CallOption) (*PullPushStateResponse, error) {
 	out := new(PullPushStateResponse)
 	err := c.cc.Invoke(ctx, "/membership.Membership/PullPushState", in, out, opts...)
@@ -57,6 +67,7 @@ func (c *membershipClient) PullPushState(ctx context.Context, in *PullPushStateR
 // for forward compatibility
 type MembershipServer interface {
 	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
+	GetStateHash(context.Context, *GetStateHashRequest) (*GetStateHashResponse, error)
 	PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error)
 	mustEmbedUnimplementedMembershipServer()
 }
@@ -67,6 +78,9 @@ type UnimplementedMembershipServer struct {
 
 func (UnimplementedMembershipServer) ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListNodes not implemented")
+}
+func (UnimplementedMembershipServer) GetStateHash(context.Context, *GetStateHashRequest) (*GetStateHashResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStateHash not implemented")
 }
 func (UnimplementedMembershipServer) PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PullPushState not implemented")
@@ -102,6 +116,24 @@ func _Membership_ListNodes_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Membership_GetStateHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStateHashRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MembershipServer).GetStateHash(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/membership.Membership/GetStateHash",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MembershipServer).GetStateHash(ctx, req.(*GetStateHashRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Membership_PullPushState_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PullPushStateRequest)
 	if err := dec(in); err != nil {
@@ -130,6 +162,10 @@ var Membership_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListNodes",
 			Handler:    _Membership_ListNodes_Handler,
+		},
+		{
+			MethodName: "GetStateHash",
+			Handler:    _Membership_GetStateHash_Handler,
 		},
 		{
 			MethodName: "PullPushState",

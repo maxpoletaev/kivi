@@ -50,3 +50,8 @@ type Node struct {
 func (n *Node) IsReachable() bool {
 	return n.Status == StatusHealthy
 }
+
+// Hash64 returns a 64-bit hash of the node.
+func (n *Node) Hash64() uint64 {
+	return uint64(n.ID) ^ uint64(n.RunID) ^ uint64(n.Gen)
+}

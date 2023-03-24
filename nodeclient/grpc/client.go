@@ -145,6 +145,15 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeclient.NodeInfo)
 	return nodes, nil
 }
 
+func (c *Client) GetStateHash(ctx context.Context) (uint64, error) {
+	resp, err := c.membershipClient.GetStateHash(ctx, &proto.GetStateHashRequest{})
+	if err != nil {
+		return 0, err
+	}
+
+	return resp.Hash, nil
+}
+
 func (c *Client) RepGet(ctx context.Context, key string) (*nodeclient.RepGetResponse, error) {
 	resp, err := c.replicationClient.Get(ctx, &replicationpb.GetRequest{
 		Key: key,

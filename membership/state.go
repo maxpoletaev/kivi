@@ -7,18 +7,20 @@ import (
 	"github.com/maxpoletaev/kivi/internal/rolling"
 )
 
-type State struct {
-	SourceID NodeID
-	Nodes    []Node
+func (cl *Cluster) StateHash() uint64 {
+	cl.mut.RLock()
+	defer cl.mut.RUnlock()
+
+	return cl.stateHash
 }
 
 // ApplyState merges the given nodes with the current cluster state and returns
 // the list of all nodes in the cluster after the merge.
-func (cl *Cluster) ApplyState(state State) State {
+func (cl *Cluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 	cl.mut.Lock()
 	defer cl.mut.Unlock()
 
-	for _, next := range state.Nodes {
+	for _, next := range nodes {
 		curr, ok := cl.nodes[next.ID]
 		if !ok {
 			cl.nodes[next.ID] = next
@@ -65,14 +67,19 @@ func (cl *Cluster) ApplyState(state State) State {
 		}
 	}
 
-	if state.SourceID != 0 {
-		cl.lastSync[state.SourceID] = time.Now()
+	if sourceID != 0 {
+		cl.lastSync[sourceID] = time.Now()
 	}
 
-	nodes := make([]Node, 0, len(cl.nodes))
+	cl.stateHash = 0
+	for _, node := range cl.nodes {
+		cl.stateHash ^= node.Hash64()
+	}
+
+	nodes = make([]Node, 0, len(cl.nodes))
 	for _, node := range cl.nodes {
 		nodes = append(nodes, node)
 	}
 
-	return State{Nodes: nodes}
+	return nodes
 }

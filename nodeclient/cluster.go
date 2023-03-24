@@ -25,4 +25,7 @@ type NodeInfo struct {
 type clusterClient interface {
 	// PullPushState exchanges the state of the cluster with the remote node.
 	PullPushState(ctx context.Context, nodes []NodeInfo) ([]NodeInfo, error)
+
+	// GetStateHash returns the hash of the cluster state.
+	GetStateHash(ctx context.Context) (uint64, error)
 }

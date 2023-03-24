@@ -36,7 +36,15 @@ message PullPushStateResponse {
     repeated Node nodes = 1;
 }
 
+message GetStateHashRequest {
+}
+
+message GetStateHashResponse {
+    uint64 hash = 1;
+}
+
 service Membership {
     rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {}
+    rpc GetStateHash(GetStateHashRequest) returns (GetStateHashResponse) {}
     rpc PullPushState(PullPushStateRequest) returns (PullPushStateResponse) {}
 }

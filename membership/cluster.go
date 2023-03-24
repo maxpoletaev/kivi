@@ -22,6 +22,7 @@ func withLock(l sync.Locker, f func()) {
 type Cluster struct {
 	mut           sync.RWMutex
 	selfID        NodeID
+	stateHash     uint64
 	nodes         map[NodeID]Node
 	connections   map[NodeID]nodeclient.Conn
 	waiting       *generic.SyncMap[NodeID, chan struct{}]
@@ -54,6 +55,7 @@ func NewCluster(conf Config) *Cluster {
 	return &Cluster{
 		nodes:         nodes,
 		selfID:        localNode.ID,
+		stateHash:     localNode.Hash64(),
 		connections:   make(map[NodeID]nodeclient.Conn),
 		waiting:       new(generic.SyncMap[NodeID, chan struct{}]),
 		lastSync:      make(map[NodeID]time.Time),
@@ -138,9 +140,7 @@ func (cl *Cluster) Join(ctx context.Context, addr string) error {
 		return fmt.Errorf("pull push state: %w", err)
 	}
 
-	cl.ApplyState(State{
-		Nodes: fromApiNodesInfo(nodes),
-	})
+	cl.ApplyState(fromApiNodesInfo(nodes), 0)
 
 	return nil
 }
