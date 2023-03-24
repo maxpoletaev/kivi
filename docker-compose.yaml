@@ -13,16 +13,14 @@ services:
   replica1:
     image: maxpoletaev/kivi
     container_name: replica1
-    command: >
-      kivi-server
-        -node-id=1
-        -node-name=replica1
-        -grpc-bind-addr=0.0.0.0:3000
-        -grpc-public-addr=172.24.2.1:3000
-        -grpc-local-addr=127.0.0.1:3000
-        -restapi-bind-addr=0.0.0.0:8000
-        -data-dir=/data
-        -verbose
+    environment:
+      - NODE_ID=1
+      - NODE_NAME=replica1
+      - GRPC_PUBLIC_ADDR=172.24.2.1:3000
+      - STORAGE_DATA_ROOT=/data
+      - CLUSTER_JOIN_ADDRS=replica2:3000
+      - CUSTER_PROBE_INTERVAL=500
+      - VERBOSE=true
     ports:
       - 3001:3000
       - 8001:8000
@@ -37,17 +35,14 @@ services:
       - replica1
     image: maxpoletaev/kivi
     container_name: replica2
-    command: >
-      kivi-server
-        -node-id=2
-        -node-name=replica2
-        -grpc-bind-addr=0.0.0.0:3000
-        -grpc-public-addr=172.24.2.2:3000
-        -grpc-local-addr=127.0.0.1:3000
-        -restapi-bind-addr=0.0.0.0:8000
-        -join-addr=replica1:3000
-        -data-dir=/data
-        -verbose
+    environment:
+      - NODE_ID=2
+      - NODE_NAME=replica2
+      - GRPC_PUBLIC_ADDR=172.24.2.2:3000
+      - STORAGE_DATA_ROOT=/data
+      - CLUSTER_JOIN_ADDRS=replica1:3000
+      - CUSTER_PROBE_INTERVAL=500
+      - VERBOSE=true
     ports:
       - 3002:3000
       - 8002:8000
@@ -62,17 +57,14 @@ services:
       - replica2
     image: maxpoletaev/kivi
     container_name: replica3
-    command: >
-      kivi-server
-        -node-id=3
-        -node-name=replica3
-        -grpc-bind-addr=0.0.0.0:3000
-        -grpc-public-addr=172.24.2.3:3000
-        -grpc-local-addr=127.0.0.1:3000
-        -restapi-bind-addr=0.0.0.0:8000
-        -join-addr=replica2:3000
-        -data-dir=/data
-        -verbose
+    environment:
+      - NODE_ID=3
+      - NODE_NAME=replica3
+      - GRPC_PUBLIC_ADDR=172.24.2.3:3000
+      - STORAGE_DATA_ROOT=/data
+      - CLUSTER_JOIN_ADDRS=replica2:3000
+      - CUSTER_PROBE_INTERVAL=500
+      - VERBOSE=true
     ports:
       - 3003:3000
       - 8003:8000

@@ -1,6 +1,6 @@
 package replication
 
-//go:generate mockgen -source=facilities.go -destination=facilities_mock.go -package=replication
+//go:generate mockgen -source=facilities.go -destination=facilities_mock_test.go -package=replication
 
 import (
 	"github.com/maxpoletaev/kivi/membership"

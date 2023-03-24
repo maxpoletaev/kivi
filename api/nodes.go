@@ -8,12 +8,11 @@ import (
 )
 
 type nodeInfo struct {
-	ID         uint32
-	Name       string
-	Addr       string
-	Status     string
-	Generation int32
-	Error      string `json:",omitempty"`
+	ID     uint32
+	Name   string
+	Addr   string
+	Status string
+	Error  string `json:",omitempty"`
 }
 
 type nodesAPI struct {
@@ -36,12 +35,11 @@ func (api *nodesAPI) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	for i, node := range nodes {
 		resp[i] = nodeInfo{
-			ID:         uint32(node.ID),
-			Name:       node.Name,
-			Addr:       node.PublicAddr,
-			Status:     node.Status.String(),
-			Generation: node.Gen,
-			Error:      node.Error,
+			ID:     uint32(node.ID),
+			Name:   node.Name,
+			Addr:   node.PublicAddr,
+			Status: node.Status.String(),
+			Error:  node.Error,
 		}
 	}
 

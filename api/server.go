@@ -10,12 +10,18 @@ import (
 	"github.com/go-kit/log/level"
 )
 
-func StartServer(ctx context.Context, cluster Cluster, logger kitlog.Logger, bindAddr string) error {
+func CreateRouter(cluster Cluster) *chi.Mux {
 	r := chi.NewRouter()
-
+	newKeyValueAPI(cluster).Bind(r)
 	newNodesAPI(cluster).Bind(r)
 
-	newKVAPI(cluster).Bind(r)
+	return r
+}
+
+func StartServer(ctx context.Context, cluster Cluster, logger kitlog.Logger, bindAddr string) error {
+	r := chi.NewRouter()
+	newNodesAPI(cluster).Bind(r)
+	newKeyValueAPI(cluster).Bind(r)
 
 	server := &http.Server{
 		Addr:    bindAddr,

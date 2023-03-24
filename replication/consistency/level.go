@@ -54,3 +54,18 @@ func (l Level) String() string {
 		return ""
 	}
 }
+
+func FromString(s string) (Level, bool) {
+	switch s {
+	case "one":
+		return One, true
+	case "two":
+		return Two, true
+	case "quorum":
+		return Quorum, true
+	case "all":
+		return All, true
+	default:
+		return One, false
+	}
+}

@@ -9,8 +9,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go build github.com/maxpoletaev/kivi/cmd/kivi-server
 
 
-FROM alpine:3.17.1
+FROM scratch
 WORKDIR /app
 ENV PATH /app
 COPY --from=build /src/kivi-server .
 EXPOSE 3000 8000
+CMD ["/app/kivi-server"]

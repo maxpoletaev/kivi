@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"net"
+	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -11,140 +11,104 @@ import (
 
 	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
-	"google.golang.org/grpc"
+	"github.com/jessevdk/go-flags"
 
-	"github.com/maxpoletaev/kivi/api"
 	"github.com/maxpoletaev/kivi/membership"
-	membershippb "github.com/maxpoletaev/kivi/membership/proto"
-	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
-	nodegrpc "github.com/maxpoletaev/kivi/nodeclient/grpc"
-	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
-	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
-	"github.com/maxpoletaev/kivi/storage/lsmtree"
-	"github.com/maxpoletaev/kivi/storage/lsmtree/engine"
-	storagepb "github.com/maxpoletaev/kivi/storage/proto"
-	storagesvc "github.com/maxpoletaev/kivi/storage/service"
 )
 
+func join(ctx context.Context, cluster *membership.Cluster, logger kitlog.Logger, addr string) {
+	var (
+		timeout = 10 * time.Second
+		backoff = 1 * time.Second
+		max     = 30 * time.Second
+	)
+
+	for {
+		err := func() error {
+			ctx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+
+			if err := cluster.Join(ctx, addr); err != nil {
+				return err
+			}
+
+			return nil
+		}()
+
+		if err == nil {
+			level.Info(logger).Log("msg", "joined cluster", "addr", addr)
+			return
+		}
+
+		level.Error(logger).Log(
+			"msg", "failed to join cluster",
+			"addr", addr,
+			"err", err,
+		)
+
+		backoff = backoff * 2
+		if backoff > max {
+			backoff = max
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+			continue
+		}
+	}
+}
+
 func main() {
-	appCtx, cancelApp := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancelApp()
+	p := flags.NewParser(&opts, flags.Default)
 
-	args := parseCliArgs()
-	logger := kitlog.NewLogfmtLogger(kitlog.NewSyncWriter(os.Stderr))
+	if _, err := p.Parse(); err != nil {
+		if err.(*flags.Error).Type != flags.ErrHelp {
+			fmt.Println("cli error:", err)
+		}
 
-	if !args.verbose {
-		logger = level.NewFilter(logger, level.AllowInfo())
+		os.Exit(2)
 	}
-
-	clusterConfig := membership.DefaultConfig()
-	clusterConfig.NodeID = membership.NodeID(args.nodeID)
-	clusterConfig.NodeName = args.nodeName
-	clusterConfig.PublicAddr = args.grpcPublicAddr
-	clusterConfig.LocalAddr = args.grpcLocalAddr
-	clusterConfig.Dialer = nodegrpc.Dial
-	clusterConfig.Logger = logger
-
-	cluster := membership.NewCluster(clusterConfig)
-	cluster.Start()
-
-	lsmConfig := lsmtree.DefaultConfig()
-	lsmConfig.MaxMemtableSize = args.memtableSize
-	lsmConfig.DataRoot = args.dataDirectory
-	lsmConfig.MmapDataFiles = true
-	lsmConfig.Logger = logger
-
-	lsmt, err := lsmtree.Create(lsmConfig)
-	if err != nil {
-		logger.Log("msg", "failed to initialize LSM-Tree storage", "err", err)
-		os.Exit(1)
-	}
-
-	storage := engine.New(lsmt)
-	grpcServer := grpc.NewServer()
-
-	storageService := storagesvc.New(storage, uint32(args.nodeID))
-	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
-
-	membershipService := membershipsvc.NewMembershipServer(cluster)
-	membershippb.RegisterMembershipServer(grpcServer, membershipService)
-
-	replicationService := replicationsvc.New(cluster, logger)
-	replicationpb.RegisterReplicationServer(grpcServer, replicationService)
 
 	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	wg.Add(1)
+	// Initialize all components.
+	logger, closeLogger := setupLogger()
+	cluster, closeCluster := setupCluster(logger)
+	engine, closeEngine := setupEngine(logger)
+	_, closeGrpcServer := setupGrpcServer(&wg, cluster, engine, logger)
+	_, closeRestServer := setupRestServer(&wg, cluster)
 
-	go func() {
-		defer wg.Done()
-
-		serverCtx, cancelServer := context.WithCancel(appCtx)
-		defer cancelServer()
-
-		level.Info(logger).Log("msg", "starting the REST API server", "addr", args.restapiBindAddr)
-
-		if err := api.StartServer(serverCtx, cluster, logger, args.restapiBindAddr); err != nil {
-			logger.Log("msg", "failed to start the REST API server", "err", err)
-		}
-	}()
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		for len(args.joinAddr) > 0 {
-			ctx, cancel := context.WithTimeout(appCtx, 10*time.Second)
-
-			if err := cluster.Join(ctx, args.joinAddr); err != nil {
-				level.Error(logger).Log("msg", "failed to join the cluster", "addr", args.joinAddr, "err", err)
-				cancel()
-
-				continue
-			}
-
-			cancel()
-
-			break
-		}
-	}()
-
-	wg.Add(1)
-
-	go func() {
-		<-interrupt
-
-		defer wg.Done()
-
-		level.Info(logger).Log("msg", "shutting down the server")
-
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-
-		if err := cluster.Leave(ctx); err != nil {
-			logger.Log("msg", "failed to leave the cluster", "err", err)
-		}
-
-		grpcServer.GracefulStop()
-
-		_ = lsmt.Close()
-	}()
-
-	// NewCluster a TCP listener for the GRPC server.
-	listener, err := net.Listen("tcp", args.grpcBindAddr)
-	if err != nil {
-		logger.Log("msg", "failed to listen tcp address", "addr", args.grpcBindAddr, "err", err)
-		os.Exit(1)
+	// Components must be shut down in a particular order.
+	shutdownOrder := []shutdownFunc{
+		closeRestServer,
+		closeCluster,
+		closeGrpcServer,
+		closeEngine,
+		closeLogger,
 	}
 
-	// Start the GRPC server, which will block until the server is stopped.
-	if err := grpcServer.Serve(listener); err != nil {
-		logger.Log("msg", "failed to start grpc server", "err", err)
-		os.Exit(1)
+	// Join the cluster, in case we were given any addresses to join.
+	joinCtx, cancelJoin := context.WithCancel(context.Background())
+	for _, joinAddr := range parseAddrs(opts.Cluster.JoinAddrs) {
+		go join(joinCtx, cluster, logger, joinAddr)
 	}
 
+	// Block until we receive a signal to shut down.
+	<-interrupt
+	cancelJoin()
+	level.Info(logger).Log("msg", "received interrupt signal, shutting down")
+
+	// Shutdown all components.
+	for _, f := range shutdownOrder {
+		if err := f(context.Background()); err != nil {
+			level.Error(logger).Log("msg", "failed to shutdown component", "err", err)
+		}
+	}
+
+	// Wait for all components to finish background tasks.
 	wg.Wait()
 }

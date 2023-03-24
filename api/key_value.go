@@ -10,21 +10,21 @@ import (
 	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
-type kvAPI struct {
+type keyValueAPI struct {
 	cluster Cluster
 }
 
-func newKVAPI(cluster Cluster) *kvAPI {
-	return &kvAPI{cluster: cluster}
+func newKeyValueAPI(cluster Cluster) *keyValueAPI {
+	return &keyValueAPI{cluster: cluster}
 }
 
-func (api *kvAPI) Bind(r chi.Router) {
+func (api *keyValueAPI) Bind(r chi.Router) {
 	r.Get("/kv/{key}", api.handleGet)
 	r.Put("/kv/{key}", api.handlePut)
 	r.Delete("/kv/{key}", api.handleDelete)
 }
 
-func (api *kvAPI) handleGet(w http.ResponseWriter, r *http.Request) {
+func (api *keyValueAPI) handleGet(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
 	conn := api.cluster.LocalConn()
 
@@ -68,7 +68,7 @@ func (api *kvAPI) handleGet(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, &resp)
 }
 
-func (api *kvAPI) handlePut(w http.ResponseWriter, r *http.Request) {
+func (api *keyValueAPI) handlePut(w http.ResponseWriter, r *http.Request) {
 	conn := api.cluster.LocalConn()
 	key := chi.URLParam(r, "key")
 
@@ -99,7 +99,7 @@ func (api *kvAPI) handlePut(w http.ResponseWriter, r *http.Request) {
 	}{Version: version})
 }
 
-func (api *kvAPI) handleDelete(w http.ResponseWriter, r *http.Request) {
+func (api *keyValueAPI) handleDelete(w http.ResponseWriter, r *http.Request) {
 	conn := api.cluster.LocalConn()
 	key := chi.URLParam(r, "key")
 

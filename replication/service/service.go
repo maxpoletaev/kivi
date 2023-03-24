@@ -37,7 +37,6 @@ type serviceOption func(s *ReplicationServer)
 func WithConsistencyLevel(read, write consistency.Level) serviceOption {
 	return func(s *ReplicationServer) {
 		s.readLevel = read
-		s.writeLevel = write
 	}
 }
 

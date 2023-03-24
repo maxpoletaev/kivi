@@ -40,7 +40,7 @@ generate:  ## run go generate ./...
 .PHONY: build
 build:  ## build the binaries
 	@echo "--------- running: $@ ---------"
-	go build -o bin/server $(GO_MODULE)/cmd/server
+	go build -o bin/kivi-server $(GO_MODULE)/cmd/kivi-server
 
 .PHONY: image
 image: ## build the docker image

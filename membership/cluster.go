@@ -118,6 +118,12 @@ func (cl *Cluster) Node(id NodeID) (Node, bool) {
 // Join adds the current node to the cluster with the given address.
 // All nodes from the remote cluster are added to the local cluster and vice versa.
 func (cl *Cluster) Join(ctx context.Context, addr string) error {
+	for _, node := range cl.Nodes() {
+		if node.PublicAddr == addr {
+			return nil // already joined
+		}
+	}
+
 	conn, err := cl.dialer(ctx, addr)
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
