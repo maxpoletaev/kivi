@@ -80,15 +80,18 @@ func main() {
 	cluster, closeCluster := setupCluster(logger)
 	engine, closeEngine := setupEngine(logger)
 	_, closeGrpcServer := setupGrpcServer(&wg, cluster, engine, logger)
-	_, closeRestServer := setupRestServer(&wg, cluster)
 
 	// Components must be shut down in a particular order.
 	shutdownOrder := []shutdownFunc{
-		closeRestServer,
 		closeCluster,
 		closeGrpcServer,
 		closeEngine,
 		closeLogger,
+	}
+
+	if opts.RestAPI.Enabled {
+		_, closeRestServer := setupRestServer(&wg, cluster)
+		shutdownOrder = append([]shutdownFunc{closeRestServer}, shutdownOrder...)
 	}
 
 	// Join the cluster, in case we were given any addresses to join.

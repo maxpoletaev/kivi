@@ -20,6 +20,7 @@ services:
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica2:3000
       - CUSTER_PROBE_INTERVAL=500
+      - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
       - 3001:3000
@@ -42,6 +43,7 @@ services:
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica1:3000
       - CUSTER_PROBE_INTERVAL=500
+      - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
       - 3002:3000
@@ -64,6 +66,7 @@ services:
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica2:3000
       - CUSTER_PROBE_INTERVAL=500
+      - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
       - 3003:3000
