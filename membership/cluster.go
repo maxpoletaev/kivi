@@ -160,12 +160,13 @@ func (cl *Cluster) Leave(ctx context.Context) error {
 		self := cl.nodes[cl.selfID]
 		nodes := make(map[NodeID]Node, 1)
 		nodes[cl.selfID] = self
+
 		cl.nodes = nodes
+		cl.stateHash = self.Hash64()
 
 		for id, conn := range cl.connections {
+			_ = conn.Close() // nolint:wsl
 			delete(cl.connections, id)
-
-			_ = conn.Close()
 		}
 	})
 
@@ -174,6 +175,7 @@ func (cl *Cluster) Leave(ctx context.Context) error {
 	return nil
 }
 
+// waitForSync blocks until at least one other node acknowledges the state update.
 func (cl *Cluster) waitForSync(ctx context.Context) error {
 	var (
 		start = time.Now()

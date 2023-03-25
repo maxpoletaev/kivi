@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-kit/log/level"
+
 	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
@@ -41,14 +43,11 @@ func (cl *Cluster) pickRandomNode() *Node {
 }
 
 func (cl *Cluster) setStatus(id NodeID, status Status, err error) {
-	var (
-		node Node
-		ok   bool
-	)
+	cl.mut.Lock()
+	defer cl.mut.Unlock()
 
-	if withLock(cl.mut.RLocker(), func() {
-		node, ok = cl.nodes[id]
-	}); !ok || node.Status == status {
+	node, ok := cl.nodes[id]
+	if !ok || node.Status == status {
 		return
 	}
 
@@ -67,7 +66,12 @@ func (cl *Cluster) setStatus(id NodeID, status Status, err error) {
 		node.Error = err.Error()
 	}
 
-	cl.ApplyState([]Node{node}, 0)
+	cl.nodes[id] = node
+
+	cl.stateHash = 0
+	for _, node := range cl.nodes {
+		cl.stateHash ^= node.Hash64()
+	}
 }
 
 func (cl *Cluster) detectFailures() {
@@ -77,8 +81,9 @@ func (cl *Cluster) detectFailures() {
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), cl.probeTimeout)
+	defer cancel()
+
 	cl.directProbe(ctx, target)
-	cancel()
 }
 
 func (cl *Cluster) directProbe(ctx context.Context, node *Node) {
@@ -100,12 +105,15 @@ func (cl *Cluster) directProbe(ctx context.Context, node *Node) {
 	// full state exchange is performed. This would merge the states of both nodes
 	// and make them consistent.
 	if stateHash != cl.StateHash() {
+		level.Info(cl.logger).Log("msg", "performing state exchange", "node_id", node.ID)
+
 		nodesInfo, err := conn.PullPushState(ctx, toApiNodesInfo(cl.Nodes()))
 		if err != nil {
 			return
 		}
 
 		nodes := fromApiNodesInfo(nodesInfo)
+
 		cl.ApplyState(nodes, node.ID)
 	}
 
