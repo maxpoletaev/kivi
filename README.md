@@ -7,9 +7,11 @@
 
 ---
 
-The key target of the project is to help me and others to get more hands-on
-experience with databases, distributed systems and the way they work under the
-hood. 
+The goal of this project is to help me and others to get more hands-on experience 
+with databases, distributed systems and the way they work under the hood. Although 
+the project is still in its early stages, it is already possible to run a fully 
+functional cluster of nodes and perform basic operations such as get, put, and
+delete. More documentation, explanations and code walkthroughs are to come. 
 
 Kivi falls into the category of Dynamo-style databases (such as Cassandra, and
 Riak), which are distributed databases that are designed to be highly available 
@@ -18,15 +20,10 @@ in this category is that KiVi is designed to be as simple as possible, while
 still doing the job, providing an implementation of the main concepts of 
 distributed systems that can be easily understood and modified.
 
-Although the project is still in its early stages, it is already possible to
-run a fully functional cluster of nodes and perform basic operations such as
-get, put, and delete. More documentation, explanations and code walkthroughs
-are to come.
-
 ## Key Properties
 
- * **Handcrafted** - The core functions should not rely on any external libraries.
- * **Leaderless** - The system should not have a single point of failure.
+ * **Handcrafted**: The core functions should not rely on any external libraries.
+ * **Leaderless**: The system should not have a single point of failure.
  * **Highly Available**: The system should be available even if some nodes fail.
  * **Replicated**: The system should replicate data across multiple nodes.
  * **Eventually Consistent**: The system should eventually converge to a consistent state.
@@ -63,7 +60,7 @@ updates its membership list accordingly.
 
 In case the **ping** request fails, the sending node asks two other random nodes
 from the cluster to ping the failed node on its behalf. If the node is still
-unresponsive, the sending node marks the receiving node as unheathy. This
+unresponsive, the sending node marks the receiving node as unhealthy. This
 state will be propagated to other nodes in the cluster during the next algorithm
 iteration.
 
@@ -71,8 +68,8 @@ iteration.
 
 The storage layer is responsible for storing the key-value pairs on disk. The 
 storage is based on log-structured merge trees (**LSM-Tree**), which are a type 
-of external memory data structure allowing for efficient writes and decent read
-performance. LSM-tree is composed of two main components: the in-memory 
+of external memory data structure allowing for efficient writes and providing 
+decent read performance. LSM-tree is composed of two main components: the in-memory 
 sorted map (**memtable**) and the on-disk sorted string tables (**SSTables**).
 
 The memtable holds the most recent updates to the database. Each write to a 
