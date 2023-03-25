@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/encoding/gzip"
 
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 	"github.com/maxpoletaev/kivi/nodeclient"
@@ -21,6 +22,7 @@ func Dial(ctx context.Context, addr string) (nodeclient.Conn, error) {
 		addr,
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(creds),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial failed: %w", err)
