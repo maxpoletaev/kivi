@@ -7,18 +7,17 @@
 
 ---
 
-The goal of this project is to help me and others to get more hands-on experience 
-with databases, distributed systems and the way they work under the hood. Although 
-the project is still in its early stages, it is already possible to run a fully 
-functional cluster of nodes and perform basic operations such as get, put, and
-delete. More documentation, explanations and code walkthroughs are to come. 
+Kivi falls into the category of Dynamo-style databases (like Cassandra and Riak), 
+which are distributed databases that were initially designed for high availability
+and partition tolerance. The primary difference between Kivi and other databases 
+in this category is its simplicity, offering an easily understood and modifiable 
+implementation of core distributed system concepts.
 
-Kivi falls into the category of Dynamo-style databases (such as Cassandra, and
-Riak), which are distributed databases that are designed to be highly available 
-and eventually consistent. The main difference between KiVi and other databases
-in this category is that KiVi is designed to be as simple as possible, while
-still doing the job, providing an implementation of the main concepts of 
-distributed systems that can be easily understood and modified.
+The main goal of this project is to provide myself and others with hands-on 
+experience in databases, distributed systems, and their underlying mechanics. 
+Although the project is still in its early stages, it is already possible to run 
+a fully functional cluster of nodes and perform basic operations such as gets, 
+puts, and deletes.
 
 ## Key Properties
 
@@ -94,7 +93,6 @@ $ tree data
 └── sst-1679595355518826.L1.index
 ```
 
-
 A background **compaction process** periodically merges the SSTables in each 
 level into larger SSTables and moves them to the next level, removing the values
 that were overwritten by newer updates. Each change to the tree state is recorded 
@@ -121,8 +119,8 @@ Once a read or write request is received, the replication layer mirrors it to al
 available nodes in the cluster. The request is considered successful if the desired
 number of nodes acknowledge it. The number of nodes depends on the configured 
 consistency level. For example, if the write consistency level is set to `Quorum`, 
-the majority of nodes (2/3 or 3/5) must confirm that the write 
-operation was successful.
+the majority of nodes (2/3 or 3/5) must confirm that the write operation was 
+successful.
 
 Since the writes can be performed on any node in the cluster, it is possible that 
 the same key may be updated on multiple nodes. A conflict occurs when two or more
@@ -135,7 +133,7 @@ to the client. The client can then choose to perform conflict resolution usign
 a different content-aware strategy, such as last-write-wins or use conflict-free 
 data structures (CRDT).
 
-## How to try it out
+## Running a Local Cluster
 
 The `docker-compose.yaml` contains a minimal configuration of a cluster of
 three replicas. To run it, use:
@@ -317,6 +315,9 @@ Content-Type: application/json
 </details>
 
 ## References
+
+The following resources, papers and books were the main source of inspiration for
+this project:
 
  * [SWIM: Scalable Weakly-consistent Infection-style Process Group Membership Protocol](https://www.cs.cornell.edu/projects/Quicksilver/public_pdfs/SWIM.pdf)
  * [Dynamo: Amazon's Highly Available Key-value Store](https://www.allthingsdistributed.com/files/amazon-dynamo-sosp2007.pdf)
