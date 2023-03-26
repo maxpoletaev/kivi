@@ -1,5 +1,5 @@
 <div align="center"> 
-   <img src="images/logo.svg" width="300" alt="Kivi Logo">
+   <img src="images/logo.svg" width="600" alt="Kivi Logo">
    <p>Distributed key-value database for educational purposes</p>
    <img src="https://img.shields.io/badge/status-Alpha-yellow" alt="">
    <img src="https://img.shields.io/badge/license-MIT-blue" alt="">
