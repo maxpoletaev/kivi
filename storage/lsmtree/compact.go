@@ -150,7 +150,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (*SSTable, error) {
 			return nil, fmt.Errorf("failed to read data entry: %w", err)
 		}
 
-		bloomFilter.Add([]byte(entry.Key))
+		bloomFilter.Add(unsafeBytes(entry.Key))
 	}
 
 	var (

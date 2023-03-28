@@ -67,7 +67,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 	for it := mem.entries.Scan(); it.HasNext(); {
 		key, entry := it.Next()
 
-		bf.Add([]byte(key))
+		bf.Add(unsafeBytes(key))
 
 		offset := dataWriter.Offset()
 

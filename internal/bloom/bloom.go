@@ -1,6 +1,7 @@
 package bloom
 
 import (
+	"fmt"
 	"hash"
 	"math"
 )
@@ -63,11 +64,14 @@ func (bf *Filter) Add(data []byte) {
 	m := len(bf.value) * 8
 
 	for _, h := range bf.hashers {
-		h.Write(data)
-		defer h.Reset()
+		if _, err := h.Write(data); err != nil {
+			panic(fmt.Sprintf("bloom: %v", err))
+		}
 
 		idx = h.Sum32() % uint32(m)
 		bf.value[idx/8] |= 1 << (idx % 8)
+
+		h.Reset()
 	}
 }
 

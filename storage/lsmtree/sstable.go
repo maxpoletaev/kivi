@@ -132,12 +132,12 @@ func (sst *SSTable) Iterator() *Iterator {
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
 func (sst *SSTable) MayContain(key string) bool {
-	return sst.bloomFilter.Check([]byte(key))
+	return sst.bloomFilter.Check(unsafeBytes(key))
 }
 
 func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// Check the bloom filter first, if it's not there, it's not in the SSTable.
-	if !sst.bloomFilter.Check([]byte(key)) {
+	if !sst.bloomFilter.Check(unsafeBytes(key)) {
 		return nil, false, nil
 	}
 
