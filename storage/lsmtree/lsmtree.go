@@ -49,7 +49,7 @@ func Create(conf Config) (*LSMTree, error) {
 	}
 
 	// Restore the state of the tree from the previous run.
-	for _, info := range state.SSTables() {
+	for _, info := range state.ActiveSSTables {
 		sst, err := OpenTable(info, conf.DataRoot, conf.MmapDataFiles)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open sstable: %w", err)
@@ -61,7 +61,7 @@ func Create(conf Config) (*LSMTree, error) {
 	// In case there are wal files left from the previous run, we need to restore
 	// the memtables and flush them to the disk. This may potetially create a lot
 	// of small sstables, but the compaction should take care of it eventually.
-	for _, info := range state.Memtables() {
+	for _, info := range state.ActiveMemtables {
 		memt, err := openMemtable(info, conf.DataRoot)
 		if err != nil {
 			return nil, fmt.Errorf("failed to restore memtable: %w", err)
@@ -333,12 +333,20 @@ func (lsm *LSMTree) startSyncLoop() {
 }
 
 func (lsm *LSMTree) collectGarbage() error {
-	lsm.mut.RLock()
-	toRemove := make([]*SSTableInfo, len(lsm.state.Garbage()))
-	copy(toRemove, lsm.state.Garbage())
-	lsm.mut.RUnlock()
+	lsm.mut.Lock()
 
-	if len(toRemove) == 0 {
+	var (
+		unlockOnReturn = true
+		mergedSSTables = lsm.state.MergedSSTables
+	)
+
+	defer func() {
+		if unlockOnReturn {
+			lsm.mut.Unlock()
+		}
+	}()
+
+	if len(mergedSSTables) == 0 {
 		return nil
 	}
 
@@ -353,24 +361,15 @@ func (lsm *LSMTree) collectGarbage() error {
 		return fmt.Errorf("failed to create new logged state: %w", err)
 	}
 
-	lsm.mut.Lock()
-	unlockOnReturn := true
-
-	defer func() {
-		if unlockOnReturn {
-			lsm.mut.Unlock()
-		}
-	}()
-
 	// Copy the actual sstables to the new state.
-	for _, sstInfo := range lsm.state.SSTables() {
+	for _, sstInfo := range lsm.state.ActiveSSTables {
 		if err := newState.LogSSTablesMerged(nil, sstInfo); err != nil {
 			return fmt.Errorf("failed write to the new state: %w", err)
 		}
 	}
 
-	// Copy the active memtables to the new state.
-	for _, memtInfo := range lsm.state.Memtables() {
+	// Copy the active memtable to the new state.
+	for _, memtInfo := range lsm.state.ActiveMemtables {
 		if err = newState.LogMemtableCreated(memtInfo); err != nil {
 			return fmt.Errorf("failed write to the new state: %w", err)
 		}
@@ -400,7 +399,8 @@ func (lsm *LSMTree) collectGarbage() error {
 	unlockOnReturn = false
 	lsm.mut.Unlock()
 
-	for _, sstInfo := range toRemove {
+	// Remove the files for the merged tables.
+	for _, sstInfo := range mergedSSTables {
 		filesToRemove := []string{sstInfo.IndexFile, sstInfo.DataFile, sstInfo.BloomFile}
 		level.Debug(lsm.logger).Log("msg", "removing garbage sstable", "id", sstInfo.ID)
 

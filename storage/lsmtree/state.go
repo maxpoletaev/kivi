@@ -32,11 +32,12 @@ type SSTableInfo struct {
 // in use. The state itself is stored as a sequence of changes in a log file. It is not safe
 // to modify the state concurrently, so additional synchronization is required.
 type loggedState struct {
-	logFile        *os.File
-	logWriter      protoio.SequentialWriter
-	memtables      []*MemtableInfo
-	sstables       []*SSTableInfo
-	mergedSSTables []*SSTableInfo
+	ActiveMemtables []*MemtableInfo
+	ActiveSSTables  []*SSTableInfo
+	MergedSSTables  []*SSTableInfo
+
+	logWriter protoio.SequentialWriter
+	logFile   *os.File
 }
 
 // newLoggedState creates a new state manager. If the log file already exists, the state will be
@@ -48,20 +49,18 @@ func newLoggedState(filename string) (*loggedState, error) {
 		return nil, fmt.Errorf("failed to open log file: %w", err)
 	}
 
-	offset, err := logFile.Seek(0, io.SeekEnd)
-	if err != nil {
-		return nil, fmt.Errorf("failed to seek to the end of log file: %w", err)
-	}
-
 	sm := &loggedState{
-		logFile:   logFile,
-		logWriter: protoio.NewWriter(logFile),
-		memtables: make([]*MemtableInfo, 0),
-		sstables:  make([]*SSTableInfo, 0),
+		logFile:         logFile,
+		logWriter:       protoio.NewWriter(logFile),
+		ActiveMemtables: make([]*MemtableInfo, 0),
+		ActiveSSTables:  make([]*SSTableInfo, 0),
 	}
 
-	if offset > 0 {
-		if err := sm.restore(); err != nil {
+	// Try restoring the state from the log file if it is not empty.
+	if stat, err := logFile.Stat(); err != nil {
+		return nil, fmt.Errorf("failed to stat log file: %w", err)
+	} else if stat.Size() > 0 {
+		if err = sm.restore(); err != nil {
 			return nil, fmt.Errorf("failed restore state: %w", err)
 		}
 	}
@@ -69,60 +68,43 @@ func newLoggedState(filename string) (*loggedState, error) {
 	return sm, nil
 }
 
-// Garbage returns the list of sstables that are no longer in use and can be deleted.
-func (sm *loggedState) Garbage() []*SSTableInfo {
-	return sm.mergedSSTables
-}
-
-// Memtables returns the list of currently active memtables.
-func (sm *loggedState) Memtables() []*MemtableInfo {
-	return sm.memtables
-}
-
-// SSTables returns the list of currently active sstables.
-func (sm *loggedState) SSTables() []*SSTableInfo {
-	return sm.sstables
-}
-
 func (sm *loggedState) applySegmentCreated(c *proto.SegmentCreated) {
-	sm.memtables = append(sm.memtables, fromProtoMemtableInfo(c.Memtable))
+	sm.ActiveMemtables = append(sm.ActiveMemtables, fromProtoMemtableInfo(c.Memtable))
 }
 
 func (sm *loggedState) applySegmentFlushed(c *proto.SegmentFlushed) {
 	memtables := make([]*MemtableInfo, 0)
 
-	for _, memtable := range sm.memtables {
+	for _, memtable := range sm.ActiveMemtables {
 		if memtable.ID != c.MemtableId {
 			memtables = append(memtables, memtable)
 		}
 	}
 
-	sm.sstables = append(sm.sstables, fromProtoSSTableInfo(c.Sstable))
-
-	sm.memtables = memtables
+	sm.ActiveSSTables = append(sm.ActiveSSTables, fromProtoSSTableInfo(c.Sstable))
+	sm.ActiveMemtables = memtables
 }
 
 func (sm *loggedState) applySegmentsMerged(c *proto.SegmentsMerged) {
-	removedIDs := make(map[int64]struct{})
+	mergedIDs := make(map[int64]struct{})
 	for _, id := range c.OldSstableIds {
-		removedIDs[id] = struct{}{}
+		mergedIDs[id] = struct{}{}
 	}
 
-	kept := make([]*SSTableInfo, 0, len(sm.sstables)-len(removedIDs))
-	removed := make([]*SSTableInfo, 0, len(removedIDs))
+	active := make([]*SSTableInfo, 0, len(sm.ActiveSSTables)-len(mergedIDs))
+	merged := make([]*SSTableInfo, 0, len(mergedIDs))
 
-	for _, sstable := range sm.sstables {
-		if _, ok := removedIDs[sstable.ID]; ok {
-			removed = append(removed, sstable)
+	for _, sstable := range sm.ActiveSSTables {
+		if _, ok := mergedIDs[sstable.ID]; ok {
+			merged = append(merged, sstable)
 			continue
 		}
 
-		kept = append(kept, sstable)
+		active = append(active, sstable)
 	}
 
-	sm.sstables = append(kept, fromProtoSSTableInfo(c.NewSstable))
-
-	sm.mergedSSTables = append(sm.mergedSSTables, removed...)
+	sm.ActiveSSTables = append(active, fromProtoSSTableInfo(c.NewSstable))
+	sm.MergedSSTables = append(sm.MergedSSTables, merged...)
 }
 
 func (sm *loggedState) applyChange(change *proto.StateLogEntry) {
