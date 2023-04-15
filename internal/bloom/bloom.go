@@ -81,15 +81,21 @@ func (bf *Filter) Add(data []byte) {
 // the data may be in the Bloom filter, but there is a chance of a
 // false positive.
 func (bf *Filter) Check(data []byte) bool {
-	var idx uint32
+	defer func() {
+		for _, h := range bf.hashers {
+			h.Reset()
+		}
+	}()
 
 	m := len(bf.value) * 8
 
 	for _, h := range bf.hashers {
-		h.Write(data)
-		defer h.Reset()
+		if _, err := h.Write(data); err != nil {
+			panic(fmt.Sprintf("bloom: %v", err))
+		}
 
-		idx = h.Sum32() % uint32(m)
+		idx := h.Sum32() % uint32(m)
+
 		if bf.value[idx/8]&(1<<(idx%8)) == 0 {
 			return false
 		}
@@ -98,7 +104,7 @@ func (bf *Filter) Check(data []byte) bool {
 	return true
 }
 
-// Value returns a copy of the byte slice that stores the bits.
+// Bytes returns a copy of the byte slice that stores the bits.
 func (bf *Filter) Bytes() []byte {
 	value := make([]byte, len(bf.value))
 	copy(value, bf.value)
