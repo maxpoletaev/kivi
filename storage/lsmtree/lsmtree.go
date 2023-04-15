@@ -316,11 +316,14 @@ func (lsm *LSMTree) startSyncLoop() {
 	go func() {
 		defer lsm.wg.Done()
 
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-lsm.quit:
 				return
-			case <-time.After(1 * time.Second):
+			case <-ticker.C:
 				if err := lsm.sync(); err != nil {
 					level.Error(lsm.logger).Log("msg", "failed to sync memtable", "err", err)
 				}
