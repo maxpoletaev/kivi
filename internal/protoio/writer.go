@@ -30,7 +30,6 @@ func NewWriter(file io.Writer) *Writer {
 		entryBuf:  make([]byte, 0),
 		headerBuf: make([]byte, headerSize),
 		pbopts:    &proto.MarshalOptions{},
-		separator: defaultSeparator,
 	}
 }
 
@@ -50,9 +49,8 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 	}()
 
 	encodeHeader(&entryHeader{
-		separator: w.separator,
-		dataSize:  uint64(len(out.Buf)),
-		crc:       crc32.ChecksumIEEE(out.Buf),
+		dataSize: uint64(len(out.Buf)),
+		crc:      crc32.ChecksumIEEE(out.Buf),
 	}, w.headerBuf)
 
 	n1, err := w.file.Write(w.headerBuf)

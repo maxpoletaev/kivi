@@ -4,10 +4,7 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-const (
-	defaultSeparator = 0xABCD
-	headerSize       = 16
-)
+const headerSize = 12
 
 // RandomAccessReadeer is an interface for reading protobuf messages from a seekable source.
 type RandomAccessReadeer interface {

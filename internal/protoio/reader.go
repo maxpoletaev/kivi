@@ -14,14 +14,12 @@ type Reader struct {
 	file      io.ReaderAt
 	entryBuf  []byte
 	headerBuf []byte
-	separator uint16
 	offset    int64
 }
 
 func NewReader(source io.ReaderAt) *Reader {
 	return &Reader{
 		file:      source,
-		separator: defaultSeparator,
 		entryBuf:  make([]byte, 0),
 		headerBuf: make([]byte, headerSize),
 	}
@@ -38,10 +36,6 @@ func (r *Reader) readHeader(h *entryHeader) (int, error) {
 	}
 
 	decodeHeader(h, r.headerBuf)
-
-	if h.separator != r.separator {
-		return 0, ErrDataCorrupted
-	}
 
 	r.offset += int64(read)
 
