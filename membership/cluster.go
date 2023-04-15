@@ -8,6 +8,7 @@ import (
 	"time"
 
 	kitlog "github.com/go-kit/log"
+	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
 	"github.com/maxpoletaev/kivi/nodeclient"
@@ -132,7 +133,9 @@ func (cl *Cluster) Join(ctx context.Context, addr string) error {
 	}
 
 	defer func() {
-		_ = conn.Close()
+		if err := conn.Close(); err != nil {
+			level.Warn(cl.logger).Log("msg", "failed to close connection", "node", addr, "err", err)
+		}
 	}()
 
 	nodes, err := conn.PullPushState(ctx, toApiNodesInfo(cl.Nodes()))
@@ -165,7 +168,10 @@ func (cl *Cluster) Leave(ctx context.Context) error {
 		cl.stateHash = self.Hash64()
 
 		for id, conn := range cl.connections {
-			_ = conn.Close() // nolint:wsl
+			if err := conn.Close(); err != nil {
+				level.Warn(cl.logger).Log("msg", "failed to close connection", "node", id, "err", err)
+			}
+
 			delete(cl.connections, id)
 		}
 	})

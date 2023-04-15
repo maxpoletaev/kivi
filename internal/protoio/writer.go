@@ -12,16 +12,21 @@ import (
 type Writer struct {
 	pbopts    *proto.MarshalOptions
 	file      io.Writer
-	separator uint16
 	entryBuf  []byte
 	headerBuf []byte
 	offset    int64
 }
 
 func NewWriter(file io.Writer) *Writer {
-	var offset int64
+	var (
+		offset int64
+		err    error
+	)
+
 	if seeker, ok := file.(io.Seeker); ok {
-		offset, _ = seeker.Seek(0, io.SeekCurrent)
+		if offset, err = seeker.Seek(0, io.SeekCurrent); err != nil {
+			panic(fmt.Errorf("protoio: failed to get offset: %w", err))
+		}
 	}
 
 	return &Writer{
@@ -43,7 +48,7 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 	}
 
 	defer func() {
-		// The orignal buffer could have been resized by the MarshalState call.
+		// The original buffer could have been resized by the MarshalState call.
 		// We need to update the reference to the buffer to the new one.
 		w.entryBuf = out.Buf
 	}()

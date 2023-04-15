@@ -73,8 +73,8 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 	wg.Add(len(o.ReplicaSet))
 
 	// Randomize the order of nodes to avoid sending requests to the same node first.
-	rand.Seed(time.Now().UnixNano())
-	indices := rand.Perm(len(o.ReplicaSet))
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	indices := rnd.Perm(len(o.ReplicaSet))
 
 	for _, i := range indices {
 		member := &o.ReplicaSet[i]

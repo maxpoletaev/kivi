@@ -371,16 +371,21 @@ func (lsm *LSMTree) collectGarbage() error {
 
 	// Copy the active memtables to the new state.
 	for _, memtInfo := range lsm.state.Memtables() {
-		if err := newState.LogMemtableCreated(memtInfo); err != nil {
+		if err = newState.LogMemtableCreated(memtInfo); err != nil {
 			return fmt.Errorf("failed write to the new state: %w", err)
 		}
 	}
 
-	_ = lsm.state.Close()
-	_ = newState.Close()
+	if err = lsm.state.Close(); err != nil {
+		return fmt.Errorf("failed to close old state file: %w", err)
+	}
+
+	if err = newState.Close(); err != nil {
+		return fmt.Errorf("failed to close new state file: %w", err)
+	}
 
 	// Replace the old state file with the new one.
-	if err := os.Rename(newStatePath, statePath); err != nil {
+	if err = os.Rename(newStatePath, statePath); err != nil {
 		return fmt.Errorf("failed to rename new state file: %w", err)
 	}
 

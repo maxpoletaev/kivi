@@ -12,7 +12,8 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
-	"github.com/maxpoletaev/kivi/internal/opengroup"
+	"github.com/maxpoletaev/kivi/internal/deferlog"
+	"github.com/maxpoletaev/kivi/internal/filegroup"
 	"github.com/maxpoletaev/kivi/internal/protoio"
 	"github.com/maxpoletaev/kivi/internal/skiplist"
 	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
@@ -36,8 +37,15 @@ type SSTable struct {
 // and the parameters of the bloom filter must match the parameters used
 // to create the SSTable.
 func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error) {
-	og := opengroup.New()
-	defer og.CloseAll()
+	og := filegroup.New()
+
+	defer func() {
+		// Since we only read from those files, there should not be any consequences if
+		// we fail to close them. But we still want to log the error.
+		if err := og.Close(); err != nil {
+			deferlog.Warn("failed to close files: %v", err)
+		}
+	}()
 
 	indexFile := og.Open(filepath.Join(prefix, info.IndexFile), os.O_RDONLY, 0)
 	bloomFile := og.Open(filepath.Join(prefix, info.BloomFile), os.O_RDONLY, 0)

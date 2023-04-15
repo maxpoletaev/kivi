@@ -9,7 +9,8 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
-	"github.com/maxpoletaev/kivi/internal/opengroup"
+	"github.com/maxpoletaev/kivi/internal/deferlog"
+	"github.com/maxpoletaev/kivi/internal/filegroup"
 	"github.com/maxpoletaev/kivi/internal/protoio"
 	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
@@ -28,13 +29,21 @@ type flushOpts struct {
 // this function to guarantee that it is not modified while the flush. The parameters
 // of the bloom filter are calculated based on the number of entries in the memtable.
 func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
-	og := opengroup.New()
+	fg := filegroup.New()
 
 	defer func() {
-		og.CloseAll()
+		// Close the opened files. At this point, we don't care much if there was an
+		// error because the sync is done explicitly at the end of the function.
+		if err2 := fg.Close(); err2 != nil {
+			deferlog.Warn("failed to close files: %v", err2)
+		}
 
+		// In case there was an error during the function execution, do our best to
+		// remove the files that were created, so that we don't leave any garbage.
 		if err != nil {
-			og.RemoveAll()
+			if err2 := fg.Remove(); err2 != nil {
+				deferlog.Warn("failed to remove files: %v", err2)
+			}
 		}
 	}()
 
@@ -47,11 +56,11 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 		BloomFile:  fmt.Sprintf("sst-%d.L%d.bloom", opts.tableID, opts.level),
 	}
 
-	indexFile := og.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_CREATE|os.O_WRONLY, 0o644)
-	bloomFile := og.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_CREATE|os.O_WRONLY, 0o644)
-	dataFile := og.Open(filepath.Join(opts.prefix, info.DataFile), os.O_CREATE|os.O_WRONLY, 0o644)
+	indexFile := fg.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_CREATE|os.O_WRONLY, 0o644)
+	bloomFile := fg.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_CREATE|os.O_WRONLY, 0o644)
+	dataFile := fg.Open(filepath.Join(opts.prefix, info.DataFile), os.O_CREATE|os.O_WRONLY, 0o644)
 
-	if err = og.Err(); err != nil {
+	if err = fg.Err(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 
@@ -104,6 +113,11 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 
 	if _, err = bloomFile.Write(bloomBytes); err != nil {
 		return nil, fmt.Errorf("failed to write bloom filter: %w", err)
+	}
+
+	// Explicitly sync the files to ensure that they are flushed to disk.
+	if err = fg.Sync(); err != nil {
+		return nil, fmt.Errorf("failed to sync files: %w", err)
 	}
 
 	// Use the size of the data file as the size of the table,

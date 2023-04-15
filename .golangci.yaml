@@ -5,6 +5,7 @@ linters:
   disable-all: true
   enable:
     - typecheck
+    - errcheck
     - staticcheck
     - gofmt
     - unparam
@@ -27,5 +28,6 @@ issues:
 
 linters-settings:
   errcheck:
+    check-blank: true
     exclude-functions:
       - (github.com/go-kit/log.Logger).Log

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-kit/log/level"
+
 	"github.com/maxpoletaev/kivi/nodeclient"
 )
 
@@ -34,7 +36,9 @@ func (cl *Cluster) collectGarbage() {
 
 	for id, conn := range cl.connections {
 		if _, ok := cl.nodes[id]; !ok {
-			_ = conn.Close()
+			if err := conn.Close(); err != nil {
+				level.Warn(cl.logger).Log("msg", "failed to close connection", "node", id, "err", err)
+			}
 		}
 
 		// Remove all closed connections. They may have been closed manually.
@@ -162,8 +166,12 @@ func (cl *Cluster) connect(ctx context.Context, id NodeID) (nodeclient.Conn, err
 	withLock(&cl.mut, func() {
 		actual, ok := cl.connections[id]
 		if ok && !actual.IsClosed() {
-			_ = conn.Close()
+			if err := conn.Close(); err != nil {
+				level.Warn(cl.logger).Log("msg", "failed to close connection", "node", id, "err", err)
+			}
+
 			conn = actual
+
 			return
 		}
 
@@ -222,7 +230,9 @@ func (cl *Cluster) AddConn(id NodeID, conn nodeclient.Conn) {
 	defer cl.mut.Unlock()
 
 	if actual, ok := cl.connections[id]; ok {
-		_ = actual.Close()
+		if err := actual.Close(); err != nil {
+			level.Warn(cl.logger).Log("msg", "failed to close connection", "node", id, "err", err)
+		}
 	}
 
 	cl.connections[id] = conn
