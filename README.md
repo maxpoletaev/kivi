@@ -129,19 +129,19 @@ relies on **version vectors** to determine the causal order of updates. In case
 there is a clear dependency that one update happened before the other, the update 
 with the lower version is discarded. In case there is no clear relationship between 
 the updates, the server returns a list of all conflicting values and leaves it up
-to the client. The client can then choose to perform conflict resolution usign
+to the client. The client can then choose to perform conflict resolution using
 a different content-aware strategy, such as last-write-wins or use conflict-free 
 data structures (CRDT).
 
 ## Running a Local Cluster
 
 The `docker-compose.yaml` contains a minimal configuration of a cluster of
-three replicas. To run it, use:
+five replicas. To run it, use:
 
  1. `make image`
  2. `docker compose up`
 
-With the default consistency level, you need the majority of nodes (2 out of 3)
+With the default consistency level, you need the majority of nodes (3 out of 5)
 to be available to perform reads and writes. A failure can be simulated by
 killing one or two of the containers with `docker kill`.
 
@@ -286,7 +286,7 @@ Content-Type: application/json
 ```
 </details>
 
-### `GET /cluster/nodes`
+### `GET /nodes`
 
 *Getting the list of nodes in the cluster and their status.*
 
@@ -297,20 +297,22 @@ Content-Type: application/json
 HTTP/1.1 200 OK
 Content-Type: application/json
 
-[
-  {
-    "ID": 1,
-    "Name: "node1",
-    "Addr": "172.24.2.1:3000",
-    "Status": "left",
-  },
-  {
-    "ID": 2,
-    "Name: "node2",
-    "Addr": "172.24.2.2:3000",
-    "Status": "healthy",
-  }
-]
+{
+  "Nodes": [
+    {
+      "ID": 1,
+      "Name: "node1",
+      "Addr": "172.24.2.1:3000",
+      "Status": "left"
+    },
+    {
+      "ID": 2,
+      "Name: "node2",
+      "Addr": "172.24.2.2:3000",
+      "Status": "healthy"
+    }
+  ]
+}
 ```
 </details>
 

@@ -12,14 +12,16 @@ networks:
 services:
   replica1:
     image: maxpoletaev/kivi
-    container_name: replica1
+    container_name: kivi-1
+    stop_grace_period: 30s
     environment:
       - NODE_ID=1
       - NODE_NAME=replica1
       - GRPC_PUBLIC_ADDR=172.24.2.1:3000
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica2:3000
-      - CUSTER_PROBE_INTERVAL=500
+      - CLUSTER_PROBE_INDIRECT_NODES=2
+      - CLUSTER_PROBE_INTERVAL=500
       - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
@@ -35,14 +37,16 @@ services:
     depends_on:
       - replica1
     image: maxpoletaev/kivi
-    container_name: replica2
+    container_name: kivi-2
+    stop_grace_period: 30s
     environment:
       - NODE_ID=2
       - NODE_NAME=replica2
       - GRPC_PUBLIC_ADDR=172.24.2.2:3000
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica1:3000
-      - CUSTER_PROBE_INTERVAL=500
+      - CLUSTER_PROBE_INDIRECT_NODES=2
+      - CLUSTER_PROBE_INTERVAL=500
       - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
@@ -58,14 +62,16 @@ services:
     depends_on:
       - replica2
     image: maxpoletaev/kivi
-    container_name: replica3
+    container_name: kivi-3
+    stop_grace_period: 30s
     environment:
       - NODE_ID=3
       - NODE_NAME=replica3
       - GRPC_PUBLIC_ADDR=172.24.2.3:3000
       - STORAGE_DATA_ROOT=/data
       - CLUSTER_JOIN_ADDRS=replica2:3000
-      - CUSTER_PROBE_INTERVAL=500
+      - CLUSTER_PROBE_INDIRECT_NODES=2
+      - CLUSTER_PROBE_INTERVAL=500
       - RESTAPI_ENABLED=true
       - VERBOSE=true
     ports:
@@ -76,3 +82,53 @@ services:
         ipv4_address: 172.24.2.3
     volumes:
       - ./data/replica3:/data
+
+  replica4:
+    depends_on:
+      - replica2
+    image: maxpoletaev/kivi
+    container_name: kivi-4
+    stop_grace_period: 30s
+    environment:
+      - NODE_ID=4
+      - NODE_NAME=replica4
+      - STORAGE_DATA_ROOT=/data
+      - GRPC_PUBLIC_ADDR=172.24.2.4:3000
+      - CLUSTER_JOIN_ADDRS=replica2:3000
+      - CLUSTER_PROBE_INDIRECT_NODES=2
+      - CLUSTER_PROBE_INTERVAL=500
+      - RESTAPI_ENABLED=true
+      - VERBOSE=true
+    ports:
+      - 3004:3000
+      - 8004:8000
+    networks:
+      kv_net:
+        ipv4_address: 172.24.2.4
+    volumes:
+      - ./data/replica4:/data
+
+  replica5:
+    depends_on:
+      - replica4
+    image: maxpoletaev/kivi
+    container_name: kivi-5
+    stop_grace_period: 30s
+    environment:
+      - NODE_ID=5
+      - NODE_NAME=replica5
+      - STORAGE_DATA_ROOT=/data
+      - GRPC_PUBLIC_ADDR=172.24.2.5:3000
+      - CLUSTER_JOIN_ADDRS=replica4:3000
+      - CLUSTER_PROBE_INDIRECT_NODES=2
+      - CLUSTER_PROBE_INTERVAL=500
+      - RESTAPI_ENABLED=true
+      - VERBOSE=true
+    ports:
+      - 3005:3000
+      - 8005:8000
+    networks:
+      kv_net:
+        ipv4_address: 172.24.2.5
+    volumes:
+      - ./data/replica5:/data

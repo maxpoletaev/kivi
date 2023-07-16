@@ -43,6 +43,7 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 		Message: entry.ProtoReflect(),
 		Buf:     w.entryBuf[:0],
 	})
+
 	if err != nil {
 		return 0, fmt.Errorf("proto marshaling failed: %w", err)
 	}

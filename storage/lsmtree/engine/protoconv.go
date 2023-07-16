@@ -26,7 +26,7 @@ func fromProtoValues(vs []*proto.Value) []storage.Value {
 
 func toProtoValue(v storage.Value) *proto.Value {
 	return &proto.Value{
-		Version:   vclock.MustEncode(v.Version),
+		Version:   vclock.Encode(v.Version),
 		Tombstone: v.Tombstone,
 		Data:      v.Data,
 	}

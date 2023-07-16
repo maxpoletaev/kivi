@@ -15,8 +15,8 @@ func TestCompare(t *testing.T) {
 	assert.Equal(t, Less, Compare(-2, -1))
 
 	// Compare with rolling.
-	var maxInt8 = math.MaxInt8
-	assert.Equal(t, Less, Compare(maxInt8, maxInt8+1))
-	assert.Equal(t, Greater, Compare(maxInt8+1, maxInt8))
-	assert.Equal(t, Equal, Compare(maxInt8+1, maxInt8+1))
+	maxInt32 := math.MaxInt32
+	assert.Equal(t, Less, Compare(maxInt32, maxInt32+1))
+	assert.Equal(t, Greater, Compare(maxInt32+1, maxInt32))
+	assert.Equal(t, Equal, Compare(maxInt32+1, maxInt32+1))
 }

@@ -13,7 +13,7 @@ func toProtoValues(values []storage.Value) []*proto.VersionedValue {
 
 	for _, value := range values {
 		versionedValues = append(versionedValues, &proto.VersionedValue{
-			Version:   vclock.MustEncode(value.Version),
+			Version:   vclock.Encode(value.Version),
 			Tombstone: value.Tombstone,
 			Data:      value.Data,
 		})

@@ -3,8 +3,27 @@ package bloom
 import (
 	"fmt"
 	"hash"
+	"hash/fnv"
+	"io"
 	"math"
 )
+
+const (
+	goldenRatio = 0x9e3779b9
+)
+
+func writeSeed(h io.Writer, seed uint32) {
+	seedBytes := []byte{
+		byte(seed >> 0),
+		byte(seed >> 8),
+		byte(seed >> 16),
+		byte(seed >> 24),
+	}
+
+	if _, err := h.Write(seedBytes); err != nil {
+		panic(fmt.Sprintf("bloom: %v", err))
+	}
+}
 
 // Filter is an implementation of a Bloom filter. It uses k hash functions
 // to hash the data and set the corresponding bits to 1. The bits are stored
@@ -24,22 +43,22 @@ func New(value []byte, k int) *Filter {
 		panic("bloom: value must not be empty")
 	}
 
-	hashers := make([]hash.Hash32, k)
-	for i := 0; i < k; i++ {
-		hashers[i] = newFnv32(uint32(i) * 0x9e3779b9)
+	bf := &Filter{
+		value:   value,
+		hashers: make([]hash.Hash32, k),
 	}
 
-	return &Filter{
-		value:   value,
-		hashers: hashers,
+	for i := 0; i < k; i++ {
+		bf.hashers[i] = fnv.New32()
 	}
+
+	bf.reset()
+
+	return bf
 }
 
 // NewWithProbability returns a new Bloom filter with the given number of
-// expected elements and the probability of a false positive. The size of
-// the filter is calculated using the formula from the paper "Less Hashing,
-// Same Performance: Building a Better Bloom Filter" by Adam Kirsch and
-// Michael Mitzenmacher.
+// expected elements and the probability of a false positive.
 func NewWithProbability(n int, p float64) *Filter {
 	if n <= 0 {
 		panic("bloom: n must be greater than 0")
@@ -50,15 +69,23 @@ func NewWithProbability(n int, p float64) *Filter {
 	}
 
 	m := int(-float64(n) * math.Log(p) / (math.Log(2) * math.Log(2)))
-
 	k := int(float64(m) / float64(n) * math.Log(2))
 
 	return New(make([]byte, m/8), k)
 }
 
+func (bf *Filter) reset() {
+	for i, h := range bf.hashers {
+		h.Reset()
+		writeSeed(h, uint32(i+1)*goldenRatio)
+	}
+}
+
 // Add adds the data to the Bloom filter. The data is hashed k times and
 // the corresponding bits are set to 1. It modifies the original byte slice.
 func (bf *Filter) Add(data []byte) {
+	defer bf.reset()
+
 	var idx uint32
 
 	m := len(bf.value) * 8
@@ -70,8 +97,6 @@ func (bf *Filter) Add(data []byte) {
 
 		idx = h.Sum32() % uint32(m)
 		bf.value[idx/8] |= 1 << (idx % 8)
-
-		h.Reset()
 	}
 }
 
@@ -81,11 +106,7 @@ func (bf *Filter) Add(data []byte) {
 // the data may be in the Bloom filter, but there is a chance of a
 // false positive.
 func (bf *Filter) Check(data []byte) bool {
-	defer func() {
-		for _, h := range bf.hashers {
-			h.Reset()
-		}
-	}()
+	defer bf.reset()
 
 	m := len(bf.value) * 8
 
@@ -95,7 +116,6 @@ func (bf *Filter) Check(data []byte) bool {
 		}
 
 		idx := h.Sum32() % uint32(m)
-
 		if bf.value[idx/8]&(1<<(idx%8)) == 0 {
 			return false
 		}
@@ -112,7 +132,7 @@ func (bf *Filter) Bytes() []byte {
 	return value
 }
 
-func (bf *Filter) SizeBytes() int {
+func (bf *Filter) BytesSize() int {
 	return len(bf.value)
 }
 

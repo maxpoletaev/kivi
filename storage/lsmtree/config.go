@@ -34,14 +34,15 @@ type Config struct {
 	// sparse index. Larger gaps result in smaller index files, but slower lookups. Defaults
 	// to 64KB.
 	SparseIndexGapBytes int64
-	// MmapDataFiles enables memory mapping of the data file. Although it may have a positive
-	// impact on performance due to reduced number of syscalls, it is generally advised not to
-	// use mmap in databases, so it is disabled by default. Please check out the following
-	// paper for more details: https://db.cs.cmu.edu/mmap-cidr2022/
-	MmapDataFiles bool
+	// UseMmap enables memory mapping of SSTable files. Although it may have a
+	// positive impact on performance due to reduced number of syscalls, it is
+	// generally advised not to use mmap in databases, so it is disabled by default.
+	// Please check out the following paper for more details:
+	// https://db.cs.cmu.edu/mmap-cidr2022/
+	UseMmap bool
 	// CompactionRules is a list of compaction rules that will be used to determine
-	// when to compact the segments. Defaults to a single rule that compacts the
-	// segments in the level 0 when there are more than 10 of them.
+	// when to compact the segments. Defaults to compacting the level 0 after
+	// reaching 10 segments and the level 1 is limited to 1 segment.
 	CompactionRules []CompactionRule
 }
 
@@ -50,7 +51,7 @@ func DefaultConfig() Config {
 		Logger:                 log.NewNopLogger(),
 		SparseIndexGapBytes:    64 * 1024,        // 8KB
 		MaxMemtableSize:        16 * 1024 * 1024, // 16MB
-		MmapDataFiles:          false,
+		UseMmap:                false,
 		BloomFilterProbability: 0.01,
 		CompactionRules: []CompactionRule{
 			{

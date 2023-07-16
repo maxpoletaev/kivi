@@ -21,12 +21,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: nil,
 			incomingValue: Value{
 				Data:    []byte("value"),
-				Version: vclock.New(vclock.V{1: 1}),
+				Version: vclock.Version{1: 1},
 			},
 			wantResult: []Value{
 				{
 					Data:    []byte("value"),
-					Version: vclock.New(vclock.V{1: 1}),
+					Version: vclock.Version{1: 1},
 				},
 			},
 		},
@@ -34,17 +34,17 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []Value{
 				{
 					Data:    []byte("current value"),
-					Version: vclock.New(vclock.V{1: 1}),
+					Version: vclock.Version{1: 1},
 				},
 			},
 			incomingValue: Value{
 				Data:    []byte("new value"),
-				Version: vclock.New(vclock.V{1: 2}),
+				Version: vclock.Version{1: 2},
 			},
 			wantResult: []Value{
 				{
 					Data:    []byte("new value"),
-					Version: vclock.New(vclock.V{1: 2}),
+					Version: vclock.Version{1: 2},
 				},
 			},
 		},
@@ -52,25 +52,25 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []Value{
 				{
 					Data:    []byte("old value 1"),
-					Version: vclock.New(vclock.V{1: 1}),
+					Version: vclock.Version{1: 1},
 				},
 				{
 					Data:    []byte("old value 2"),
-					Version: vclock.New(vclock.V{2: 1}),
+					Version: vclock.Version{2: 1},
 				},
 			},
 			incomingValue: Value{
 				Data:    []byte("new value 1"),
-				Version: vclock.New(vclock.V{1: 2}),
+				Version: vclock.Version{1: 2},
 			},
 			wantResult: []Value{
 				{
 					Data:    []byte("old value 2"),
-					Version: vclock.New(vclock.V{2: 1}),
+					Version: vclock.Version{2: 1},
 				},
 				{
 					Data:    []byte("new value 1"),
-					Version: vclock.New(vclock.V{1: 2}),
+					Version: vclock.Version{1: 2},
 				},
 			},
 		},
@@ -78,21 +78,21 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []Value{
 				{
 					Data:    []byte("old value 1"),
-					Version: vclock.New(vclock.V{1: 1}),
+					Version: vclock.Version{1: 1},
 				},
 				{
 					Data:    []byte("old value 2"),
-					Version: vclock.New(vclock.V{2: 1}),
+					Version: vclock.Version{2: 1},
 				},
 			},
 			incomingValue: Value{
 				Data:    []byte("new value"),
-				Version: vclock.New(vclock.V{1: 2, 2: 1}),
+				Version: vclock.Version{1: 2, 2: 1},
 			},
 			wantResult: []Value{
 				{
 					Data:    []byte("new value"),
-					Version: vclock.New(vclock.V{1: 2, 2: 1}),
+					Version: vclock.Version{1: 2, 2: 1},
 				},
 			},
 		},
@@ -100,12 +100,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []Value{
 				{
 					Data:    []byte("never value"),
-					Version: vclock.New(vclock.V{1: 2}),
+					Version: vclock.Version{1: 2},
 				},
 			},
 			incomingValue: Value{
 				Data:    []byte("older value"),
-				Version: vclock.New(vclock.V{1: 1}),
+				Version: vclock.Version{1: 1},
 			},
 			wantErr: ErrObsolete,
 		},
@@ -113,12 +113,12 @@ func TestAddVersion(t *testing.T) {
 			currentValues: []Value{
 				{
 					Data:    []byte("value"),
-					Version: vclock.New(vclock.V{1: 1}),
+					Version: vclock.Version{1: 1},
 				},
 			},
 			incomingValue: Value{
 				Data:    []byte("value"),
-				Version: vclock.New(vclock.V{1: 1}),
+				Version: vclock.Version{1: 1},
 			},
 			wantErr: ErrObsolete,
 		},

@@ -24,7 +24,7 @@ type LSMTree struct {
 	ssTables   *list.List // *SSTable
 	wg         sync.WaitGroup
 	mut        sync.RWMutex
-	quit       chan struct{}
+	stop       chan struct{}
 	state      *loggedState
 	logger     log.Logger
 	conf       Config
@@ -50,7 +50,7 @@ func Create(conf Config) (*LSMTree, error) {
 
 	// Restore the state of the tree from the previous run.
 	for _, info := range state.ActiveSSTables {
-		sst, err := OpenTable(info, conf.DataRoot, conf.MmapDataFiles)
+		sst, err := OpenTable(info, conf.DataRoot, conf.UseMmap)
 		if err != nil {
 			return nil, fmt.Errorf("failed to open sstable: %w", err)
 		}
@@ -59,7 +59,7 @@ func Create(conf Config) (*LSMTree, error) {
 	}
 
 	// In case there are wal files left from the previous run, we need to restore
-	// the memtables and flush them to the disk. This may potetially create a lot
+	// the memtables and flush them to the disk. This may potentially create a lot
 	// of small sstables, but the compaction should take care of it eventually.
 	for _, info := range state.ActiveMemtables {
 		memt, err := openMemtable(info, conf.DataRoot)
@@ -71,7 +71,7 @@ func Create(conf Config) (*LSMTree, error) {
 	}
 
 	lsm := &LSMTree{
-		quit:       make(chan struct{}),
+		stop:       make(chan struct{}),
 		dataRoot:   conf.DataRoot,
 		flushQueue: flushQueue,
 		ssTables:   sstables,
@@ -83,28 +83,21 @@ func Create(conf Config) (*LSMTree, error) {
 	// Wait for the flush to finish before returning, so that we have no memtables
 	// in the queue when the tree is ready to use.
 	if flushQueue.Len() > 0 {
-		if err := lsm.flushWaiting(); err != nil {
-			return nil, err
-		}
-
-		for _, rule := range lsm.conf.CompactionRules {
-			if err := lsm.compactLevel(&rule); err != nil {
-				return nil, err
-			}
-		}
-
-		if err := lsm.collectGarbage(); err != nil {
+		if err = lsm.flushAndCompact(); err != nil {
 			return nil, err
 		}
 	}
 
-	// Periodically sync the contents of the WAL to disk.
+	// Start a background process which will periodically sync the contents of the
+	// WAL to disk, to avoid accessing the disk on every write. This significantly
+	// improves the write performance, but is prone to data loss in case of a crash.
+	// We assume that the data is replicated anyway, so it should be fine.
 	lsm.startSyncLoop()
 
 	return lsm, nil
 }
 
-func (lsm *LSMTree) scheduleFlush() error {
+func (lsm *LSMTree) flushIfNeeded() error {
 	lsm.mut.RLock()
 
 	// The memtable is not full yet, no need to flush.
@@ -128,8 +121,8 @@ func (lsm *LSMTree) scheduleFlush() error {
 	lsm.memtable = nil
 	lsm.mut.Unlock()
 
-	// Start a background goroutine to flush the memtable to disk, only
-	// if there is no other flush in progress.
+	// Start a background goroutine that flushes the memtable to disk once it is full.
+	// Only one flush can be in progress at a time, we use an atomic flag to ensure that.
 	if atomic.CompareAndSwapInt32(&lsm.inFlush, 0, 1) {
 		lsm.wg.Add(1)
 
@@ -137,21 +130,8 @@ func (lsm *LSMTree) scheduleFlush() error {
 			defer lsm.wg.Done()
 			defer atomic.StoreInt32(&lsm.inFlush, 0)
 
-			if err := lsm.flushWaiting(); err != nil {
-				level.Error(lsm.logger).Log("msg", "failed to flush memtable", "err", err)
-				return
-			}
-
-			for _, rule := range lsm.conf.CompactionRules {
-				if err := lsm.compactLevel(&rule); err != nil {
-					level.Error(lsm.logger).Log("msg", "failed to compact", "err", err)
-					return
-				}
-			}
-
-			if err := lsm.collectGarbage(); err != nil {
-				level.Error(lsm.logger).Log("msg", "failed to collect garbage", "err", err)
-				return
+			if err := lsm.flushAndCompact(); err != nil {
+				level.Error(lsm.logger).Log("msg", "failed to flush data to disk", "err", err)
 			}
 		}()
 	}
@@ -159,7 +139,29 @@ func (lsm *LSMTree) scheduleFlush() error {
 	return nil
 }
 
-func (lsm *LSMTree) flushWaiting() error {
+// flushAndCompact flushes all memtables waiting in the flushQueue to the disk
+// and runs compaction across all levels until there is nothing to compact and no
+// garbage left. It is called once the active memtable is full and intended to be
+// run in a background goroutine as it may take a long time to complete.
+func (lsm *LSMTree) flushAndCompact() error {
+	if err := lsm.flushMemtables(); err != nil {
+		return fmt.Errorf("failed to flush memtables: %w", err)
+	}
+
+	for _, rule := range lsm.conf.CompactionRules {
+		if err := lsm.compactLevel(&rule); err != nil {
+			return fmt.Errorf("failed to compact level %d: %w", rule.Level, err)
+		}
+	}
+
+	if err := lsm.collectGarbage(); err != nil {
+		return fmt.Errorf("failed to collect garbage: %w", err)
+	}
+
+	return nil
+}
+
+func (lsm *LSMTree) flushMemtables() error {
 	for {
 		lsm.mut.Lock()
 
@@ -185,6 +187,7 @@ func (lsm *LSMTree) flushWaiting() error {
 			tableID:   time.Now().UnixMicro(),
 			prefix:    lsm.dataRoot,
 		})
+
 		if err != nil {
 			return fmt.Errorf("failed to flush: %w", err)
 		}
@@ -214,7 +217,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.RLock()
 
 	var (
-		toMerge   []*SSTable
+		segments  []*SSTable
 		levelSize int64
 	)
 
@@ -222,7 +225,7 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 		sst := el.Value.(*SSTable)
 
 		if sst.Level == rule.Level {
-			toMerge = append(toMerge, sst)
+			segments = append(segments, sst)
 			levelSize += sst.Size
 		}
 	}
@@ -230,11 +233,11 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.RUnlock()
 
 	switch {
-	case len(toMerge) < 2:
+	case len(segments) < 2:
 		return nil // Nothing to compact.
 	case rule.MaxSegments == 0 && rule.MaxLevelSize == 0:
 		return nil // Empty/invalid compaction rule.
-	case rule.MaxSegments > 0 && len(toMerge) < rule.MaxSegments:
+	case rule.MaxSegments > 0 && len(segments) < rule.MaxSegments:
 		return nil // Not enough segments to compact.
 	case rule.MaxLevelSize > 0 && levelSize < rule.MaxLevelSize:
 		return nil // Level is not big enough to compact.
@@ -243,14 +246,14 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	level.Info(lsm.logger).Log(
 		"msg", "compacting",
 		"level", rule.Level,
-		"num_segments", len(toMerge),
+		"num_segments", len(segments),
 		"target_level", rule.TargetLevel,
 	)
 
-	sst, err := mergeTables(toMerge, flushOpts{
+	sst, err := mergeTables(segments, flushOpts{
 		bloomProb: lsm.conf.BloomFilterProbability,
 		indexGap:  lsm.conf.SparseIndexGapBytes,
-		mmapOpen:  lsm.conf.MmapDataFiles,
+		useMmap:   lsm.conf.UseMmap,
 		tableID:   time.Now().UnixMilli(),
 		level:     rule.TargetLevel,
 		prefix:    lsm.dataRoot,
@@ -263,8 +266,8 @@ func (lsm *LSMTree) compactLevel(rule *CompactionRule) error {
 	lsm.mut.Lock()
 	defer lsm.mut.Unlock()
 
-	mergedIDs := make([]int64, len(toMerge))
-	for i, sst := range toMerge {
+	mergedIDs := make([]int64, len(segments))
+	for i, sst := range segments {
 		mergedIDs[i] = sst.ID
 	}
 
@@ -321,7 +324,7 @@ func (lsm *LSMTree) startSyncLoop() {
 
 		for {
 			select {
-			case <-lsm.quit:
+			case <-lsm.stop:
 				return
 			case <-ticker.C:
 				if err := lsm.sync(); err != nil {
@@ -501,7 +504,7 @@ func (lsm *LSMTree) putToMem(entry *proto.DataEntry) error {
 // and if so, it will create a new one and flush the old one to disk. If the memtable is not
 // full, it will add the entry to the active memtable.
 func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
-	if err := lsm.scheduleFlush(); err != nil {
+	if err := lsm.flushIfNeeded(); err != nil {
 		return err
 	}
 
@@ -512,15 +515,15 @@ func (lsm *LSMTree) Put(entry *proto.DataEntry) error {
 	return nil
 }
 
-// Close closes the LSM tree. It will wait for all pending flushes to complete, and then close
-// all the sstables and the state file. One should ensure that no reads or writes are happening
-// when calling this method.
+// Close closes the LSM tree. It will wait for all pending flushes to complete,
+// and then close all the sstables and the state file. One should ensure that no
+// reads or writes are performed after calling this method.
 func (lsm *LSMTree) Close() error {
-	close(lsm.quit)
-	lsm.wg.Wait()
-
 	lsm.mut.Lock()
 	defer lsm.mut.Unlock()
+
+	close(lsm.stop)
+	lsm.wg.Wait()
 
 	for sst := lsm.ssTables.Front(); sst != nil; sst = sst.Next() {
 		if err := sst.Value.(*SSTable).Close(); err != nil {

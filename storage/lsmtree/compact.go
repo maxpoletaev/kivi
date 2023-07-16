@@ -11,7 +11,6 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
-	"github.com/maxpoletaev/kivi/internal/deferlog"
 	"github.com/maxpoletaev/kivi/internal/filegroup"
 	"github.com/maxpoletaev/kivi/internal/heap"
 	"github.com/maxpoletaev/kivi/internal/protoio"
@@ -42,14 +41,14 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 		// Close the opened files. At this point, we don't care much if there was an
 		// error because the sync is done explicitly at the end of the function.
 		if err2 := fg.Close(); err2 != nil {
-			deferlog.Warn("failed to close files: %v", err2)
+			fmt.Printf("defer: failed to close files: %v\n", err2)
 		}
 
 		// In case there was an error during the function execution, do our best to
 		// remove the files that were created, so that we don't leave any garbage.
 		if err != nil {
 			if err2 := fg.Remove(); err2 != nil {
-				deferlog.Warn("failed to remove files: %v", err2)
+				fmt.Printf("defer: failed to remove files: %v\n", err2)
 			}
 		}
 	}()
@@ -168,9 +167,10 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 	bloomData, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bloomFilter.Bytes()),
 		NumHashes: int32(bloomFilter.Hashes()),
-		NumBytes:  int32(bloomFilter.SizeBytes()),
+		NumBytes:  int32(bloomFilter.BytesSize()),
 		Data:      bloomFilter.Bytes(),
 	})
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal bloom filter: %w", err)
 	}
@@ -183,7 +183,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 		return nil, fmt.Errorf("failed to sync files: %w", err)
 	}
 
-	if sst, err = OpenTable(info, opts.prefix, opts.mmapOpen); err != nil {
+	if sst, err = OpenTable(info, opts.prefix, opts.useMmap); err != nil {
 		return nil, fmt.Errorf("failed to open table: %w", err)
 	}
 

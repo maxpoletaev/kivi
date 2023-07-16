@@ -27,6 +27,7 @@ message PutRequest {
 
 message PutResponse {
     string version = 1;
+    int32 acknowledged = 2;
 }
 
 message DeleteRequest {
@@ -36,6 +37,7 @@ message DeleteRequest {
 
 message DeleteResponse {
     string version = 1;
+    int32 acknowledged = 2;
 }
 
 service Replication {

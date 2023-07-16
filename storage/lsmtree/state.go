@@ -68,33 +68,33 @@ func newLoggedState(filename string) (*loggedState, error) {
 	return sm, nil
 }
 
-func (sm *loggedState) applySegmentCreated(c *proto.SegmentCreated) {
-	sm.ActiveMemtables = append(sm.ActiveMemtables, fromProtoMemtableInfo(c.Memtable))
+func (ls *loggedState) applySegmentCreated(c *proto.SegmentCreated) {
+	ls.ActiveMemtables = append(ls.ActiveMemtables, fromProtoMemtableInfo(c.Memtable))
 }
 
-func (sm *loggedState) applySegmentFlushed(c *proto.SegmentFlushed) {
+func (ls *loggedState) applySegmentFlushed(c *proto.SegmentFlushed) {
 	memtables := make([]*MemtableInfo, 0)
 
-	for _, memtable := range sm.ActiveMemtables {
+	for _, memtable := range ls.ActiveMemtables {
 		if memtable.ID != c.MemtableId {
 			memtables = append(memtables, memtable)
 		}
 	}
 
-	sm.ActiveSSTables = append(sm.ActiveSSTables, fromProtoSSTableInfo(c.Sstable))
-	sm.ActiveMemtables = memtables
+	ls.ActiveSSTables = append(ls.ActiveSSTables, fromProtoSSTableInfo(c.Sstable))
+	ls.ActiveMemtables = memtables
 }
 
-func (sm *loggedState) applySegmentsMerged(c *proto.SegmentsMerged) {
+func (ls *loggedState) applySegmentsMerged(c *proto.SegmentsMerged) {
 	mergedIDs := make(map[int64]struct{})
 	for _, id := range c.OldSstableIds {
 		mergedIDs[id] = struct{}{}
 	}
 
-	active := make([]*SSTableInfo, 0, len(sm.ActiveSSTables)-len(mergedIDs))
+	active := make([]*SSTableInfo, 0, len(ls.ActiveSSTables)-len(mergedIDs))
 	merged := make([]*SSTableInfo, 0, len(mergedIDs))
 
-	for _, sstable := range sm.ActiveSSTables {
+	for _, sstable := range ls.ActiveSSTables {
 		if _, ok := mergedIDs[sstable.ID]; ok {
 			merged = append(merged, sstable)
 			continue
@@ -103,23 +103,23 @@ func (sm *loggedState) applySegmentsMerged(c *proto.SegmentsMerged) {
 		active = append(active, sstable)
 	}
 
-	sm.ActiveSSTables = append(active, fromProtoSSTableInfo(c.NewSstable))
-	sm.MergedSSTables = append(sm.MergedSSTables, merged...)
+	ls.ActiveSSTables = append(active, fromProtoSSTableInfo(c.NewSstable))
+	ls.MergedSSTables = append(ls.MergedSSTables, merged...)
 }
 
-func (sm *loggedState) applyChange(change *proto.StateLogEntry) {
+func (ls *loggedState) applyChange(change *proto.StateLogEntry) {
 	switch change.ChangeType {
 	case *proto.StateChangeType_SEGMENT_CREATED.Enum():
-		sm.applySegmentCreated(change.GetSegmentCreated())
+		ls.applySegmentCreated(change.GetSegmentCreated())
 	case *proto.StateChangeType_SEGMENT_FLUSHED.Enum():
-		sm.applySegmentFlushed(change.GetSegmentFlushed())
+		ls.applySegmentFlushed(change.GetSegmentFlushed())
 	case *proto.StateChangeType_SEGMENTS_MERGED.Enum():
-		sm.applySegmentsMerged(change.GetSegmentsMerged())
+		ls.applySegmentsMerged(change.GetSegmentsMerged())
 	}
 }
 
-func (sm *loggedState) restore() error {
-	reader := protoio.NewReader(sm.logFile)
+func (ls *loggedState) restore() error {
+	reader := protoio.NewReader(ls.logFile)
 	change := &proto.StateLogEntry{}
 
 	for {
@@ -131,7 +131,7 @@ func (sm *loggedState) restore() error {
 			return fmt.Errorf("failed to read log record: %w", err)
 		}
 
-		sm.applyChange(change)
+		ls.applyChange(change)
 
 		change.Reset()
 	}
@@ -139,21 +139,21 @@ func (sm *loggedState) restore() error {
 	return nil
 }
 
-func (sm *loggedState) logAndApply(change *proto.StateLogEntry) error {
+func (ls *loggedState) logAndApply(change *proto.StateLogEntry) error {
 	change.Timestamp = time.Now().UnixMilli()
 
-	if _, err := sm.logWriter.Append(change); err != nil {
+	if _, err := ls.logWriter.Append(change); err != nil {
 		return fmt.Errorf("failed to log segment change: %w", err)
 	}
 
-	sm.applyChange(change)
+	ls.applyChange(change)
 
 	return nil
 }
 
 // LogMemtableCreated is called when a new memtable is created.
-func (sm *loggedState) LogMemtableCreated(memtInfo *MemtableInfo) error {
-	return sm.logAndApply(&proto.StateLogEntry{
+func (ls *loggedState) LogMemtableCreated(memtInfo *MemtableInfo) error {
+	return ls.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENT_CREATED,
 		SegmentCreated: &proto.SegmentCreated{
@@ -163,8 +163,8 @@ func (sm *loggedState) LogMemtableCreated(memtInfo *MemtableInfo) error {
 }
 
 // LogMemtableFlushed is called when a memtable is flushed to a new sstable.
-func (sm *loggedState) LogMemtableFlushed(memtID int64, sstInfo *SSTableInfo) error {
-	return sm.logAndApply(&proto.StateLogEntry{
+func (ls *loggedState) LogMemtableFlushed(memtID int64, sstInfo *SSTableInfo) error {
+	return ls.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENT_FLUSHED,
 		SegmentFlushed: &proto.SegmentFlushed{
@@ -175,8 +175,8 @@ func (sm *loggedState) LogMemtableFlushed(memtID int64, sstInfo *SSTableInfo) er
 }
 
 // LogSSTablesMerged is called when a set of sstables are merged into a new sstable.
-func (sm *loggedState) LogSSTablesMerged(oldTableIDs []int64, newTableInfo *SSTableInfo) error {
-	return sm.logAndApply(&proto.StateLogEntry{
+func (ls *loggedState) LogSSTablesMerged(oldTableIDs []int64, newTableInfo *SSTableInfo) error {
+	return ls.logAndApply(&proto.StateLogEntry{
 		Timestamp:  time.Now().UnixMilli(),
 		ChangeType: proto.StateChangeType_SEGMENTS_MERGED,
 		SegmentsMerged: &proto.SegmentsMerged{
@@ -187,6 +187,6 @@ func (sm *loggedState) LogSSTablesMerged(oldTableIDs []int64, newTableInfo *SSTa
 }
 
 // Close closes the state manager.
-func (sm *loggedState) Close() error {
-	return sm.logFile.Close()
+func (ls *loggedState) Close() error {
+	return ls.logFile.Close()
 }

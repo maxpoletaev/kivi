@@ -9,7 +9,6 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
-	"github.com/maxpoletaev/kivi/internal/deferlog"
 	"github.com/maxpoletaev/kivi/internal/filegroup"
 	"github.com/maxpoletaev/kivi/internal/protoio"
 	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
@@ -19,7 +18,7 @@ type flushOpts struct {
 	prefix    string
 	tableID   int64
 	indexGap  int64
-	mmapOpen  bool
+	useMmap   bool
 	bloomProb float64
 	level     int
 }
@@ -35,14 +34,14 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 		// Close the opened files. At this point, we don't care much if there was an
 		// error because the sync is done explicitly at the end of the function.
 		if err2 := fg.Close(); err2 != nil {
-			deferlog.Warn("failed to close files: %v", err2)
+			fmt.Printf("defer: failed to close files: %v\n", err2)
 		}
 
 		// In case there was an error during the function execution, do our best to
 		// remove the files that were created, so that we don't leave any garbage.
 		if err != nil {
 			if err2 := fg.Remove(); err2 != nil {
-				deferlog.Warn("failed to remove files: %v", err2)
+				fmt.Printf("defer: failed to remove files: %v\n", err2)
 			}
 		}
 	}()
@@ -102,7 +101,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 
 	bloomBytes, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bf.Bytes()),
-		NumBytes:  int32(bf.SizeBytes()),
+		NumBytes:  int32(bf.BytesSize()),
 		NumHashes: int32(bf.Hashes()),
 		Data:      bf.Bytes(),
 	})
@@ -126,7 +125,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 
 	// Open the flushed table for reading. This should be done before discarding
 	// the memtable as we want to ensure that the table is readable.
-	sst, err = OpenTable(info, opts.prefix, opts.mmapOpen)
+	sst, err = OpenTable(info, opts.prefix, opts.useMmap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open table: %w", err)
 	}

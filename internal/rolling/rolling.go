@@ -10,7 +10,9 @@ const (
 	Greater = 1
 )
 
-// Compare compares two signed values taking type rolling into account.
+// Compare compares two signed values. The most significant bit is used to indicate
+// whether the value has rolled over. This is taken into account when comparing
+// the values, so that Compare(1, -1) returns Greater
 func Compare[T generic.Signed](a, b T) int {
 	var (
 		absA = generic.Abs(a)

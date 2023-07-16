@@ -6,8 +6,8 @@ import (
 
 const headerSize = 12
 
-// RandomAccessReadeer is an interface for reading protobuf messages from a seekable source.
-type RandomAccessReadeer interface {
+// RandomAccessReader is an interface for reading protobuf messages from a seekable source.
+type RandomAccessReader interface {
 	ReadAt(entry proto.Message, offset int64) (int, error)
 }
 

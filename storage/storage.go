@@ -11,18 +11,16 @@ import (
 var (
 	// ErrNotFound is returned when a key is not found in the storage.
 	ErrNotFound = errors.New("key not found")
-
 	// ErrObsolete is returned when a write operation is performed on a key that
 	// already has a newer version.
 	ErrObsolete = errors.New("obsolete write")
-
 	// ErrNoMoreItems is returned when there are no more items in the iterator.
 	ErrNoMoreItems = errors.New("no more items in the iterator")
 )
 
 // Value represents a single value associated with a key.
 type Value struct {
-	Version   *vclock.Vector
+	Version   vclock.Version
 	Data      []byte
 	Tombstone bool
 }

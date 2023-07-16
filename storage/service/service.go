@@ -52,6 +52,7 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 
 func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
 	version, err := vclock.Decode(req.Value.Version)
+
 	if err != nil {
 		return nil, status.New(
 			codes.InvalidArgument, fmt.Sprintf("invalid version: %s", err),
@@ -59,7 +60,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	if req.Primary {
-		version.Update(s.nodeID)
+		version[s.nodeID]++
 	}
 
 	value := storage.Value{
@@ -80,7 +81,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	return &proto.PutResponse{
-		Version: vclock.MustEncode(version),
+		Version: vclock.Encode(version),
 	}, nil
 }
 

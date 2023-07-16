@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
@@ -28,7 +28,7 @@ func TestGet(t *testing.T) {
 			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Get("key").Return([]storage.Value{
 					{
-						Version: vclock.New(vclock.V{1: 1}),
+						Version: vclock.Version{1: 1},
 						Data:    []byte("value"),
 					},
 				}, nil)
@@ -38,7 +38,7 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, len(res.Value))
 				assert.Equal(t, []byte("value"), res.Value[0].Data)
-				assert.Equal(t, vclock.New(vclock.V{1: 1}), vclock.MustDecode(res.Value[0].Version))
+				assert.Equal(t, vclock.Version{1: 1}, vclock.MustDecode(res.Value[0].Version))
 			},
 		},
 		"FoundMultipleValues": {
@@ -46,11 +46,11 @@ func TestGet(t *testing.T) {
 				b.EXPECT().Get("key").Return(
 					[]storage.Value{
 						{
-							Version: vclock.New(vclock.V{1: 1}),
+							Version: vclock.Version{1: 1},
 							Data:    []byte("value 1"),
 						},
 						{
-							Version: vclock.New(vclock.V{2: 1}),
+							Version: vclock.Version{2: 1},
 							Data:    []byte("value 2"),
 						},
 					}, nil,
@@ -61,9 +61,9 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 2, len(res.Value))
 				assert.Equal(t, []byte("value 1"), res.Value[0].Data)
-				assert.Equal(t, vclock.New(vclock.V{1: 1}), vclock.MustDecode(res.Value[0].Version))
+				assert.Equal(t, vclock.Version{1: 1}, vclock.MustDecode(res.Value[0].Version))
 				assert.Equal(t, []byte("value 2"), res.Value[1].Data)
-				assert.Equal(t, vclock.New(vclock.V{2: 1}), vclock.MustDecode(res.Value[1].Version))
+				assert.Equal(t, vclock.Version{2: 1}, vclock.MustDecode(res.Value[1].Version))
 			},
 		},
 		"NotFound": {
@@ -116,7 +116,7 @@ func TestPut(t *testing.T) {
 		"OkPrimary": {
 			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
-					Version: vclock.New(vclock.V{100: 2, 200: 1}),
+					Version: vclock.Version{100: 2, 200: 1},
 					Data:    []byte("value"),
 				}).Return(nil)
 			},
@@ -124,21 +124,21 @@ func TestPut(t *testing.T) {
 				Key:     "key",
 				Primary: true,
 				Value: &proto.VersionedValue{
-					Version: vclock.NewEncoded(vclock.V{100: 1, 200: 1}),
+					Version: vclock.Encode(vclock.Version{100: 1, 200: 1}),
 					Data:    []byte("value"),
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
 				require.NoError(t, err)
 
-				version := vclock.New(vclock.V{100: 2, 200: 1})
+				version := vclock.Version{100: 2, 200: 1}
 				assert.Equal(t, version, vclock.MustDecode(res.Version))
 			},
 		},
 		"OkNonPrimary": {
 			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
-					Version: vclock.New(vclock.V{100: 1, 200: 1}),
+					Version: vclock.Version{100: 1, 200: 1},
 					Data:    []byte("value"),
 				}).Return(nil)
 			},
@@ -146,28 +146,28 @@ func TestPut(t *testing.T) {
 				Key:     "key",
 				Primary: false,
 				Value: &proto.VersionedValue{
-					Version: vclock.NewEncoded(vclock.V{100: 1, 200: 1}),
+					Version: vclock.Encode(vclock.Version{100: 1, 200: 1}),
 					Data:    []byte("value"),
 				},
 			},
 			assertResponse: func(t *testing.T, res *proto.PutResponse, err error) {
 				require.NoError(t, err)
 
-				version := vclock.New(vclock.V{100: 1, 200: 1})
+				version := vclock.Version{100: 1, 200: 1}
 				assert.Equal(t, version, vclock.MustDecode(res.Version))
 			},
 		},
 		"FailsObsoleteWrite": {
 			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
-					Version: vclock.New(),
+					Version: vclock.Empty(),
 					Data:    []byte{},
 				}).Return(storage.ErrObsolete)
 			},
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
-					Version: vclock.NewEncoded(),
+					Version: vclock.Encode(vclock.Empty()),
 					Data:    []byte{},
 				},
 			},
@@ -180,14 +180,14 @@ func TestPut(t *testing.T) {
 		"FailsRandomError": {
 			setupBackend: func(b *mock.MockEngine) {
 				b.EXPECT().Put("key", storage.Value{
-					Version: vclock.New(),
+					Version: vclock.Empty(),
 					Data:    []byte{},
 				}).Return(assert.AnError)
 			},
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
-					Version: vclock.NewEncoded(),
+					Version: vclock.Encode(vclock.Empty()),
 					Data:    []byte{},
 				},
 			},

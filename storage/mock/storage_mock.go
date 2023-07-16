@@ -7,8 +7,8 @@ package mock
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	storage "github.com/maxpoletaev/kivi/storage"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockEngine is a mock of Engine interface.

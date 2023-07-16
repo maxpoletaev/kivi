@@ -12,7 +12,6 @@ import (
 	protobuf "google.golang.org/protobuf/proto"
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
-	"github.com/maxpoletaev/kivi/internal/deferlog"
 	"github.com/maxpoletaev/kivi/internal/filegroup"
 	"github.com/maxpoletaev/kivi/internal/protoio"
 	"github.com/maxpoletaev/kivi/internal/skiplist"
@@ -29,28 +28,28 @@ type readerAtCloser interface {
 type SSTable struct {
 	*SSTableInfo
 	index       *skiplist.Skiplist[string, int64]
+	bloomfilter *bloom.Pool
 	dataFile    readerAtCloser
-	bloomFilter *bloom.Filter
 }
 
 // OpenTable opens an SSTable from the given paths. All files must exist,
 // and the parameters of the bloom filter must match the parameters used
 // to create the SSTable.
 func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error) {
-	og := filegroup.New()
+	fg := filegroup.New()
 
 	defer func() {
 		// Since we only read from those files, there should not be any consequences if
 		// we fail to close them. But we still want to log the error.
-		if err := og.Close(); err != nil {
-			deferlog.Warn("failed to close files: %v", err)
+		if err := fg.Close(); err != nil {
+			fmt.Printf("defer: failed to close files: %v\n", err)
 		}
 	}()
 
-	indexFile := og.Open(filepath.Join(prefix, info.IndexFile), os.O_RDONLY, 0)
-	bloomFile := og.Open(filepath.Join(prefix, info.BloomFile), os.O_RDONLY, 0)
+	indexFile := fg.Open(filepath.Join(prefix, info.IndexFile), os.O_RDONLY, 0)
+	bloomFile := fg.Open(filepath.Join(prefix, info.BloomFile), os.O_RDONLY, 0)
 
-	if err := og.Err(); err != nil {
+	if err := fg.Err(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 
@@ -100,7 +99,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 			SSTableInfo: info,
 			index:       index,
 			dataFile:    dataFile,
-			bloomFilter: bloom.New(bf.Data, int(bf.NumHashes)),
+			bloomfilter: bloom.NewPool(bf.Data, int(bf.NumHashes)),
 		}, nil
 	}
 
@@ -114,7 +113,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 		SSTableInfo: info,
 		index:       index,
 		dataFile:    dataFile,
-		bloomFilter: bloom.New(bf.Data, int(bf.NumHashes)),
+		bloomfilter: bloom.NewPool(bf.Data, int(bf.NumHashes)),
 	}, nil
 }
 
@@ -140,12 +139,12 @@ func (sst *SSTable) Iterator() *Iterator {
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
 func (sst *SSTable) MayContain(key string) bool {
-	return sst.bloomFilter.Check(unsafeBytes(key))
+	return sst.bloomfilter.Check(unsafeBytes(key))
 }
 
 func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// Check the bloom filter first, if it's not there, it's not in the SSTable.
-	if !sst.bloomFilter.Check(unsafeBytes(key)) {
+	if !sst.bloomfilter.Check(unsafeBytes(key)) {
 		return nil, false, nil
 	}
 
@@ -166,7 +165,9 @@ func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// applicable here, because the size of each entry is different. But since the size
 	// of the block is quite small, and we read sequentially, this is not a big deal.
 	for len(entry.Key) == 0 || key > entry.Key {
-		read, err := reader.ReadAt(entry, offset)
+		n, err := reader.ReadAt(entry, offset)
+		offset += int64(n)
+
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil, false, nil
@@ -174,8 +175,6 @@ func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 
 			return nil, false, fmt.Errorf("failed to read data entry: %w", err)
 		}
-
-		offset += int64(read)
 	}
 
 	// Record doesn't exist or was deleted.

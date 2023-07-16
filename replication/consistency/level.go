@@ -10,13 +10,10 @@ type Level int
 const (
 	// One implies that an acknowledgement from a single node is enough to complete the operation.
 	One Level = iota
-
 	// Two needs acknowledgement from at least two nodes to complete the operation.
 	Two
-
 	// Quorum needs acknowledgement from N/2+1 of nodes to complete the operation.
 	Quorum
-
 	// All requires acknowledgement from ALL nodes.
 	All
 )

@@ -34,7 +34,7 @@ func MapValues[K comparable, V any](maps ...map[K]V) []V {
 	return values
 }
 
-func MapCopy[K, V comparable](src, dst map[K]V) {
+func MapCopy[K, V comparable](dst, src map[K]V) {
 	for k, v := range src {
 		dst[k] = v
 	}

@@ -17,58 +17,58 @@ func New[T comparable]() *Error[T] {
 	}
 }
 
-func (me *Error[T]) Error() string {
+func (m *Error[T]) Error() string {
 	var msg string
-	for k, v := range me.errors {
+	for k, v := range m.errors {
 		msg += fmt.Sprintf("%v:%s; ", k, v)
 	}
 
 	return strings.TrimRight(msg, "; ")
 }
 
-func (me *Error[T]) Unwrap() []error {
-	errs := make([]error, 0, len(me.errors))
-	for _, v := range me.errors {
+func (m *Error[T]) Unwrap() []error {
+	errs := make([]error, 0, len(m.errors))
+	for _, v := range m.errors {
 		errs = append(errs, v)
 	}
 
 	return errs
 }
 
-func (me *Error[T]) Len() int {
-	return len(me.errors)
+func (m *Error[T]) Len() int {
+	return len(m.errors)
 }
 
-func (me *Error[T]) Add(key T, err error) {
-	me.mu.Lock()
-	me.errors[key] = err
-	me.mu.Unlock()
+func (m *Error[T]) Add(key T, err error) {
+	m.mu.Lock()
+	m.errors[key] = err
+	m.mu.Unlock()
 }
 
-func (me *Error[T]) Get(key T) (error, bool) {
-	if v := me.errors[key]; v != nil {
+func (m *Error[T]) Get(key T) (error, bool) {
+	if v := m.errors[key]; v != nil {
 		return v, true
 	}
 
 	return nil, false
 }
 
-func (me *Error[T]) First() error {
-	if len(me.errors) == 0 {
+func (m *Error[T]) First() error {
+	if len(m.errors) == 0 {
 		return nil
 	}
 
-	for _, v := range me.errors {
+	for _, v := range m.errors {
 		return v
 	}
 
 	return nil
 }
 
-func (me *Error[T]) Combined() error {
-	if len(me.errors) == 0 {
+func (m *Error[T]) Combined() error {
+	if len(m.errors) == 0 {
 		return nil
 	}
 
-	return me
+	return m
 }

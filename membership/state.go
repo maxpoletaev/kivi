@@ -7,7 +7,7 @@ import (
 	"github.com/maxpoletaev/kivi/internal/rolling"
 )
 
-func (cl *Cluster) StateHash() uint64 {
+func (cl *SWIMCluster) StateHash() uint64 {
 	cl.mut.RLock()
 	defer cl.mut.RUnlock()
 
@@ -16,7 +16,7 @@ func (cl *Cluster) StateHash() uint64 {
 
 // ApplyState merges the given nodes with the current cluster state and returns
 // the list of all nodes in the cluster after the merge.
-func (cl *Cluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
+func (cl *SWIMCluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 	cl.mut.Lock()
 	defer cl.mut.Unlock()
 

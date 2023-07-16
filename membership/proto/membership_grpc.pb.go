@@ -23,8 +23,9 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type MembershipClient interface {
 	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
-	GetStateHash(ctx context.Context, in *GetStateHashRequest, opts ...grpc.CallOption) (*GetStateHashResponse, error)
+	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 	PullPushState(ctx context.Context, in *PullPushStateRequest, opts ...grpc.CallOption) (*PullPushStateResponse, error)
+	PingIndirect(ctx context.Context, in *PingIndirectRequest, opts ...grpc.CallOption) (*PingIndirectResponse, error)
 }
 
 type membershipClient struct {
@@ -44,9 +45,9 @@ func (c *membershipClient) ListNodes(ctx context.Context, in *ListNodesRequest, 
 	return out, nil
 }
 
-func (c *membershipClient) GetStateHash(ctx context.Context, in *GetStateHashRequest, opts ...grpc.CallOption) (*GetStateHashResponse, error) {
-	out := new(GetStateHashResponse)
-	err := c.cc.Invoke(ctx, "/membership.Membership/GetStateHash", in, out, opts...)
+func (c *membershipClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
+	out := new(PingResponse)
+	err := c.cc.Invoke(ctx, "/membership.Membership/Ping", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,13 +63,23 @@ func (c *membershipClient) PullPushState(ctx context.Context, in *PullPushStateR
 	return out, nil
 }
 
+func (c *membershipClient) PingIndirect(ctx context.Context, in *PingIndirectRequest, opts ...grpc.CallOption) (*PingIndirectResponse, error) {
+	out := new(PingIndirectResponse)
+	err := c.cc.Invoke(ctx, "/membership.Membership/PingIndirect", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // MembershipServer is the server API for Membership service.
 // All implementations must embed UnimplementedMembershipServer
 // for forward compatibility
 type MembershipServer interface {
 	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
-	GetStateHash(context.Context, *GetStateHashRequest) (*GetStateHashResponse, error)
+	Ping(context.Context, *PingRequest) (*PingResponse, error)
 	PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error)
+	PingIndirect(context.Context, *PingIndirectRequest) (*PingIndirectResponse, error)
 	mustEmbedUnimplementedMembershipServer()
 }
 
@@ -79,11 +90,14 @@ type UnimplementedMembershipServer struct {
 func (UnimplementedMembershipServer) ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListNodes not implemented")
 }
-func (UnimplementedMembershipServer) GetStateHash(context.Context, *GetStateHashRequest) (*GetStateHashResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetStateHash not implemented")
+func (UnimplementedMembershipServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
 func (UnimplementedMembershipServer) PullPushState(context.Context, *PullPushStateRequest) (*PullPushStateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PullPushState not implemented")
+}
+func (UnimplementedMembershipServer) PingIndirect(context.Context, *PingIndirectRequest) (*PingIndirectResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PingIndirect not implemented")
 }
 func (UnimplementedMembershipServer) mustEmbedUnimplementedMembershipServer() {}
 
@@ -116,20 +130,20 @@ func _Membership_ListNodes_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Membership_GetStateHash_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetStateHashRequest)
+func _Membership_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MembershipServer).GetStateHash(ctx, in)
+		return srv.(MembershipServer).Ping(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/membership.Membership/GetStateHash",
+		FullMethod: "/membership.Membership/Ping",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MembershipServer).GetStateHash(ctx, req.(*GetStateHashRequest))
+		return srv.(MembershipServer).Ping(ctx, req.(*PingRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -152,6 +166,24 @@ func _Membership_PullPushState_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Membership_PingIndirect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingIndirectRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MembershipServer).PingIndirect(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/membership.Membership/PingIndirect",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MembershipServer).PingIndirect(ctx, req.(*PingIndirectRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Membership_ServiceDesc is the grpc.ServiceDesc for Membership service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -164,12 +196,16 @@ var Membership_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Membership_ListNodes_Handler,
 		},
 		{
-			MethodName: "GetStateHash",
-			Handler:    _Membership_GetStateHash_Handler,
+			MethodName: "Ping",
+			Handler:    _Membership_Ping_Handler,
 		},
 		{
 			MethodName: "PullPushState",
 			Handler:    _Membership_PullPushState_Handler,
+		},
+		{
+			MethodName: "PingIndirect",
+			Handler:    _Membership_PingIndirect_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

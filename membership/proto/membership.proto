@@ -36,15 +36,27 @@ message PullPushStateResponse {
     repeated Node nodes = 1;
 }
 
-message GetStateHashRequest {
+message PingRequest {
 }
 
-message GetStateHashResponse {
-    uint64 hash = 1;
+message PingResponse {
+    uint64 state_hash = 1;
+}
+
+message PingIndirectRequest {
+    uint32 node_id = 1;
+    int64 timeout = 2;
+}
+
+message PingIndirectResponse {
+    int64 duration = 1;
+    Status status = 2;
+    string message = 3;
 }
 
 service Membership {
     rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {}
-    rpc GetStateHash(GetStateHashRequest) returns (GetStateHashResponse) {}
+    rpc Ping(PingRequest) returns (PingResponse) {}
     rpc PullPushState(PullPushStateRequest) returns (PullPushStateResponse) {}
+    rpc PingIndirect(PingIndirectRequest) returns (PingIndirectResponse) {}
 }

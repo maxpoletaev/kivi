@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-package pb;
-
-option go_package = "github.com/maxpoletaev/kivi/internal/vlcock/pb";
-
-message VectorClock {
-    map<uint32, int32> clocks = 1;
-}

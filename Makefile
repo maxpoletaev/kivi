@@ -1,9 +1,9 @@
 .DEFAULT_GOAL := help
 
-TEST_PACKAGE = ./...
 IMAGE_NAME = maxpoletaev/kivi
 GO_MODULE = github.com/maxpoletaev/kivi
 PROTO_FILES = $(shell find . -type f -name '*.proto')
+BINARIES = $(find cmd -type d -mindepth 1 -maxdepth 1)
 
 PLATFORM = $(shell uname)
 
@@ -16,7 +16,7 @@ help:  ## print help (this message)
 .PHONY: test
 test:  ## run go tests
 	@echo "--------- running: $@ ---------"
-	go test -v -race -timeout=30s -count=1 $(GO_MODULE)/$(TEST_PACKAGE)
+	go test -v -race -timeout=30s -count=1 ./...
 
 .PHONY: bench
 bench:  ## run benchmarks
@@ -40,7 +40,7 @@ generate:  ## run go generate ./...
 .PHONY: build
 build:  ## build the binaries
 	@echo "--------- running: $@ ---------"
-	go build -o bin/kivi-server $(GO_MODULE)/cmd/kivi-server
+	go build -o bin/server ./cmd/server
 
 .PHONY: image
 image: ## build the docker image

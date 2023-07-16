@@ -15,7 +15,7 @@ func TestGet(t *testing.T) {
 	lst := skiplist.New[string, []storage.Value](skiplist.StringComparator)
 	lst.Insert("key", []storage.Value{
 		{
-			Version: vclock.New(),
+			Version: vclock.Empty(),
 			Data:    []byte("value"),
 		},
 	})
@@ -40,8 +40,8 @@ func TestGetFails_NotFound(t *testing.T) {
 func TestPut_NewValue(t *testing.T) {
 	lst := skiplist.New[string, []storage.Value](skiplist.StringComparator)
 
-	version := vclock.New()
-	version.Update(99)
+	version := vclock.Empty()
+	version.Increment(99)
 
 	memstore := newWithData(lst)
 	err := memstore.Put("key", storage.Value{
@@ -56,29 +56,28 @@ func TestPut_NewValue(t *testing.T) {
 	assert.True(t, found)
 	assert.Len(t, listValues, 1)
 	assert.Equal(t, []byte("value"), listValues[0].Data)
-	assert.Equal(t, int32(1), listValues[0].Version.Get(99))
+	assert.Equal(t, int32(1), listValues[0].Version[99])
 }
 
 // TestPut_NewVersion verifies the case when there is already a value in the store
 // and the new value overtakes the existing one. Only the newest value should be preserved.
 func TestPut_NewVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.Value](skiplist.StringComparator)
-
-	version := vclock.New()
-	version.Update(1)
+	version := vclock.Empty()
+	version.Increment(1)
 
 	list.Insert("key", []storage.Value{{
 		Data:    []byte("value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	}})
 
-	version.Update(1)
-	version.Update(2)
+	version.Increment(1)
+	version.Increment(2)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.Value{
 		Data:    []byte("new value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	})
 
 	assert.NoError(t, err)
@@ -97,21 +96,21 @@ func TestPut_NewVersion(t *testing.T) {
 func TestPut_ConflictingVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.Value](skiplist.StringComparator)
 
-	version := vclock.New()
-	version.Update(1)
+	version := vclock.Empty()
+	version.Increment(1)
 
 	list.Insert("key", []storage.Value{{
 		Data:    []byte("value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	}})
 
-	conflictingVersion := vclock.New()
-	conflictingVersion.Update(2)
+	conflictingVersion := vclock.Empty()
+	conflictingVersion.Increment(2)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.Value{
 		Data:    []byte("another value"),
-		Version: conflictingVersion.Clone(),
+		Version: conflictingVersion.Copy(),
 	})
 
 	assert.NoError(t, err)
@@ -131,22 +130,22 @@ func TestPut_ConflictingVersion(t *testing.T) {
 func TestPutFails_ObsoleteVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.Value](skiplist.StringComparator)
 
-	version := vclock.New()
-	version.Update(1)
-	version.Update(1)
+	version := vclock.Empty()
+	version.Increment(1)
+	version.Increment(1)
 
 	list.Insert("key", []storage.Value{{
 		Data:    []byte("newer value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	}})
 
-	olderVersion := vclock.New()
-	olderVersion.Update(1)
+	olderVersion := vclock.Empty()
+	olderVersion.Increment(1)
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.Value{
 		Data:    []byte("older value"),
-		Version: olderVersion.Clone(),
+		Version: olderVersion.Copy(),
 	})
 
 	require.Error(t, err)
@@ -158,18 +157,18 @@ func TestPutFails_ObsoleteVersion(t *testing.T) {
 func TestPutFails_SameVersion(t *testing.T) {
 	list := skiplist.New[string, []storage.Value](skiplist.StringComparator)
 
-	version := vclock.New()
-	version.Update(1)
+	version := vclock.Empty()
+	version.Increment(1)
 
 	list.Insert("key", []storage.Value{{
 		Data:    []byte("value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	}})
 
 	memstore := newWithData(list)
 	err := memstore.Put("key", storage.Value{
 		Data:    []byte("another value"),
-		Version: version.Clone(),
+		Version: version.Copy(),
 	})
 
 	require.Error(t, err)

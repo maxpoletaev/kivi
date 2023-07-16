@@ -5,7 +5,7 @@ import (
 
 	kitlog "github.com/go-kit/log"
 
-	"github.com/maxpoletaev/kivi/nodeclient"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 type Config struct {
@@ -13,20 +13,23 @@ type Config struct {
 	NodeName      string
 	PublicAddr    string
 	LocalAddr     string
-	Dialer        nodeclient.Dialer
+	Dialer        nodeapi.Dialer
 	Logger        kitlog.Logger
 	DialTimeout   time.Duration
 	ProbeTimeout  time.Duration
 	ProbeInterval time.Duration
+	ProbeJitter   float64
 	GCInterval    time.Duration
+	IndirectNodes int
 }
 
 func DefaultConfig() Config {
 	return Config{
 		Logger:        kitlog.NewNopLogger(),
 		DialTimeout:   6 * time.Second,
-		ProbeTimeout:  2 * time.Second,
+		ProbeTimeout:  3 * time.Second,
 		ProbeInterval: 1 * time.Second,
 		GCInterval:    30 * time.Second,
+		IndirectNodes: 1,
 	}
 }

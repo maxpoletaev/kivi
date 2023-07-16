@@ -21,7 +21,7 @@ func TestMapCopy(t *testing.T) {
 	mapA := map[string]bool{"key1": true, "key2": true}
 	mapB := make(map[string]bool)
 
-	MapCopy(mapA, mapB)
+	MapCopy(mapB, mapA)
 
 	assert.Equal(t, mapA, mapB)
 }
