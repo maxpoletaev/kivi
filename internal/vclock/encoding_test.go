@@ -24,13 +24,9 @@ func TestEncode(t *testing.T) {
 			vector:     Version{1: 10},
 			wantString: "{1=A}",
 		},
-		"RollOver": {
-			vector:     Version{1: math.MaxInt32, 2: math.MinInt32},
-			wantString: "{1=ZIK0ZJ,2=!0}",
-		},
 		"MultipleValues": {
-			vector:     Version{1: 10, 3: 20, 2: 5, 0: 1, 4: -1},
-			wantString: "{0=1,1=A,2=5,3=K,4=!ZIK0ZJ}",
+			vector:     Version{1: 10, 3: 20, 2: 5, 0: 1, 4: math.MaxInt64},
+			wantString: "{0=1,1=A,2=5,3=K}",
 		},
 	}
 
@@ -59,13 +55,9 @@ func TestDecode(t *testing.T) {
 			s:          "{1=A}",
 			wantVector: Version{1: 10},
 		},
-		"RollOver": {
-			s:          "{1=ZIK0ZJ,2=!0}",
-			wantVector: Version{1: math.MaxInt32, 2: math.MinInt32},
-		},
 		"MultipleValues": {
-			s:          "{0=1,1=A,2=5,3=K,4=!ZIK0ZJ}",
-			wantVector: Version{0: 1, 1: 10, 2: 5, 3: 20, 4: -1},
+			s:          "{0=1,1=A,2=5,3=K}",
+			wantVector: Version{0: 1, 1: 10, 2: 5, 3: 20},
 		},
 		"InvalidString": {
 			s:       "invalid",
@@ -118,7 +110,7 @@ func TestEncodeDecode(t *testing.T) {
 func TestEncodeConsistency(t *testing.T) {
 	v := make(Version, 100)
 	for i := 0; i < 100; i++ {
-		v[uint32(i)] = int32(i)
+		v[uint32(i)] = uint64(i)
 	}
 
 	want := Encode(v)

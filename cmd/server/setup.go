@@ -18,7 +18,7 @@ import (
 	"github.com/maxpoletaev/kivi/api"
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
-	nodegrpc "github.com/maxpoletaev/kivi/nodeapi/grpc"
+	nodeapigrpc "github.com/maxpoletaev/kivi/nodeapi/grpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
 	"github.com/maxpoletaev/kivi/storage"
@@ -52,13 +52,15 @@ func setupCluster(logger kitlog.Logger) (*membership.SWIMCluster, shutdownFunc) 
 	conf.ProbeTimeout = time.Millisecond * time.Duration(opts.Cluster.ProbeTimeout)
 	conf.ProbeInterval = time.Millisecond * time.Duration(opts.Cluster.ProbeInterval)
 	conf.IndirectNodes = opts.Cluster.ProbeIndirectNodes
-	conf.Dialer = nodegrpc.Dial
+	conf.Dialer = nodeapigrpc.Dial
 	conf.Logger = logger
 
 	cluster := membership.NewSWIM(conf)
 	cluster.Start()
 
 	shutdown := func(ctx context.Context) error {
+		logger.Log("msg", "leaving cluster")
+
 		if err := cluster.Leave(ctx); err != nil {
 			return fmt.Errorf("failed to leave cluster: %w", err)
 		}
@@ -69,7 +71,7 @@ func setupCluster(logger kitlog.Logger) (*membership.SWIMCluster, shutdownFunc) 
 	return cluster, shutdown
 }
 
-func setupAPIServer(wg *sync.WaitGroup, cluster membership.Cluster) (*http.Server, shutdownFunc) {
+func setupAPIServer(wg *sync.WaitGroup, cluster membership.Cluster, logger kitlog.Logger) (*http.Server, shutdownFunc) {
 	restAPI := &http.Server{
 		Addr:    opts.RestAPI.BindAddr,
 		Handler: api.CreateRouter(cluster),
@@ -88,6 +90,8 @@ func setupAPIServer(wg *sync.WaitGroup, cluster membership.Cluster) (*http.Serve
 	}()
 
 	shutdown := func(ctx context.Context) error {
+		logger.Log("msg", "shutting down API server")
+
 		if err := restAPI.Shutdown(ctx); err != nil {
 			return fmt.Errorf("failed to shutdown REST API server: %w", err)
 		}
@@ -131,6 +135,7 @@ func setupGRPCServer(
 	}()
 
 	shutdown := func(ctx context.Context) error {
+		logger.Log("msg", "shutting down GRPC server")
 		grpcServer.GracefulStop()
 		return nil
 	}
@@ -156,6 +161,7 @@ func setupEngine(logger kitlog.Logger) (storage.Engine, shutdownFunc) {
 	}
 
 	shutdown := func(ctx context.Context) error {
+		logger.Log("msg", "closing LSM tree")
 		return lsmt.Close()
 	}
 

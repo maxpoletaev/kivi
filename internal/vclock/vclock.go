@@ -2,7 +2,6 @@ package vclock
 
 import (
 	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/internal/rolling"
 )
 
 // Causality is a type that represents the causality relationship between two vectors.
@@ -38,7 +37,7 @@ func (c Causality) String() string {
 // The implementation uses a 32-bit integer to store the clock value. The leftmost bit
 // is used to indicate whether the clock value has rolled over. If the leftmost bit is
 // set, the clock value has rolled over.
-type Version map[uint32]int32
+type Version map[uint32]uint64
 
 // Empty returns a new version vector.
 func Empty() Version {
@@ -63,6 +62,10 @@ func (vc Version) Copy() Version {
 // Increment increments the clock value of the given node.
 func (vc Version) Increment(nodeID uint32) {
 	vc[nodeID]++
+
+	if vc[nodeID] == 0 {
+		panic("clock value overflow")
+	}
 }
 
 // Compare returns the causality relationship between two vectors.
@@ -79,11 +82,10 @@ func Compare(a, b Version) Causality {
 	var greater, less bool
 
 	for _, key := range generic.MapKeys(a, b) {
-		switch rolling.Compare(a[key], b[key]) {
-		case rolling.Less:
-			less = true
-		case rolling.Greater:
+		if a[key] > b[key] {
 			greater = true
+		} else if a[key] < b[key] {
+			less = true
 		}
 	}
 
@@ -112,7 +114,7 @@ func Merge(a, b Version) Version {
 	merged := make(Version, len(keys))
 
 	for _, key := range keys {
-		if rolling.Compare(a[key], b[key]) == rolling.Greater {
+		if a[key] > b[key] {
 			merged[key] = a[key]
 		} else {
 			merged[key] = b[key]

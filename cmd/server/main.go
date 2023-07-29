@@ -90,7 +90,7 @@ func main() {
 	}
 
 	if opts.RestAPI.Enabled {
-		_, closeAPIServer := setupAPIServer(&wg, cluster)
+		_, closeAPIServer := setupAPIServer(&wg, cluster, logger)
 		shutdownOrder = append([]shutdownFunc{closeAPIServer}, shutdownOrder...)
 	}
 
@@ -107,9 +107,13 @@ func main() {
 
 	// Shutdown all components.
 	for _, f := range shutdownOrder {
-		if err := f(context.Background()); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		if err := f(ctx); err != nil {
 			level.Error(logger).Log("msg", "failed to shutdown component", "err", err)
 		}
+
+		cancel()
 	}
 
 	// Wait for all components to finish background tasks.

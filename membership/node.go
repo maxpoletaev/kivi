@@ -11,7 +11,7 @@ type Node struct {
 	LocalAddr  string
 	Error      string
 	Status     Status
-	Gen        int32
+	Gen        uint32
 }
 
 // IsReachable returns true if the node is reachable.

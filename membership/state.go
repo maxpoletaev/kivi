@@ -3,8 +3,6 @@ package membership
 import (
 	"fmt"
 	"time"
-
-	"github.com/maxpoletaev/kivi/internal/rolling"
 )
 
 func (cl *SWIMCluster) StateHash() uint64 {
@@ -49,17 +47,17 @@ func (cl *SWIMCluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 		// generation. This is to prevent the node from being marked as unhealthy by the
 		// nodes that haven't been notified about the node leaving.
 		if next.Status == StatusLeft {
-			next.Gen = rolling.Max(curr.Gen, next.Gen)
+			if curr.Gen > next.Gen {
+				next.Gen = curr.Gen
+			}
 			cl.nodes[next.ID] = next
-
 			continue
 		}
 
-		switch rolling.Compare(curr.Gen, next.Gen) {
-		case rolling.Less:
+		if curr.Gen < next.Gen {
 			// Node with the higher generation is preferred.
 			cl.nodes[next.ID] = next
-		case rolling.Equal:
+		} else if curr.Gen == next.Gen {
 			// In case of conflict, the worst status is preferred.
 			if next.Status.WorseThan(curr.Status) {
 				cl.nodes[next.ID] = next

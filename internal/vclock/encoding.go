@@ -30,24 +30,13 @@ func Encode(vc Version) string {
 			s.WriteByte(',')
 		}
 
-		rollover := v < 0
-		if rollover {
-			// Strip the MSB.
-			v &= 0x7FFFFFFF
-		}
-
 		var (
 			key = strconv.FormatUint(uint64(k), 10)
-			val = strings.ToUpper(strconv.FormatInt(int64(v), 36))
+			val = strings.ToUpper(strconv.FormatUint(v, 36))
 		)
 
 		s.WriteString(key)
 		s.WriteByte('=')
-
-		if rollover {
-			s.WriteByte('!')
-		}
-
 		s.WriteString(val)
 	}
 
@@ -75,26 +64,19 @@ func Decode(encoded string) (Version, error) {
 			continue
 		}
 
-		rollover := false
 		if kv[1][0] == '!' {
 			kv[1] = kv[1][1:]
-			rollover = true
 		}
 
 		k, c := kv[0], strings.ToLower(kv[1])
 		key, err1 := strconv.ParseUint(k, 10, 64)
-		val, err2 := strconv.ParseInt(c, 36, 32)
-
-		if rollover {
-			// Restore the MSB.
-			val |= 0x80000000
-		}
+		val, err2 := strconv.ParseUint(c, 36, 32)
 
 		if err := errors.Join(err1, err2); err != nil {
 			return vc, err
 		}
 
-		vc[uint32(key)] = int32(val)
+		vc[uint32(key)] = val
 	}
 
 	return vc, nil

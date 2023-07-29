@@ -65,12 +65,3 @@ func TestMerge(t *testing.T) {
 	want := Version{1: 10, 2: 10, 3: 100}
 	require.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
 }
-
-func TestMerge_WithRollover(t *testing.T) {
-	a := Version{1: math.MaxInt32, 2: 1}
-	b := Version{1: math.MaxInt32, 2: 2}
-
-	got := Merge(a, b)
-	want := Version{1: int32(math.MinInt32) + 1, 2: 2}
-	require.True(t, IsEqual(got, want), "got: %s, want: %s", got, want)
-}

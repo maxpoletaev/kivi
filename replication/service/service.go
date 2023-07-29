@@ -211,9 +211,14 @@ func (s *ReplicationService) Get(ctx context.Context, req *proto.GetRequest) (*p
 				return 0, nil
 			},
 			func(abort func(), nodeID membership.NodeID, res int, err error) error {
+				if grpcutil.ErrorCode(err) == codes.AlreadyExists {
+					abort()
+				}
+
 				return nil
 			},
 		)
+
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +294,7 @@ func (s *ReplicationService) Put(ctx context.Context, req *proto.PutRequest) (*p
 		func(abort func(), nodeID membership.NodeID, version string, err error) error {
 			// Abort the operation if one of the nodes already has a newer version.
 			if grpcutil.ErrorCode(err) == codes.AlreadyExists {
-				abort()
+				return err
 			}
 
 			return nil

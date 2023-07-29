@@ -20,7 +20,7 @@ type NodeInfo struct {
 	Name   string
 	Status NodeStatus
 	Addr   string
-	Gen    int32
+	Gen    uint32
 	Error  string
 	RunID  int64
 }
@@ -31,7 +31,7 @@ type PingResult struct {
 	Message string
 }
 
-type clusterClient interface {
+type membershipClient interface {
 	// Ping returns the hash of the cluster state.
 	Ping(ctx context.Context) (uint64, error)
 	// PullPushState exchanges the state of the cluster with the remote node.

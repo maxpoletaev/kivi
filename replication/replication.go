@@ -62,6 +62,9 @@ type ReduceFn[T any] func(abort func(), nodeID membership.NodeID, ret T, err err
 // Distribute sends a request to all nodes in the replica set in parallel and
 // ensures that enough nodes have acknowledged the request. The mapFn is called
 // for each node in the replica set, and the reduceFn is called for each reply.
+// The function blocks until the minimum number of acknowledgments has been
+// received or the operation is aborted either by canceling the context or
+// calling the abort function in the reduceFn.
 func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn ReduceFn[T]) error {
 	if o.AckedNodes == nil {
 		o.AckedNodes = make(map[membership.NodeID]struct{})
@@ -107,7 +110,6 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 			}
 
 			ret, err := mapFn(mapCtx, nodeID, conn)
-
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && !grpcutil.IsCanceled(err) {
 					loglevel.Warn(
@@ -130,8 +132,12 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 		close(replies)
 	}()
 
-	// If we already have enough replies, so no need to wait for more.
+	// If we already have enough replies, no need to wait for more.
 	if len(o.AckedNodes) >= o.MinAcks {
+		if !o.Background {
+			cancelMap()
+		}
+
 		return nil
 	}
 

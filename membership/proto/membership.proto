@@ -14,7 +14,7 @@ message Node {
     uint32 id = 1;
     string name = 2;
     string address = 3;
-    int32 generation = 4;
+    uint32 generation = 4;
     Status status = 5;
     string error = 6;
     int64 run_id = 7;
