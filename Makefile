@@ -45,7 +45,7 @@ build:  ## build the binaries
 .PHONY: image
 image: ## build the docker image
 	@echo "--------- running: $@ ---------"
-	docker build -t kv -t $(IMAGE_NAME) .
+	DOCKER_BUILDKIT=1 docker build -t kv -t $(IMAGE_NAME) .
 
 .PHONY: proto-clean
 proto-clean:  ## clean generated protobuf code

@@ -5,7 +5,7 @@ import (
 
 	kitlog "github.com/go-kit/log"
 
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 )
 
 type Config struct {
@@ -13,7 +13,7 @@ type Config struct {
 	NodeName      string
 	PublicAddr    string
 	LocalAddr     string
-	Dialer        nodeapi.Dialer
+	Dialer        noderpc.Dialer
 	Logger        kitlog.Logger
 	DialTimeout   time.Duration
 	ProbeTimeout  time.Duration

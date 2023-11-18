@@ -32,7 +32,7 @@ func TestEncode(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			require.Equal(t, tt.wantString, Encode(tt.vector))
+			require.Equal(t, tt.wantString, ToString(tt.vector))
 		})
 	}
 }
@@ -71,7 +71,7 @@ func TestDecode(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			v, err := Decode(tt.s)
+			v, err := FromString(tt.s)
 			if tt.wantErr {
 				require.Error(t, err)
 			} else {
@@ -99,8 +99,8 @@ func TestEncodeDecode(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			encoded := Encode(tt.v)
-			decoded, err := Decode(encoded)
+			encoded := ToString(tt.v)
+			decoded, err := FromString(encoded)
 			require.NoError(t, err)
 			require.Equal(t, tt.v, decoded, "want: %s, got: %s", tt.v, decoded)
 		})
@@ -113,11 +113,11 @@ func TestEncodeConsistency(t *testing.T) {
 		v[uint32(i)] = uint64(i)
 	}
 
-	want := Encode(v)
+	want := ToString(v)
 
 	// Make hundreds encodings and check that they are all the same.
 	for i := 0; i < 100; i++ {
-		got := Encode(v)
+		got := ToString(v)
 		if want != got {
 			t.Fatalf("encoding not consistent, want: %s, got: %s", want, got)
 		}

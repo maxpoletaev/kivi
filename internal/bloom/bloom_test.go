@@ -13,8 +13,8 @@ func TestAddAndCheck(t *testing.T) {
 	bf.Add([]byte("hello"))
 	bf.Add([]byte("world"))
 
-	assert.True(t, bf.Check([]byte("hello")))
-	assert.True(t, bf.Check([]byte("world")))
-	assert.False(t, bf.Check([]byte("foo")))
-	assert.False(t, bf.Check([]byte("bar")))
+	assert.True(t, bf.MayContain([]byte("hello")))
+	assert.True(t, bf.MayContain([]byte("world")))
+	assert.False(t, bf.MayContain([]byte("foo")))
+	assert.False(t, bf.MayContain([]byte("bar")))
 }

@@ -38,7 +38,7 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 1, len(res.Value))
 				assert.Equal(t, []byte("value"), res.Value[0].Data)
-				assert.Equal(t, vclock.Version{1: 1}, vclock.MustDecode(res.Value[0].Version))
+				assert.Equal(t, vclock.Version{1: 1}, vclock.MustFromString(res.Value[0].Version))
 			},
 		},
 		"FoundMultipleValues": {
@@ -61,9 +61,9 @@ func TestGet(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 2, len(res.Value))
 				assert.Equal(t, []byte("value 1"), res.Value[0].Data)
-				assert.Equal(t, vclock.Version{1: 1}, vclock.MustDecode(res.Value[0].Version))
+				assert.Equal(t, vclock.Version{1: 1}, vclock.MustFromString(res.Value[0].Version))
 				assert.Equal(t, []byte("value 2"), res.Value[1].Data)
-				assert.Equal(t, vclock.Version{2: 1}, vclock.MustDecode(res.Value[1].Version))
+				assert.Equal(t, vclock.Version{2: 1}, vclock.MustFromString(res.Value[1].Version))
 			},
 		},
 		"NotFound": {
@@ -124,7 +124,7 @@ func TestPut(t *testing.T) {
 				Key:     "key",
 				Primary: true,
 				Value: &proto.VersionedValue{
-					Version: vclock.Encode(vclock.Version{100: 1, 200: 1}),
+					Version: vclock.ToString(vclock.Version{100: 1, 200: 1}),
 					Data:    []byte("value"),
 				},
 			},
@@ -132,7 +132,7 @@ func TestPut(t *testing.T) {
 				require.NoError(t, err)
 
 				version := vclock.Version{100: 2, 200: 1}
-				assert.Equal(t, version, vclock.MustDecode(res.Version))
+				assert.Equal(t, version, vclock.MustFromString(res.Version))
 			},
 		},
 		"OkNonPrimary": {
@@ -146,7 +146,7 @@ func TestPut(t *testing.T) {
 				Key:     "key",
 				Primary: false,
 				Value: &proto.VersionedValue{
-					Version: vclock.Encode(vclock.Version{100: 1, 200: 1}),
+					Version: vclock.ToString(vclock.Version{100: 1, 200: 1}),
 					Data:    []byte("value"),
 				},
 			},
@@ -154,7 +154,7 @@ func TestPut(t *testing.T) {
 				require.NoError(t, err)
 
 				version := vclock.Version{100: 1, 200: 1}
-				assert.Equal(t, version, vclock.MustDecode(res.Version))
+				assert.Equal(t, version, vclock.MustFromString(res.Version))
 			},
 		},
 		"FailsObsoleteWrite": {
@@ -167,7 +167,7 @@ func TestPut(t *testing.T) {
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
-					Version: vclock.Encode(vclock.Empty()),
+					Version: vclock.ToString(vclock.Empty()),
 					Data:    []byte{},
 				},
 			},
@@ -187,7 +187,7 @@ func TestPut(t *testing.T) {
 			request: &proto.PutRequest{
 				Key: "key",
 				Value: &proto.VersionedValue{
-					Version: vclock.Encode(vclock.Empty()),
+					Version: vclock.ToString(vclock.Empty()),
 					Data:    []byte{},
 				},
 			},

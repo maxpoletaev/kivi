@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -12,6 +13,7 @@ var ErrDataCorrupted = fmt.Errorf("data corrupted")
 
 type Reader struct {
 	file      io.ReaderAt
+	mut       sync.Mutex
 	entryBuf  []byte
 	headerBuf []byte
 	offset    int64
@@ -90,12 +92,18 @@ func (r *Reader) read(msg proto.Message) (int, error) {
 }
 
 func (r *Reader) ReadAt(msg proto.Message, offset int64) (int, error) {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
 	r.offset = offset
 
 	return r.read(msg)
 }
 
 func (r *Reader) ReadNext(msg proto.Message) (int, error) {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
 	n, err := r.read(msg)
 	if err != nil {
 		return 0, err
@@ -105,6 +113,9 @@ func (r *Reader) ReadNext(msg proto.Message) (int, error) {
 }
 
 func (r *Reader) SkipN(n int) error {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
 	var h entryHeader
 
 	for i := 0; i < n; i++ {
@@ -119,9 +130,15 @@ func (r *Reader) SkipN(n int) error {
 }
 
 func (r *Reader) Skip() error {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
 	return r.SkipN(1)
 }
 
 func (r *Reader) Offset() int64 {
+	r.mut.Lock()
+	defer r.mut.Unlock()
+
 	return r.offset
 }

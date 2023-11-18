@@ -2,56 +2,39 @@ package grpc
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
-	"github.com/maxpoletaev/kivi/internal/multierror"
 	"github.com/maxpoletaev/kivi/membership/proto"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
 var (
-	_ nodeapi.Client = (*Client)(nil)
+	_ noderpc.Client = (*Client)(nil)
 )
 
 type Client struct {
+	conn              *grpc.ClientConn
 	replicationClient replicationpb.ReplicationClient
 	storageClient     storagepb.StorageServiceClient
 	membershipClient  proto.MembershipClient
-	onClose           []func() error
-	closed            uint32
-}
-
-func (c *Client) addOnCloseHook(f func() error) {
-	c.onClose = append(c.onClose, f)
 }
 
 func (c *Client) Close() error {
-	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
-		return nil // already closed
-	}
-
-	errs := multierror.New[int]()
-
-	for idx, f := range c.onClose {
-		if err := f(); err != nil {
-			errs.Add(idx, err)
-		}
-	}
-
-	return errs.Combined()
+	return c.conn.Close()
 }
 
 func (c *Client) IsClosed() bool {
-	return atomic.LoadUint32(&c.closed) == 1
+	return c.conn.GetState() == connectivity.Shutdown
 }
 
-func (c *Client) StorageGet(ctx context.Context, key string) (*nodeapi.StorageGetResult, error) {
+func (c *Client) StorageGet(ctx context.Context, key string) (*noderpc.StorageGetResult, error) {
 	resp, err := c.storageClient.Get(ctx, &storagepb.GetRequest{
 		Key: key,
 	})
@@ -60,22 +43,22 @@ func (c *Client) StorageGet(ctx context.Context, key string) (*nodeapi.StorageGe
 		return nil, err
 	}
 
-	versions := make([]nodeapi.VersionedValue, len(resp.Value))
+	versions := make([]noderpc.VersionedValue, len(resp.Value))
 
 	for idx, v := range resp.Value {
-		versions[idx] = nodeapi.VersionedValue{
+		versions[idx] = noderpc.VersionedValue{
 			Tombstone: v.Tombstone,
 			Version:   v.Version,
 			Data:      v.Data,
 		}
 	}
 
-	return &nodeapi.StorageGetResult{
+	return &noderpc.StorageGetResult{
 		Versions: versions,
 	}, nil
 }
 
-func (c *Client) StoragePut(ctx context.Context, key string, value nodeapi.VersionedValue, primary bool) (*nodeapi.StoragePutResult, error) {
+func (c *Client) StoragePut(ctx context.Context, key string, value noderpc.VersionedValue, primary bool) (*noderpc.StoragePutResult, error) {
 	resp, err := c.storageClient.Put(ctx, &storagepb.PutRequest{
 		Key:     key,
 		Primary: primary,
@@ -90,12 +73,12 @@ func (c *Client) StoragePut(ctx context.Context, key string, value nodeapi.Versi
 		return nil, err
 	}
 
-	return &nodeapi.StoragePutResult{
+	return &noderpc.StoragePutResult{
 		Version: resp.Version,
 	}, nil
 }
 
-func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([]nodeapi.NodeInfo, error) {
+func (c *Client) PullPushState(ctx context.Context, nodes []noderpc.NodeInfo) ([]noderpc.NodeInfo, error) {
 	req := &proto.PullPushStateRequest{
 		Nodes: make([]*proto.Node, len(nodes)),
 	}
@@ -111,11 +94,11 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([
 		}
 
 		switch n.Status {
-		case nodeapi.NodeStatusHealthy:
+		case noderpc.NodeStatusHealthy:
 			req.Nodes[idx].Status = proto.Status_HEALTHY
-		case nodeapi.NodeStatusUnhealthy:
+		case noderpc.NodeStatusUnhealthy:
 			req.Nodes[idx].Status = proto.Status_UNHEALTHY
-		case nodeapi.NodeStatusLeft:
+		case noderpc.NodeStatusLeft:
 			req.Nodes[idx].Status = proto.Status_LEFT
 		}
 	}
@@ -125,10 +108,10 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([
 		return nil, err
 	}
 
-	nodes = make([]nodeapi.NodeInfo, len(resp.Nodes))
+	nodes = make([]noderpc.NodeInfo, len(resp.Nodes))
 	for idx, n := range resp.Nodes {
-		nodes[idx] = nodeapi.NodeInfo{
-			ID:    nodeapi.NodeID(n.Id),
+		nodes[idx] = noderpc.NodeInfo{
+			ID:    noderpc.NodeID(n.Id),
 			Name:  n.Name,
 			Gen:   n.Generation,
 			Addr:  n.Address,
@@ -138,11 +121,11 @@ func (c *Client) PullPushState(ctx context.Context, nodes []nodeapi.NodeInfo) ([
 
 		switch n.Status {
 		case proto.Status_HEALTHY:
-			nodes[idx].Status = nodeapi.NodeStatusHealthy
+			nodes[idx].Status = noderpc.NodeStatusHealthy
 		case proto.Status_UNHEALTHY:
-			nodes[idx].Status = nodeapi.NodeStatusUnhealthy
+			nodes[idx].Status = noderpc.NodeStatusUnhealthy
 		case proto.Status_LEFT:
-			nodes[idx].Status = nodeapi.NodeStatusLeft
+			nodes[idx].Status = noderpc.NodeStatusLeft
 		}
 	}
 
@@ -158,35 +141,35 @@ func (c *Client) Ping(ctx context.Context) (uint64, error) {
 	return resp.StateHash, nil
 }
 
-func (c *Client) PingIndirect(ctx context.Context, nodeID nodeapi.NodeID, timeout time.Duration) (nodeapi.PingResult, error) {
+func (c *Client) PingIndirect(ctx context.Context, nodeID noderpc.NodeID, timeout time.Duration) (noderpc.PingResult, error) {
 	resp, err := c.membershipClient.PingIndirect(ctx, &proto.PingIndirectRequest{
 		NodeId:  uint32(nodeID),
 		Timeout: timeout.Milliseconds(),
 	})
 
 	if err != nil {
-		return nodeapi.PingResult{}, err
+		return noderpc.PingResult{}, err
 	}
 
-	var status nodeapi.NodeStatus
+	var status noderpc.NodeStatus
 
 	switch resp.Status {
 	case proto.Status_HEALTHY:
-		status = nodeapi.NodeStatusHealthy
+		status = noderpc.NodeStatusHealthy
 	case proto.Status_UNHEALTHY:
-		status = nodeapi.NodeStatusUnhealthy
+		status = noderpc.NodeStatusUnhealthy
 	case proto.Status_LEFT:
-		status = nodeapi.NodeStatusLeft
+		status = noderpc.NodeStatusLeft
 	}
 
-	return nodeapi.PingResult{
+	return noderpc.PingResult{
 		Took:    time.Duration(resp.Duration) * time.Millisecond,
 		Message: resp.Message,
 		Status:  status,
 	}, nil
 }
 
-func (c *Client) GetKey(ctx context.Context, key string) (*nodeapi.GetKeyResult, error) {
+func (c *Client) GetKey(ctx context.Context, key string) (*noderpc.GetKeyResult, error) {
 	resp, err := c.replicationClient.Get(ctx, &replicationpb.GetRequest{
 		Key: key,
 	})
@@ -194,41 +177,34 @@ func (c *Client) GetKey(ctx context.Context, key string) (*nodeapi.GetKeyResult,
 		return nil, err
 	}
 
-	values := make([][]byte, len(resp.Values))
-	for idx, v := range resp.Values {
-		values[idx] = v.Data
-	}
-
-	return &nodeapi.GetKeyResult{
+	return &noderpc.GetKeyResult{
 		Version: resp.Version,
-		Values:  values,
+		Values:  resp.Values,
 	}, nil
 }
 
-func (c *Client) PutKey(ctx context.Context, key string, value []byte, version string) (*nodeapi.PutKeyResult, error) {
+func (c *Client) PutKey(ctx context.Context, key string, value []byte, version string) (*noderpc.PutKeyResult, error) {
 	resp, err := c.replicationClient.Put(ctx, &replicationpb.PutRequest{
 		Key:     key,
 		Version: version,
-		Value: &replicationpb.Value{
-			Data: value,
-		},
+		Value:   value,
 	})
 
 	if err != nil {
 		if grpcutil.ErrorCode(err) == codes.AlreadyExists {
-			return nil, nodeapi.ErrVersionConflict
+			return nil, noderpc.ErrVersionConflict
 		}
 
 		return nil, err
 	}
 
-	return &nodeapi.PutKeyResult{
+	return &noderpc.PutKeyResult{
 		Acknowledged: int(resp.Acknowledged),
 		Version:      resp.Version,
 	}, nil
 }
 
-func (c *Client) DeleteKey(ctx context.Context, key string, version string) (*nodeapi.DeleteKeyResult, error) {
+func (c *Client) DeleteKey(ctx context.Context, key string, version string) (*noderpc.DeleteKeyResult, error) {
 	res, err := c.replicationClient.Delete(ctx, &replicationpb.DeleteRequest{
 		Key:     key,
 		Version: version,
@@ -236,13 +212,13 @@ func (c *Client) DeleteKey(ctx context.Context, key string, version string) (*no
 
 	if err != nil {
 		if grpcutil.ErrorCode(err) == codes.AlreadyExists {
-			return nil, nodeapi.ErrVersionConflict
+			return nil, noderpc.ErrVersionConflict
 		}
 
 		return nil, err
 	}
 
-	return &nodeapi.DeleteKeyResult{
+	return &noderpc.DeleteKeyResult{
 		Acknowledged: int(res.Acknowledged),
 		Version:      res.Version,
 	}, nil

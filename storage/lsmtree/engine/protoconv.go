@@ -8,7 +8,7 @@ import (
 
 func fromProtoValue(v *proto.Value) storage.Value {
 	return storage.Value{
-		Version:   vclock.MustDecode(v.Version),
+		Version:   vclock.MustFromString(v.Version),
 		Tombstone: v.Tombstone,
 		Data:      v.Data,
 	}
@@ -26,7 +26,7 @@ func fromProtoValues(vs []*proto.Value) []storage.Value {
 
 func toProtoValue(v storage.Value) *proto.Value {
 	return &proto.Value{
-		Version:   vclock.Encode(v.Version),
+		Version:   vclock.ToString(v.Version),
 		Tombstone: v.Tombstone,
 		Data:      v.Data,
 	}

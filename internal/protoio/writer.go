@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"sync"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/runtime/protoiface"
@@ -11,6 +12,7 @@ import (
 
 type Writer struct {
 	pbopts    *proto.MarshalOptions
+	mut       sync.Mutex
 	file      io.Writer
 	entryBuf  []byte
 	headerBuf []byte
@@ -39,6 +41,9 @@ func NewWriter(file io.Writer) *Writer {
 }
 
 func (w *Writer) Append(entry proto.Message) (int, error) {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
 	out, err := w.pbopts.MarshalState(protoiface.MarshalInput{
 		Message: entry.ProtoReflect(),
 		Buf:     w.entryBuf[:0],
@@ -75,5 +80,8 @@ func (w *Writer) Append(entry proto.Message) (int, error) {
 }
 
 func (w *Writer) Offset() int64 {
+	w.mut.Lock()
+	defer w.mut.Unlock()
+
 	return w.offset
 }

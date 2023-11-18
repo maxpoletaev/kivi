@@ -51,7 +51,7 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 }
 
 func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto.PutResponse, error) {
-	version, err := vclock.Decode(req.Value.Version)
+	version, err := vclock.FromString(req.Value.Version)
 
 	if err != nil {
 		return nil, status.New(
@@ -81,7 +81,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}
 
 	return &proto.PutResponse{
-		Version: vclock.Encode(version),
+		Version: vclock.ToString(version),
 	}, nil
 }
 

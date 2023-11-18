@@ -1,4 +1,4 @@
-package nodeapi
+package noderpc
 
 //go:generate mockgen -destination=mock/client_mock.go -package=mock github.com/maxpoletaev/kivi/nodeapi Conn
 
@@ -9,6 +9,7 @@ type Client interface {
 	storageClient
 	membershipClient
 	replicationClient
+
 	IsClosed() bool
 	Close() error
 }

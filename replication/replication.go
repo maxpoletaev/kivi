@@ -12,20 +12,37 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 )
 
 var (
+	ErrUnavailable   = errors.New("not enough replicas alive")
 	ErrNotEnoughAcks = errors.New("consistency level not satisfied")
 )
 
-type nodeReply[T any] struct {
+type nodeResponse[T any] struct {
 	nodeID membership.NodeID
 	err    error
-	reply  T
+	ret    T
 }
 
-type Opts[T any] struct {
+// RequestMapper is called for each node in the replica set. The function should send a
+// request to the node and then either return the result or an error. If the
+// error is nil, the node is considered to have acknowledged the request.
+type RequestMapper[T any] func(context.Context, membership.NodeID, noderpc.Client) (T, error)
+
+// ResponseHandler is called for each reply. If the function returns an error, the whole
+// operation is aborted and the error is propagated to the caller. The abort function
+// can be called to manually abort the operation based on nodes' replies.
+type ResponseHandler[T any] func(abort func(), nodeID membership.NodeID, ret T, err error) error
+
+// Replicate is used to send a request to a set of nodes and ensure that enough
+// nodes have acknowledged the request. The coordinator will send the request to
+// all nodes in the replica set in parallel and then wait for the minimum number
+// of acknowledgments to be received. If the minimum number of acknowledgments
+// is not received within the timeout, the operation will fail with the
+// ErrNotEnoughAcks error.
+type Replicate[T any] struct {
 	// Cluster is the cluster to use for node discovery and connection management.
 	Cluster membership.Cluster
 	// Logger is used to log errors and debug information.
@@ -49,23 +66,7 @@ type Opts[T any] struct {
 	Background bool
 }
 
-// MapFn is called for each node in the replica set. The function should send a
-// request to the node and then either return the result or an error. If the
-// error is nil, the node is considered to have acknowledged the request.
-type MapFn[T any] func(context.Context, membership.NodeID, nodeapi.Client) (T, error)
-
-// ReduceFn is called for each reply. If the function returns an error, the whole
-// operation is aborted and the error is propagated to the caller. The abort function
-// can be called to manually abort the operation based on nodes' replies.
-type ReduceFn[T any] func(abort func(), nodeID membership.NodeID, ret T, err error) error
-
-// Distribute sends a request to all nodes in the replica set in parallel and
-// ensures that enough nodes have acknowledged the request. The mapFn is called
-// for each node in the replica set, and the reduceFn is called for each reply.
-// The function blocks until the minimum number of acknowledgments has been
-// received or the operation is aborted either by canceling the context or
-// calling the abort function in the reduceFn.
-func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn ReduceFn[T]) error {
+func (o Replicate[T]) Do(ctx context.Context, sendRequest RequestMapper[T], handleResponse ResponseHandler[T]) error {
 	if o.AckedNodes == nil {
 		o.AckedNodes = make(map[membership.NodeID]struct{})
 	}
@@ -74,17 +75,17 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 		panic("timeout is not set")
 	}
 
-	mapCtx, cancelMap := context.WithTimeout(context.Background(), o.Timeout)
-	replies := make(chan nodeReply[T], len(o.Nodes))
+	requestCtx, cancelRequest := context.WithTimeout(context.Background(), o.Timeout)
+	responses := make(chan nodeResponse[T], len(o.Nodes))
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(o.Nodes))
 
 	// Randomize the order of nodes to avoid sending requests to the same node first.
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	indices := rnd.Perm(len(o.Nodes))
 
-	for _, i := range indices {
+	// Call sendRequest for each node in the replica set in parallel.
+	for _, i := range rnd.Perm(len(o.Nodes)) {
 		member := &o.Nodes[i]
 
 		if !member.IsReachable() {
@@ -109,7 +110,7 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 				return
 			}
 
-			ret, err := mapFn(mapCtx, nodeID, conn)
+			ret, err := sendRequest(requestCtx, nodeID, conn)
 			if err != nil {
 				if !errors.Is(err, context.Canceled) && !grpcutil.IsCanceled(err) {
 					loglevel.Warn(
@@ -118,9 +119,9 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 				}
 			}
 
-			replies <- nodeReply[T]{
+			responses <- nodeResponse[T]{
 				nodeID: nodeID,
-				reply:  ret,
+				ret:    ret,
 				err:    err,
 			}
 		}(member.ID)
@@ -128,51 +129,56 @@ func (o Opts[T]) Distribute(ctx context.Context, mapFn MapFn[T], reduceFn Reduce
 
 	go func() {
 		wg.Wait()
-		cancelMap()
-		close(replies)
+		cancelRequest()
+		close(responses)
 	}()
 
-	// If we already have enough replies, no need to wait for more.
+	// If we already have enough responses, no need to wait for more.
 	if len(o.AckedNodes) >= o.MinAcks {
 		if !o.Background {
-			cancelMap()
+			cancelRequest()
 		}
 
 		return nil
 	}
 
 	aborted := false
-	abort := func() {
+	abortFn := func() {
+		cancelRequest() // nolint:wsl
 		aborted = true
-		cancelMap() // nolint:wsl
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case reply, ok := <-replies:
+
+		case reply, ok := <-responses:
 			if !ok {
 				return ErrNotEnoughAcks
 			}
 
-			err := reduceFn(abort, reply.nodeID, reply.reply, reply.err)
+			err := handleResponse(abortFn, reply.nodeID, reply.ret, reply.err)
 
+			// Exit early if the operation has been aborted.
 			if aborted {
 				return err
 			}
 
+			// Abort the operation if the response handler returned an error.
 			if err != nil {
-				cancelMap()
+				cancelRequest()
 				return err
 			}
 
 			if reply.err == nil {
 				o.AckedNodes[reply.nodeID] = struct{}{}
 
+				// If we already have enough responses, no need to wait for more,
+				// unless we're running in background mode.
 				if len(o.AckedNodes) == o.MinAcks {
 					if !o.Background {
-						cancelMap()
+						cancelRequest()
 					}
 
 					return nil

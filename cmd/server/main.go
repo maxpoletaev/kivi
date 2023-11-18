@@ -20,10 +20,12 @@ func join(ctx context.Context, cluster *membership.SWIMCluster, logger kitlog.Lo
 	var (
 		timeout = 10 * time.Second
 		backoff = 1 * time.Second
-		max     = 30 * time.Second
+		maxWait = 30 * time.Second
 	)
 
 	for {
+		level.Info(logger).Log("msg", "attempting to join cluster", "addr", addr)
+
 		err := func() error {
 			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
@@ -40,16 +42,17 @@ func join(ctx context.Context, cluster *membership.SWIMCluster, logger kitlog.Lo
 			return
 		}
 
+		backoff = backoff * 2
+		if backoff > maxWait {
+			backoff = maxWait
+		}
+
 		level.Error(logger).Log(
 			"msg", "failed to join cluster",
+			"retry_in", backoff/time.Second,
 			"addr", addr,
 			"err", err,
 		)
-
-		backoff = backoff * 2
-		if backoff > max {
-			backoff = max
-		}
 
 		select {
 		case <-ctx.Done():
@@ -68,36 +71,37 @@ func main() {
 			fmt.Println("cli error:", err)
 		}
 
-		os.Exit(2)
+		os.Exit(1)
 	}
 
 	wg := sync.WaitGroup{}
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGINT, syscall.SIGTERM)
 
+	var shutdownQueue []shutdownFunc
+
 	// Initialize all components.
 	logger, closeLogger := setupLogger()
-	cluster, closeCluster := setupCluster(logger)
+	shutdownQueue = append(shutdownQueue, closeLogger)
+
 	engine, closeEngine := setupEngine(logger)
+	shutdownQueue = append(shutdownQueue, closeEngine)
+
+	cluster, closeCluster := setupCluster(logger)
+	shutdownQueue = append(shutdownQueue, closeCluster)
+
 	_, closeGRPCServer := setupGRPCServer(&wg, cluster, engine, logger)
-
-	// Components must be shut down in a particular order.
-	shutdownOrder := []shutdownFunc{
-		closeCluster,
-		closeGRPCServer,
-		closeEngine,
-		closeLogger,
-	}
-
-	if opts.RestAPI.Enabled {
-		_, closeAPIServer := setupAPIServer(&wg, cluster, logger)
-		shutdownOrder = append([]shutdownFunc{closeAPIServer}, shutdownOrder...)
-	}
+	shutdownQueue = append(shutdownQueue, closeGRPCServer)
 
 	// Join the cluster, in case we were given any addresses to join.
 	joinCtx, cancelJoin := context.WithCancel(context.Background())
 	for _, joinAddr := range parseAddrs(opts.Cluster.JoinAddrs) {
-		go join(joinCtx, cluster, logger, joinAddr)
+		wg.Add(1)
+
+		go func(addr string) {
+			defer wg.Done()
+			join(joinCtx, cluster, logger, addr)
+		}(joinAddr)
 	}
 
 	// Block until we receive a signal to shut down.
@@ -105,11 +109,11 @@ func main() {
 	cancelJoin()
 	level.Info(logger).Log("msg", "received interrupt signal, shutting down")
 
-	// Shutdown all components.
-	for _, f := range shutdownOrder {
+	// Shutdown all components in reverse order.
+	for i := len(shutdownQueue) - 1; i >= 0; i-- {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-		if err := f(ctx); err != nil {
+		if err := shutdownQueue[i](ctx); err != nil {
 			level.Error(logger).Log("msg", "failed to shutdown component", "err", err)
 		}
 

@@ -101,7 +101,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 
 	bloomBytes, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bf.Bytes()),
-		NumBytes:  int32(bf.BytesSize()),
+		NumBytes:  int32(bf.Size()),
 		NumHashes: int32(bf.Hashes()),
 		Data:      bf.Bytes(),
 	})

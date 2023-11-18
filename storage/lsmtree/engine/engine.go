@@ -21,11 +21,10 @@ func New(lsm *lsmtree.LSMTree) *Engine {
 
 func (s *Engine) Get(key string) ([]storage.Value, error) {
 	entry, found, err := s.lsm.Get(key)
+
 	if err != nil {
 		return nil, err
-	}
-
-	if !found {
+	} else if !found {
 		return nil, storage.ErrNotFound
 	}
 

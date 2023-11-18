@@ -23,7 +23,7 @@ type heapItem struct {
 }
 
 func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
-	iterators := make(map[int64]*Iterator, len(tables))
+	iterators := make(map[int64]*protoio.Iterator[*proto.DataEntry], len(tables))
 
 	pq := heap.New(func(a, b *heapItem) bool {
 		// Prioritize the newest value if the keys are the same.
@@ -65,7 +65,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 	indexFile := fg.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_WRONLY|os.O_CREATE, 0o644)
 	bloomFile := fg.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_WRONLY|os.O_CREATE, 0o644)
 
-	if err := fg.Err(); err != nil {
+	if err = fg.Err(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 
@@ -167,7 +167,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 	bloomData, err = protobuf.Marshal(&proto.BloomFilter{
 		Crc32:     crc32.ChecksumIEEE(bloomFilter.Bytes()),
 		NumHashes: int32(bloomFilter.Hashes()),
-		NumBytes:  int32(bloomFilter.BytesSize()),
+		NumBytes:  int32(bloomFilter.Size()),
 		Data:      bloomFilter.Bytes(),
 	})
 

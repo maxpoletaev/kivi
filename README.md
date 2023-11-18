@@ -133,6 +133,21 @@ to the client. The client can then choose to perform conflict resolution using
 a different content-aware strategy, such as last-write-wins or use conflict-free 
 data structures (CRDT).
 
+### Conflict-free Data Types
+
+Kivi supports a few basic conflict-free data types for which the conflict resolution
+is not required, allowing to use kivi as a more traditional key-value store. The
+following data types are currently supported:
+
+ * **LWW-Register**: A last-write-wins register with timestamp-based conflict resolution
+ * **String-Set**: A set of strings that supports adding and removing elements without conflicts
+ * **Counter**: A counter that supports incrementing and decrementing without conflicts
+
+Note that these data types have some overhead associated with storing additional
+metadata required for conflict resolution. For example, the LWW-Register stores 
+the timestamp of the last update, and the Set needs to keep track of tombstones 
+for deleted elements.
+
 ## Running a Local Cluster
 
 The `docker-compose.yaml` contains a minimal configuration of a cluster of
@@ -144,177 +159,6 @@ five replicas. To run it, use:
 With the default consistency level, you need the majority of nodes (3 out of 5)
 to be available to perform reads and writes. A failure can be simulated by
 killing one or two of the containers with `docker kill`.
-
-## Client API
-
-The REST API is available at `localhost:8001-8003`. It is a simple wrapper around
-the internal GRPC API, allowing to perform reads and writes via HTTP requests and
-check the health of the cluster. Due to limitations of JSON format, the keys and
-values can only be represented as strings.
-
-The following endpoints are available:
-
-### `GET /kv/{key}`
-
-*Getting the value of a key in the database.*
-
-<details>
-<summary><strong>Response - No value</strong></summary>
-
-```
-HTTP/1.1 200 OK
-
-{
-   "Found": false,
-   "Version": ""
-}
-```
-</details>
-
-<details>
-<summary><strong>Response - Single value</strong></summary>
-
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "Found": true,
-  "Value": "bar",
-  "Version": "CgQIARADCgQIAhABCgQIAxAC"
-}
-```
-</details>
-
-<details>
-<summary><strong>Response - Conflicting values</strong></summary>
-
-
-```
-HTTP/1.1 300 Multiple Choices
-Content-Type: application/json
-
-{
-  "Values": [
-    "bar1", 
-    "bar2", 
-    "bar3"
-  ],
-  "Found": true,
-  "Version": "CgQIARADCgQIAhABCgQIAxAC"
-}
-```
-</details>
-
-### `PUT /kv/{key}`
-
-*Updating or inserting a new value into the database. In case of updating an
-existing value, the version of the previous value must be provided. The 
-response will contain the updated version of a value.*
-
-<details>
-<summary><strong>Request - Inserting a new key</strong></summary>
-
-```
-PUT /kv/foo
-Content-Type: application/json
-
-{
-   "Value": "bar"
-}
-```
-</details>
-
-<details>
-<summary><strong>Request - Updating an existing key</strong></summary>
-
-```
-PUT /kv/foo
-Content-Type: application/json
-
-{
-   "Value": "bar2"
-   "Version": "CgQIAxAB"
-}
-```
-</details>
-
-<details>
-<summary><strong>Response</strong></summary>
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "Version": "CgQIAxAB"
-}
-```
-</details>
-
-### `DELETE /kv/{key}`
-
-*Deleting a key from the database. The version of the current value must be
-provided. In case there is a concurrent update, only the versions that are bellow
-the provided version will be deleted. Since delete is basically inserting a new
-empty value, the version is updated and returned in the response.*
-
-<details>
-<summary><strong>Request</strong></summary>
-
-```
-DELETE /kv/foo
-Content-Type: application/json
-
-{
-   "Version": "CgQIAxAB"
-}
-```
-</details>
-
-<details>
-<summary><strong>Response</strong></summary>
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "Version": "CgQIAxAC"
-}
-```
-</details>
-
-### `GET /nodes`
-
-*Getting the list of nodes in the cluster and their status.*
-
-<details>
-<summary><strong>Response</strong></summary>
-
-```
-HTTP/1.1 200 OK
-Content-Type: application/json
-
-{
-  "Nodes": [
-    {
-      "ID": 1,
-      "Name: "node1",
-      "Addr": "172.24.2.1:3000",
-      "Status": "left"
-    },
-    {
-      "ID": 2,
-      "Name: "node2",
-      "Addr": "172.24.2.2:3000",
-      "Status": "healthy"
-    }
-  ]
-}
-```
-</details>
 
 ## References
 

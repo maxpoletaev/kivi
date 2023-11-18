@@ -10,6 +10,7 @@ import (
 type Iterator[T proto.Message] struct {
 	new    func() T
 	reader *Reader
+	empty  T
 	Item   T
 }
 
@@ -22,13 +23,12 @@ func NewIterator[T proto.Message](reader *Reader, newItem func() T) *Iterator[T]
 
 func (i *Iterator[T]) Next() error {
 	var (
-		item  = i.new()
-		empty T
+		item = i.new()
 	)
 
 	if _, err := i.reader.ReadNext(item); err != nil {
 		if errors.Is(err, io.EOF) {
-			i.Item = empty
+			i.Item = i.empty
 			return nil
 		}
 

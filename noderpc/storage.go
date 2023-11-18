@@ -1,4 +1,4 @@
-package nodeapi
+package noderpc
 
 import "context"
 

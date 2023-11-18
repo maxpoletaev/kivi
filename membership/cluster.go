@@ -13,7 +13,7 @@ import (
 	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 )
 
 var (
@@ -26,9 +26,9 @@ type Cluster interface {
 	SelfID() NodeID
 	Self() Node
 
-	ConnContext(ctx context.Context, id NodeID) (nodeapi.Client, error)
-	Conn(id NodeID) (nodeapi.Client, error)
-	LocalConn() nodeapi.Client
+	ConnContext(ctx context.Context, id NodeID) (noderpc.Client, error)
+	Conn(id NodeID) (noderpc.Client, error)
+	LocalConn() noderpc.Client
 
 	ApplyState(nodes []Node, sourceID NodeID) []Node
 	StateHash() uint64
@@ -45,10 +45,10 @@ type SWIMCluster struct {
 	selfID        NodeID
 	stateHash     uint64
 	nodes         map[NodeID]Node
-	connections   map[NodeID]nodeapi.Client
+	connections   map[NodeID]noderpc.Client
 	waiting       *generic.SyncMap[NodeID, chan struct{}]
 	lastSync      map[NodeID]time.Time
-	dialer        nodeapi.Dialer
+	dialer        noderpc.Dialer
 	logger        kitlog.Logger
 	dialTimeout   time.Duration
 	probeTimeout  time.Duration
@@ -79,7 +79,7 @@ func NewSWIM(conf Config) *SWIMCluster {
 		nodes:         nodes,
 		selfID:        localNode.ID,
 		stateHash:     localNode.Hash64(),
-		connections:   make(map[NodeID]nodeapi.Client),
+		connections:   make(map[NodeID]noderpc.Client),
 		waiting:       new(generic.SyncMap[NodeID, chan struct{}]),
 		lastSync:      make(map[NodeID]time.Time),
 		dialer:        conf.Dialer,
@@ -161,12 +161,12 @@ func (cl *SWIMCluster) Join(ctx context.Context, addr string) error {
 		}
 	}()
 
-	nodes, err := conn.PullPushState(ctx, toAPINodesInfo(cl.Nodes()))
+	nodes, err := conn.PullPushState(ctx, toAPINodeInfoList(cl.Nodes()))
 	if err != nil {
 		return fmt.Errorf("pull push state: %w", err)
 	}
 
-	cl.ApplyState(fromAPINodesInfo(nodes), 0)
+	cl.ApplyState(fromAPINodeInfoList(nodes), 0)
 
 	return nil
 }

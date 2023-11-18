@@ -3,27 +3,31 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/keepalive"
 
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
-func Dial(ctx context.Context, addr string) (nodeapi.Client, error) {
-	creds := insecure.NewCredentials()
-
+func Dial(ctx context.Context, addr string) (noderpc.Client, error) {
 	conn, err := grpc.DialContext(
 		ctx,
 		addr,
 		grpc.WithBlock(),
-		grpc.WithTransportCredentials(creds),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time: 10 * time.Second, // ping every 10 seconds if there is no activity
+		}),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(gzip.Name)),
 	)
+
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial failed: %w", err)
 	}
@@ -36,9 +40,8 @@ func Dial(ctx context.Context, addr string) (nodeapi.Client, error) {
 		replicationClient: replicationClient,
 		membershipClient:  membershipClient,
 		storageClient:     storageClient,
+		conn:              conn,
 	}
-
-	c.addOnCloseHook(conn.Close)
 
 	return c, nil
 }

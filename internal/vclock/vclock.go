@@ -1,6 +1,8 @@
 package vclock
 
 import (
+	"maps"
+
 	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
@@ -49,13 +51,13 @@ func Empty() Version {
 // key is the node ID and the value is the clock value: {1=1, 2=2}. If the clock value
 // has rolled over, the leftmost bit is set and the value is negative: {1=-1, 2=-2}.
 func (vc Version) String() string {
-	return Encode(vc)
+	return ToString(vc)
 }
 
 // Copy returns a copy of the vector clock.
 func (vc Version) Copy() Version {
 	newvec := make(Version, len(vc))
-	generic.MapCopy(newvec, vc)
+	maps.Copy(newvec, vc)
 	return newvec
 }
 

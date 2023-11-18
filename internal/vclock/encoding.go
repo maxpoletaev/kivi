@@ -3,19 +3,20 @@ package vclock
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
-// Encode encodes the vector clock into a string representation that can be used
+// ToString encodes the vector clock into a string representation that can be used
 // for comparison. The format is as follows: {k1=v1,k2=v2,...,kn=vn} where k is
 // the node ID and v is the counter value. The counter value is encoded using
 // base 36.
-func Encode(vc Version) string {
+func ToString(vc Version) string {
 	keys := generic.MapKeys(vc)
-	generic.SortSlice(keys, false)
+	slices.Sort(keys)
 
 	var s strings.Builder
 	s.WriteByte('{')
@@ -45,10 +46,10 @@ func Encode(vc Version) string {
 	return s.String()
 }
 
-// Decode decodes the vector clock from a string representation. The format is the
-// same as the one used by Encode. If the string is empty, an empty vector clock
+// FromString decodes the vector clock from a string representation. The format is the
+// same as the one used by ToString. If the string is empty, an empty vector clock
 // is returned.
-func Decode(encoded string) (Version, error) {
+func FromString(encoded string) (Version, error) {
 	vc := make(Version)
 	if encoded == "" {
 		return vc, nil
@@ -82,9 +83,9 @@ func Decode(encoded string) (Version, error) {
 	return vc, nil
 }
 
-// MustDecode is like Decode but panics if the string cannot be decoded.
-func MustDecode(encoded string) Version {
-	vc, err := Decode(encoded)
+// MustFromString is like FromString but panics if the string cannot be decoded.
+func MustFromString(encoded string) Version {
+	vc, err := FromString(encoded)
 	if err != nil {
 		panic(err)
 	}

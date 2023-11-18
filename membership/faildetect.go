@@ -8,10 +8,9 @@ import (
 	"time"
 
 	"github.com/go-kit/log/level"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 )
 
 type probeResult struct {
@@ -132,10 +131,18 @@ func (cl *SWIMCluster) detectFailures() {
 		return
 	}
 
+	level.Info(cl.logger).Log(
+		"msg", "direct probe result changed",
+		"node_id", target.ID,
+		"status", target.Status,
+		"new_status", directRes.status,
+	)
+
 	// In case the state has changed, we need several intermediary nodes to confirm
 	// the new state of the target. Yet, there might be a situation when there is not
-	// enough intermediary nodes alive (e.g. when the cluster is small). In this case
-	// just fallback to the result of the direct probe.
+	// enough intermediary nodes alive (e.g. when the cluster is small, or when there
+	// is a network partition). In this case, we just rely on the direct probe result.
+	// This is not ideal, but from out perspective, we are alive and the target is not.
 	nodes := cl.pickIndirectNodes(target)
 	if len(nodes) < cl.indirectNodes {
 		level.Warn(cl.logger).Log("msg", "not enough intermediary nodes")
@@ -200,7 +207,7 @@ func (cl *SWIMCluster) directProbe(ctx context.Context, node *Node) (*probeResul
 	// make them consistent.
 	if stateHash != cl.StateHash() {
 		level.Info(cl.logger).Log("msg", "performing state exchange", "node_id", node.ID)
-		nodesInfo, err := conn.PullPushState(ctx, toAPINodesInfo(cl.Nodes()))
+		nodesInfo, err := conn.PullPushState(ctx, toAPINodeInfoList(cl.Nodes()))
 
 		if err != nil {
 			level.Error(cl.logger).Log("msg", "state exchange failed", "node_id", node.ID, "err", err)
@@ -208,7 +215,7 @@ func (cl *SWIMCluster) directProbe(ctx context.Context, node *Node) (*probeResul
 		}
 
 		if len(nodesInfo) > 0 {
-			nodes := fromAPINodesInfo(nodesInfo)
+			nodes := fromAPINodeInfoList(nodesInfo)
 			cl.ApplyState(nodes, node.ID)
 		}
 	}
@@ -223,43 +230,60 @@ func (cl *SWIMCluster) indirectProbe(ctx context.Context, target *Node, nodes []
 	ctx, cancel := context.WithTimeout(ctx, cl.probeTimeout*3)
 	defer cancel()
 
-	errg := errgroup.Group{}
-	votesMut := sync.Mutex{}
-
-	votes := map[nodeapi.NodeStatus]int{
-		nodeapi.NodeStatusHealthy:   0,
-		nodeapi.NodeStatusUnhealthy: 0,
+	type voteResult struct {
+		status Status
+		err    error
 	}
+
+	votesCh := make(chan voteResult, len(nodes))
+	wg := sync.WaitGroup{}
+	wg.Add(len(nodes))
 
 	for i := range nodes {
-		node := nodes[i]
+		go func(node *Node) {
+			defer wg.Done()
 
-		errg.Go(func() error {
-			conn, err := cl.ConnContext(ctx, node.ID)
-			if err != nil {
-				return err
+			status, err := func() (noderpc.NodeStatus, error) {
+				conn, err := cl.ConnContext(ctx, node.ID)
+				if err != nil {
+					return 0, err
+				}
+
+				res, err := conn.PingIndirect(ctx, noderpc.NodeID(target.ID), cl.probeTimeout)
+				if err != nil {
+					return 0, err
+				}
+
+				return res.Status, nil
+			}()
+
+			votesCh <- voteResult{
+				status: fromAPIStatusMap[status],
+				err:    err,
 			}
-
-			res, err := conn.PingIndirect(ctx, nodeapi.NodeID(target.ID), cl.probeTimeout)
-			if err != nil {
-				return err
-			}
-
-			votesMut.Lock()
-			votes[res.Status]++
-			votesMut.Unlock()
-
-			return nil
-		})
+		}(nodes[i])
 	}
 
-	if err := errg.Wait(); err != nil {
-		return nil, err
+	go func() {
+		wg.Wait()
+		close(votesCh)
+	}()
+
+	votes := make(map[Status]int)
+	for vote := range votesCh {
+		votes[vote.status]++
 	}
 
-	if votes[nodeapi.NodeStatusUnhealthy] == len(nodes) {
+	level.Info(cl.logger).Log(
+		"msg", "indirect probe votes",
+		"target_node", target.ID,
+		"healthy", votes[StatusHealthy],
+		"unhealthy", votes[StatusUnhealthy],
+	)
+
+	if votes[StatusHealthy] == len(nodes) {
 		return &probeResult{status: StatusUnhealthy}, nil
-	} else if votes[nodeapi.NodeStatusHealthy] == len(nodes) {
+	} else if votes[StatusUnhealthy] == len(nodes) {
 		return &probeResult{status: StatusHealthy}, nil
 	}
 

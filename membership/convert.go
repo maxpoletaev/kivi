@@ -1,33 +1,28 @@
 package membership
 
 import (
-	"github.com/maxpoletaev/kivi/nodeapi"
+	"github.com/maxpoletaev/kivi/noderpc"
 )
 
-func fromAPINodeInfo(nodeinfo *nodeapi.NodeInfo) Node {
-	var status Status
+var fromAPIStatusMap = map[noderpc.NodeStatus]Status{
+	noderpc.NodeStatusHealthy:   StatusHealthy,
+	noderpc.NodeStatusUnhealthy: StatusUnhealthy,
+	noderpc.NodeStatusLeft:      StatusLeft,
+}
 
-	switch nodeinfo.Status {
-	case nodeapi.NodeStatusHealthy:
-		status = StatusHealthy
-	case nodeapi.NodeStatusUnhealthy:
-		status = StatusUnhealthy
-	case nodeapi.NodeStatusLeft:
-		status = StatusLeft
-	}
-
+func fromAPINodeInfo(nodeinfo *noderpc.NodeInfo) Node {
 	return Node{
 		ID:         NodeID(nodeinfo.ID),
 		Name:       nodeinfo.Name,
 		Gen:        nodeinfo.Gen,
 		PublicAddr: nodeinfo.Addr,
-		Status:     status,
 		Error:      nodeinfo.Error,
 		RunID:      nodeinfo.RunID,
+		Status:     fromAPIStatusMap[nodeinfo.Status],
 	}
 }
 
-func fromAPINodesInfo(nodesInfo []nodeapi.NodeInfo) []Node {
+func fromAPINodeInfoList(nodesInfo []noderpc.NodeInfo) []Node {
 	nodes := make([]Node, len(nodesInfo))
 	for i, nodeInfo := range nodesInfo {
 		nodes[i] = fromAPINodeInfo(&nodeInfo)
@@ -36,31 +31,26 @@ func fromAPINodesInfo(nodesInfo []nodeapi.NodeInfo) []Node {
 	return nodes
 }
 
-func toAPINodeInfo(node *Node) nodeapi.NodeInfo {
-	var status nodeapi.NodeStatus
+var toAPIStatusMap = map[Status]noderpc.NodeStatus{
+	StatusHealthy:   noderpc.NodeStatusHealthy,
+	StatusUnhealthy: noderpc.NodeStatusUnhealthy,
+	StatusLeft:      noderpc.NodeStatusLeft,
+}
 
-	switch node.Status {
-	case StatusHealthy:
-		status = nodeapi.NodeStatusHealthy
-	case StatusUnhealthy:
-		status = nodeapi.NodeStatusUnhealthy
-	case StatusLeft:
-		status = nodeapi.NodeStatusLeft
-	}
-
-	return nodeapi.NodeInfo{
-		ID:     nodeapi.NodeID(node.ID),
+func toAPINodeInfo(node *Node) noderpc.NodeInfo {
+	return noderpc.NodeInfo{
+		ID:     noderpc.NodeID(node.ID),
 		Name:   node.Name,
 		Gen:    node.Gen,
-		Addr:   node.PublicAddr,
-		Status: status,
 		Error:  node.Error,
 		RunID:  node.RunID,
+		Addr:   node.PublicAddr,
+		Status: toAPIStatusMap[node.Status],
 	}
 }
 
-func toAPINodesInfo(nodes []Node) []nodeapi.NodeInfo {
-	nodesInfo := make([]nodeapi.NodeInfo, len(nodes))
+func toAPINodeInfoList(nodes []Node) []noderpc.NodeInfo {
+	nodesInfo := make([]noderpc.NodeInfo, len(nodes))
 	for i, node := range nodes {
 		nodesInfo[i] = toAPINodeInfo(&node)
 	}

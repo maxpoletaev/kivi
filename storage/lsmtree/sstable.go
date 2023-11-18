@@ -28,8 +28,8 @@ type readerAtCloser interface {
 type SSTable struct {
 	*SSTableInfo
 	index       *skiplist.Skiplist[string, int64]
-	bloomfilter *bloom.Pool
 	dataFile    readerAtCloser
+	bloomfilter *bloom.Filter
 }
 
 // OpenTable opens an SSTable from the given paths. All files must exist,
@@ -99,7 +99,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 			SSTableInfo: info,
 			index:       index,
 			dataFile:    dataFile,
-			bloomfilter: bloom.NewPool(bf.Data, int(bf.NumHashes)),
+			bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
 		}, nil
 	}
 
@@ -113,7 +113,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 		SSTableInfo: info,
 		index:       index,
 		dataFile:    dataFile,
-		bloomfilter: bloom.NewPool(bf.Data, int(bf.NumHashes)),
+		bloomfilter: bloom.New(bf.Data, int(bf.NumHashes)),
 	}, nil
 }
 
@@ -129,22 +129,24 @@ func (sst *SSTable) Close() error {
 }
 
 // Iterator returns an iterator over the SSTable.
-func (sst *SSTable) Iterator() *Iterator {
-	return &Iterator{
-		reader: protoio.NewReader(sst.dataFile),
-	}
+func (sst *SSTable) Iterator() *protoio.Iterator[*proto.DataEntry] {
+	reader := protoio.NewReader(sst.dataFile)
+
+	return protoio.NewIterator(reader, func() *proto.DataEntry {
+		return &proto.DataEntry{}
+	})
 }
 
 // MayContain checks the underlying bloom filter to see if the key is in the SSTable.
 // This is a fast operation, and can be used to avoid accessing the disk if the key
 // is not present. Yet, it may return false positives.
 func (sst *SSTable) MayContain(key string) bool {
-	return sst.bloomfilter.Check(unsafeBytes(key))
+	return sst.bloomfilter.MayContain(unsafeBytes(key))
 }
 
 func (sst *SSTable) Get(key string) (*proto.DataEntry, bool, error) {
 	// Check the bloom filter first, if it's not there, it's not in the SSTable.
-	if !sst.bloomfilter.Check(unsafeBytes(key)) {
+	if !sst.bloomfilter.MayContain(unsafeBytes(key)) {
 		return nil, false, nil
 	}
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"os"
 	"sync"
 	"time"
@@ -15,10 +14,9 @@ import (
 
 	"github.com/maxpoletaev/kivi/membership"
 
-	"github.com/maxpoletaev/kivi/api"
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
-	nodeapigrpc "github.com/maxpoletaev/kivi/nodeapi/grpc"
+	nodeapigrpc "github.com/maxpoletaev/kivi/noderpc/grpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
 	"github.com/maxpoletaev/kivi/storage"
@@ -69,37 +67,6 @@ func setupCluster(logger kitlog.Logger) (*membership.SWIMCluster, shutdownFunc) 
 	}
 
 	return cluster, shutdown
-}
-
-func setupAPIServer(wg *sync.WaitGroup, cluster membership.Cluster, logger kitlog.Logger) (*http.Server, shutdownFunc) {
-	restAPI := &http.Server{
-		Addr:    opts.RestAPI.BindAddr,
-		Handler: api.CreateRouter(cluster),
-	}
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		if err := restAPI.ListenAndServe(); err != nil {
-			if err != http.ErrServerClosed {
-				panic(fmt.Sprintf("failed to start REST API server: %v", err))
-			}
-		}
-	}()
-
-	shutdown := func(ctx context.Context) error {
-		logger.Log("msg", "shutting down API server")
-
-		if err := restAPI.Shutdown(ctx); err != nil {
-			return fmt.Errorf("failed to shutdown REST API server: %w", err)
-		}
-
-		return nil
-	}
-
-	return restAPI, shutdown
 }
 
 func setupGRPCServer(

@@ -25,10 +25,9 @@ func (cl *SWIMCluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 			continue
 		}
 
-		// Preserve the local address.
-		if len(curr.LocalAddr) > 0 {
-			next.LocalAddr = curr.LocalAddr
-		}
+		// Preserve the local fields.
+		next.LocalAddr = curr.LocalAddr
+		next.LocalStatus = curr.LocalStatus
 
 		// There is a newer node with the same ID as ours. But if we are not dead yet,
 		// meaning something is very broken, better to panic.
@@ -50,7 +49,9 @@ func (cl *SWIMCluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 			if curr.Gen > next.Gen {
 				next.Gen = curr.Gen
 			}
+
 			cl.nodes[next.ID] = next
+
 			continue
 		}
 
@@ -65,10 +66,12 @@ func (cl *SWIMCluster) ApplyState(nodes []Node, sourceID NodeID) []Node {
 		}
 	}
 
+	// Update the last sync time for the source node.
 	if sourceID != 0 {
 		cl.lastSync[sourceID] = time.Now()
 	}
 
+	// Recalculate the state hash by XORing the hashes of all nodes.
 	cl.stateHash = 0
 	for _, node := range cl.nodes {
 		cl.stateHash ^= node.Hash64()

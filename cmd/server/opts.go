@@ -22,11 +22,6 @@ var opts struct {
 		InMemory     bool   `long:"in-memory" description:"use in-memory storage" env:"IN_MEMORY"`
 	} `group:"storage" namespace:"storage" env-namespace:"STORAGE"`
 
-	RestAPI struct {
-		Enabled  bool   `long:"enabled" description:"enable restapi server" env:"ENABLED"`
-		BindAddr string `long:"bind-addr" description:"address to bind restapi server" env:"BIND_ADDR" default:":8000"`
-	} `group:"restapi" namespace:"restapi" env-namespace:"RESTAPI"`
-
 	Cluster struct {
 		JoinAddrs          string `long:"join-addrs" description:"comma-separated list of nodes to join" env:"JOIN_ADDRS"`
 		ProbeTimeout       int    `long:"probe-timeout" description:"failure detection timeout (ms)" env:"PROBE_TIMEOUT" default:"5000"`
