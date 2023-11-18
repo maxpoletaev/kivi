@@ -1,12 +1,11 @@
-package service
+package storage
 
 import (
 	"github.com/maxpoletaev/kivi/internal/vclock"
-	"github.com/maxpoletaev/kivi/storage"
 	"github.com/maxpoletaev/kivi/storage/proto"
 )
 
-func toProtoValues(values []storage.Value) []*proto.VersionedValue {
+func ToProtoValues(values []Value) []*proto.VersionedValue {
 	versionedValues := make(
 		[]*proto.VersionedValue, 0, len(values),
 	)

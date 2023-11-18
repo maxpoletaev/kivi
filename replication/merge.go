@@ -7,12 +7,12 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/vclock"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/noderpc"
+	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
 type nodeValue struct {
 	NodeID membership.NodeID
-	noderpc.VersionedValue
+	*storagepb.VersionedValue
 }
 
 type mergeResult struct {
@@ -71,7 +71,9 @@ func mergeVersions(values []nodeValue) (mergeResult, error) {
 
 		// Keep unique values only, based on the version.
 		if _, ok := uniqueValues[value.Version]; !ok {
-			uniqueValues[value.Version] = value
+			if !value.Tombstone {
+				uniqueValues[value.Version] = value
+			}
 		}
 	}
 

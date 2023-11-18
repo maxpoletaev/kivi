@@ -40,7 +40,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 		// In case there was an error during the function execution, do our best to
 		// remove the files that were created, so that we don't leave any garbage.
 		if err != nil {
-			if err2 := fg.Remove(); err2 != nil {
+			if err2 := fg.Cleanup(); err2 != nil {
 				fmt.Printf("defer: failed to remove files: %v\n", err2)
 			}
 		}
@@ -59,7 +59,7 @@ func flushToDisk(mem *Memtable, opts flushOpts) (sst *SSTable, err error) {
 	bloomFile := fg.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_CREATE|os.O_WRONLY, 0o644)
 	dataFile := fg.Open(filepath.Join(opts.prefix, info.DataFile), os.O_CREATE|os.O_WRONLY, 0o644)
 
-	if err = fg.Err(); err != nil {
+	if err = fg.OpenErr(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 

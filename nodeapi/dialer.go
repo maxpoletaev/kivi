@@ -1,4 +1,4 @@
-package grpc
+package nodeapi
 
 import (
 	"context"
@@ -11,12 +11,15 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
-	"github.com/maxpoletaev/kivi/noderpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
-func Dial(ctx context.Context, addr string) (noderpc.Client, error) {
+// Dialer is a function that establishes a connection with a cluster node.
+type Dialer func(ctx context.Context, addr string) (*Client, error)
+
+// DialGRPC establishes a gRPC connection with a cluster node.
+func DialGRPC(ctx context.Context, addr string) (*Client, error) {
 	conn, err := grpc.DialContext(
 		ctx,
 		addr,
@@ -34,14 +37,12 @@ func Dial(ctx context.Context, addr string) (noderpc.Client, error) {
 
 	replicationClient := replicationpb.NewReplicationClient(conn)
 	membershipClient := membershippb.NewMembershipClient(conn)
-	storageClient := storagepb.NewStorageServiceClient(conn)
+	storageClient := storagepb.NewStorageClient(conn)
 
-	c := &Client{
-		replicationClient: replicationClient,
-		membershipClient:  membershipClient,
-		storageClient:     storageClient,
-		conn:              conn,
-	}
-
-	return c, nil
+	return &Client{
+		conn:        conn,
+		Storage:     storageClient,
+		Membership:  membershipClient,
+		Replication: replicationClient,
+	}, nil
 }

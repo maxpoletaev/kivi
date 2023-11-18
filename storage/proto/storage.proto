@@ -37,7 +37,7 @@ message ScanResponse {
     repeated VersionedValue value = 2;
 }
 
-service StorageService {
+service Storage {
     rpc Get(GetRequest) returns (GetResponse);
     rpc Put(PutRequest) returns (PutResponse);
     rpc Scan(ScanRequest) returns (stream ScanResponse);

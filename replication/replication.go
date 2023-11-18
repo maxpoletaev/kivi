@@ -12,7 +12,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/noderpc"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 var (
@@ -29,7 +29,7 @@ type nodeResponse[T any] struct {
 // RequestMapper is called for each node in the replica set. The function should send a
 // request to the node and then either return the result or an error. If the
 // error is nil, the node is considered to have acknowledged the request.
-type RequestMapper[T any] func(context.Context, membership.NodeID, noderpc.Client) (T, error)
+type RequestMapper[T any] func(context.Context, membership.NodeID, *nodeapi.Client) (T, error)
 
 // ResponseHandler is called for each reply. If the function returns an error, the whole
 // operation is aborted and the error is propagated to the caller. The abort function

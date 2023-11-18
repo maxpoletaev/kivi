@@ -18,47 +18,47 @@ import (
 // Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
-// StorageServiceClient is the client API for StorageService service.
+// StorageClient is the client API for Storage service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type StorageServiceClient interface {
+type StorageClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
-	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (StorageService_ScanClient, error)
+	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (Storage_ScanClient, error)
 }
 
-type storageServiceClient struct {
+type storageClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewStorageServiceClient(cc grpc.ClientConnInterface) StorageServiceClient {
-	return &storageServiceClient{cc}
+func NewStorageClient(cc grpc.ClientConnInterface) StorageClient {
+	return &storageClient{cc}
 }
 
-func (c *storageServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+func (c *storageClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
-	err := c.cc.Invoke(ctx, "/storage.StorageService/Get", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/storage.Storage/Get", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *storageServiceClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
+func (c *storageClient) Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error) {
 	out := new(PutResponse)
-	err := c.cc.Invoke(ctx, "/storage.StorageService/Put", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/storage.Storage/Put", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *storageServiceClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (StorageService_ScanClient, error) {
-	stream, err := c.cc.NewStream(ctx, &StorageService_ServiceDesc.Streams[0], "/storage.StorageService/Scan", opts...)
+func (c *storageClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (Storage_ScanClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Storage_ServiceDesc.Streams[0], "/storage.Storage/Scan", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &storageServiceScanClient{stream}
+	x := &storageScanClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -68,16 +68,16 @@ func (c *storageServiceClient) Scan(ctx context.Context, in *ScanRequest, opts .
 	return x, nil
 }
 
-type StorageService_ScanClient interface {
+type Storage_ScanClient interface {
 	Recv() (*ScanResponse, error)
 	grpc.ClientStream
 }
 
-type storageServiceScanClient struct {
+type storageScanClient struct {
 	grpc.ClientStream
 }
 
-func (x *storageServiceScanClient) Recv() (*ScanResponse, error) {
+func (x *storageScanClient) Recv() (*ScanResponse, error) {
 	m := new(ScanResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -85,119 +85,119 @@ func (x *storageServiceScanClient) Recv() (*ScanResponse, error) {
 	return m, nil
 }
 
-// StorageServiceServer is the server API for StorageService service.
-// All implementations must embed UnimplementedStorageServiceServer
+// StorageServer is the server API for Storage service.
+// All implementations must embed UnimplementedStorageServer
 // for forward compatibility
-type StorageServiceServer interface {
+type StorageServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Put(context.Context, *PutRequest) (*PutResponse, error)
-	Scan(*ScanRequest, StorageService_ScanServer) error
-	mustEmbedUnimplementedStorageServiceServer()
+	Scan(*ScanRequest, Storage_ScanServer) error
+	mustEmbedUnimplementedStorageServer()
 }
 
-// UnimplementedStorageServiceServer must be embedded to have forward compatible implementations.
-type UnimplementedStorageServiceServer struct {
+// UnimplementedStorageServer must be embedded to have forward compatible implementations.
+type UnimplementedStorageServer struct {
 }
 
-func (UnimplementedStorageServiceServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
+func (UnimplementedStorageServer) Get(context.Context, *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
-func (UnimplementedStorageServiceServer) Put(context.Context, *PutRequest) (*PutResponse, error) {
+func (UnimplementedStorageServer) Put(context.Context, *PutRequest) (*PutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Put not implemented")
 }
-func (UnimplementedStorageServiceServer) Scan(*ScanRequest, StorageService_ScanServer) error {
+func (UnimplementedStorageServer) Scan(*ScanRequest, Storage_ScanServer) error {
 	return status.Errorf(codes.Unimplemented, "method Scan not implemented")
 }
-func (UnimplementedStorageServiceServer) mustEmbedUnimplementedStorageServiceServer() {}
+func (UnimplementedStorageServer) mustEmbedUnimplementedStorageServer() {}
 
-// UnsafeStorageServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to StorageServiceServer will
+// UnsafeStorageServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to StorageServer will
 // result in compilation errors.
-type UnsafeStorageServiceServer interface {
-	mustEmbedUnimplementedStorageServiceServer()
+type UnsafeStorageServer interface {
+	mustEmbedUnimplementedStorageServer()
 }
 
-func RegisterStorageServiceServer(s grpc.ServiceRegistrar, srv StorageServiceServer) {
-	s.RegisterService(&StorageService_ServiceDesc, srv)
+func RegisterStorageServer(s grpc.ServiceRegistrar, srv StorageServer) {
+	s.RegisterService(&Storage_ServiceDesc, srv)
 }
 
-func _StorageService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServiceServer).Get(ctx, in)
+		return srv.(StorageServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storage.StorageService/Get",
+		FullMethod: "/storage.Storage/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServiceServer).Get(ctx, req.(*GetRequest))
+		return srv.(StorageServer).Get(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StorageService_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Storage_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PutRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(StorageServiceServer).Put(ctx, in)
+		return srv.(StorageServer).Put(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/storage.StorageService/Put",
+		FullMethod: "/storage.Storage/Put",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(StorageServiceServer).Put(ctx, req.(*PutRequest))
+		return srv.(StorageServer).Put(ctx, req.(*PutRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _StorageService_Scan_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Storage_Scan_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ScanRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(StorageServiceServer).Scan(m, &storageServiceScanServer{stream})
+	return srv.(StorageServer).Scan(m, &storageScanServer{stream})
 }
 
-type StorageService_ScanServer interface {
+type Storage_ScanServer interface {
 	Send(*ScanResponse) error
 	grpc.ServerStream
 }
 
-type storageServiceScanServer struct {
+type storageScanServer struct {
 	grpc.ServerStream
 }
 
-func (x *storageServiceScanServer) Send(m *ScanResponse) error {
+func (x *storageScanServer) Send(m *ScanResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-// StorageService_ServiceDesc is the grpc.ServiceDesc for StorageService service.
+// Storage_ServiceDesc is the grpc.ServiceDesc for Storage service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var StorageService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "storage.StorageService",
-	HandlerType: (*StorageServiceServer)(nil),
+var Storage_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "storage.Storage",
+	HandlerType: (*StorageServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Get",
-			Handler:    _StorageService_Get_Handler,
+			Handler:    _Storage_Get_Handler,
 		},
 		{
 			MethodName: "Put",
-			Handler:    _StorageService_Put_Handler,
+			Handler:    _Storage_Put_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Scan",
-			Handler:       _StorageService_Scan_Handler,
+			Handler:       _Storage_Scan_Handler,
 			ServerStreams: true,
 		},
 	},

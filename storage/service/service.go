@@ -18,7 +18,7 @@ var (
 )
 
 type StorageService struct {
-	proto.UnimplementedStorageServiceServer
+	proto.UnimplementedStorageServer
 
 	storage storage.Engine
 	nodeID  uint32
@@ -44,7 +44,7 @@ func (s *StorageService) Get(ctx context.Context, req *proto.GetRequest) (*proto
 	}
 
 	resp := &proto.GetResponse{
-		Value: toProtoValues(values),
+		Value: storage.ToProtoValues(values),
 	}
 
 	return resp, nil
@@ -85,7 +85,7 @@ func (s *StorageService) Put(ctx context.Context, req *proto.PutRequest) (*proto
 	}, nil
 }
 
-func (s *StorageService) Scan(req *proto.ScanRequest, stream proto.StorageService_ScanServer) error {
+func (s *StorageService) Scan(req *proto.ScanRequest, stream proto.Storage_ScanServer) error {
 	st, ok := s.storage.(storage.Scannable)
 	if !ok {
 		return errNotSupported
@@ -104,7 +104,7 @@ func (s *StorageService) Scan(req *proto.ScanRequest, stream proto.StorageServic
 
 		key, values := it.Item()
 		resp := &proto.ScanResponse{
-			Value: toProtoValues(values),
+			Value: storage.ToProtoValues(values),
 			Key:   key,
 		}
 

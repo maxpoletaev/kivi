@@ -13,7 +13,8 @@ import (
 	"github.com/go-kit/log/level"
 
 	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/noderpc"
+	"github.com/maxpoletaev/kivi/membership/proto"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
 var (
@@ -26,9 +27,9 @@ type Cluster interface {
 	SelfID() NodeID
 	Self() Node
 
-	ConnContext(ctx context.Context, id NodeID) (noderpc.Client, error)
-	Conn(id NodeID) (noderpc.Client, error)
-	LocalConn() noderpc.Client
+	ConnContext(ctx context.Context, id NodeID) (*nodeapi.Client, error)
+	Conn(id NodeID) (*nodeapi.Client, error)
+	LocalConn() *nodeapi.Client
 
 	ApplyState(nodes []Node, sourceID NodeID) []Node
 	StateHash() uint64
@@ -45,10 +46,10 @@ type SWIMCluster struct {
 	selfID        NodeID
 	stateHash     uint64
 	nodes         map[NodeID]Node
-	connections   map[NodeID]noderpc.Client
+	connections   map[NodeID]*nodeapi.Client
 	waiting       *generic.SyncMap[NodeID, chan struct{}]
 	lastSync      map[NodeID]time.Time
-	dialer        noderpc.Dialer
+	dialer        nodeapi.Dialer
 	logger        kitlog.Logger
 	dialTimeout   time.Duration
 	probeTimeout  time.Duration
@@ -60,7 +61,7 @@ type SWIMCluster struct {
 	wg            sync.WaitGroup
 }
 
-func NewSWIM(conf Config) *SWIMCluster {
+func NewCluster(conf Config) *SWIMCluster {
 	localNode := Node{
 		ID:         conf.NodeID,
 		Name:       conf.NodeName,
@@ -79,7 +80,7 @@ func NewSWIM(conf Config) *SWIMCluster {
 		nodes:         nodes,
 		selfID:        localNode.ID,
 		stateHash:     localNode.Hash64(),
-		connections:   make(map[NodeID]noderpc.Client),
+		connections:   make(map[NodeID]*nodeapi.Client),
 		waiting:       new(generic.SyncMap[NodeID, chan struct{}]),
 		lastSync:      make(map[NodeID]time.Time),
 		dialer:        conf.Dialer,
@@ -161,12 +162,15 @@ func (cl *SWIMCluster) Join(ctx context.Context, addr string) error {
 		}
 	}()
 
-	nodes, err := conn.PullPushState(ctx, toAPINodeInfoList(cl.Nodes()))
+	res, err := conn.Membership.PullPushState(ctx, &proto.PullPushStateRequest{
+		Nodes: ToProtoNodeList(cl.Nodes()),
+	})
+
 	if err != nil {
 		return fmt.Errorf("pull push state: %w", err)
 	}
 
-	cl.ApplyState(fromAPINodeInfoList(nodes), 0)
+	cl.ApplyState(FromProtoNodeList(res.Nodes), 0)
 
 	return nil
 }

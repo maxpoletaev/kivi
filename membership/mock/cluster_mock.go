@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	membership "github.com/maxpoletaev/kivi/membership"
-	nodeapi "github.com/maxpoletaev/kivi/noderpc"
+	nodeapi "github.com/maxpoletaev/kivi/nodeapi"
 	gomock "go.uber.org/mock/gomock"
 )
 

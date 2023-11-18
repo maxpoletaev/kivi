@@ -27,17 +27,17 @@ func (s *MembershipServer) ListNodes(ctx context.Context, req *proto.ListNodesRe
 	nodes := s.cluster.Nodes()
 
 	return &proto.ListNodesResponse{
-		Nodes: toProtoNodeList(nodes),
+		Nodes: membership.ToProtoNodeList(nodes),
 	}, nil
 }
 
 func (s *MembershipServer) PullPushState(ctx context.Context, req *proto.PullPushStateRequest) (*proto.PullPushStateResponse, error) {
-	remoteNodes := fromProtoNodeList(req.Nodes)
 	sourceID := membership.NodeID(req.NodeId)
+	remoteNodes := membership.FromProtoNodeList(req.Nodes)
 	localNodes := s.cluster.ApplyState(remoteNodes, sourceID)
 
 	return &proto.PullPushStateResponse{
-		Nodes: toProtoNodeList(localNodes),
+		Nodes: membership.ToProtoNodeList(localNodes),
 	}, nil
 }
 
@@ -68,7 +68,7 @@ func (s *MembershipServer) PingIndirect(ctx context.Context, req *proto.PingIndi
 		}, nil
 	}
 
-	_, err = conn.Ping(ctx)
+	_, err = conn.Membership.Ping(ctx, &proto.PingRequest{})
 	if err != nil {
 		return &proto.PingIndirectResponse{
 			Status:  proto.Status_UNHEALTHY,

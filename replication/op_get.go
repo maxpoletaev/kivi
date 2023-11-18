@@ -7,13 +7,14 @@ import (
 
 	kitlog "github.com/go-kit/log"
 	"github.com/go-kit/log/level"
+	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 
-	"github.com/maxpoletaev/kivi/internal/generic"
 	"github.com/maxpoletaev/kivi/internal/grpcutil"
 	"github.com/maxpoletaev/kivi/membership"
-	"github.com/maxpoletaev/kivi/noderpc"
+	"github.com/maxpoletaev/kivi/nodeapi"
 	"github.com/maxpoletaev/kivi/replication/consistency"
+	storagepb "github.com/maxpoletaev/kivi/storage/proto"
 )
 
 type OpGetResult struct {
@@ -41,7 +42,7 @@ func (op *OpGet) Do(ctx context.Context, key string) (*OpGetResult, error) {
 		return nil, fmt.Errorf("not enough nodes alive")
 	}
 
-	err := Replicate[[]noderpc.VersionedValue]{
+	err := Replicate[[]*storagepb.VersionedValue]{
 		Nodes:      members,
 		AckedNodes: ackedNodes,
 		MinAcks:    needAcks,
@@ -50,15 +51,18 @@ func (op *OpGet) Do(ctx context.Context, key string) (*OpGetResult, error) {
 		Timeout:    op.Timeout,
 	}.Do(
 		ctx,
-		func(ctx context.Context, nodeID membership.NodeID, conn noderpc.Client) ([]noderpc.VersionedValue, error) {
-			res, err := conn.StorageGet(ctx, key)
+		func(ctx context.Context, nodeID membership.NodeID, conn *nodeapi.Client) ([]*storagepb.VersionedValue, error) {
+			res, err := conn.Storage.Get(ctx, &storagepb.GetRequest{
+				Key: key,
+			})
+
 			if err != nil {
 				return nil, err
 			}
 
-			return res.Versions, nil
+			return res.Value, nil
 		},
-		func(abort func(), nodeID membership.NodeID, values []noderpc.VersionedValue, err error) error {
+		func(abort func(), nodeID membership.NodeID, values []*storagepb.VersionedValue, err error) error {
 			if len(values) == 0 {
 				staleNodes[nodeID] = struct{}{}
 				return nil
@@ -92,7 +96,7 @@ func (op *OpGet) Do(ctx context.Context, key string) (*OpGetResult, error) {
 			"msg", "repairing stale replicas",
 			"key", key,
 			"stale_replicas", fmt.Sprintf("%v", merged.staleNodes),
-			"repair_replicas", fmt.Sprintf("%v", generic.MapKeys(staleNodes)),
+			"repair_replicas", fmt.Sprintf("%v", maps.Keys(staleNodes)),
 		)
 
 		var toRepair []membership.Node
@@ -112,7 +116,7 @@ func (op *OpGet) Do(ctx context.Context, key string) (*OpGetResult, error) {
 			Background: true,
 		}.Do(
 			ctx,
-			func(ctx context.Context, nodeID membership.NodeID, conn noderpc.Client) (int, error) {
+			func(ctx context.Context, nodeID membership.NodeID, conn *nodeapi.Client) (int, error) {
 				if value.Tombstone {
 					if _, err := putTombstone(ctx, conn, key, merged.version, false); err != nil {
 						return 0, err

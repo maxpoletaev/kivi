@@ -1,15 +1,15 @@
-package heap_test
+package generic_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/maxpoletaev/kivi/internal/heap"
+	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
 func TestMinHeap(t *testing.T) {
-	h := heap.New(heap.Min[int])
+	h := generic.NewHeap(generic.MinHeap[int])
 
 	h.Push(3)
 	h.Push(1)
@@ -31,7 +31,7 @@ func TestMinHeap(t *testing.T) {
 }
 
 func TestMaxHeap(t *testing.T) {
-	h := heap.New(heap.Max[int])
+	h := generic.NewHeap(generic.MaxHeap[int])
 
 	h.Push(3)
 	h.Push(1)
@@ -53,7 +53,7 @@ func TestMaxHeap(t *testing.T) {
 }
 
 func TestPopFromEmpty(t *testing.T) {
-	h := heap.New(heap.Max[int])
+	h := generic.NewHeap(generic.MaxHeap[int])
 
 	assert.PanicsWithValue(t, "no elements in the heap", func() {
 		h.Pop()

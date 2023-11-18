@@ -12,7 +12,7 @@ import (
 
 	"github.com/maxpoletaev/kivi/internal/bloom"
 	"github.com/maxpoletaev/kivi/internal/filegroup"
-	"github.com/maxpoletaev/kivi/internal/heap"
+	"github.com/maxpoletaev/kivi/internal/generic"
 	"github.com/maxpoletaev/kivi/internal/protoio"
 	"github.com/maxpoletaev/kivi/storage/lsmtree/proto"
 )
@@ -25,7 +25,7 @@ type heapItem struct {
 func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 	iterators := make(map[int64]*protoio.Iterator[*proto.DataEntry], len(tables))
 
-	pq := heap.New(func(a, b *heapItem) bool {
+	pq := generic.NewHeap(func(a, b *heapItem) bool {
 		// Prioritize the newest value if the keys are the same.
 		if a.entry.Key == b.entry.Key {
 			return a.tableID > b.tableID
@@ -47,7 +47,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 		// In case there was an error during the function execution, do our best to
 		// remove the files that were created, so that we don't leave any garbage.
 		if err != nil {
-			if err2 := fg.Remove(); err2 != nil {
+			if err2 := fg.Cleanup(); err2 != nil {
 				fmt.Printf("defer: failed to remove files: %v\n", err2)
 			}
 		}
@@ -65,7 +65,7 @@ func mergeTables(tables []*SSTable, opts flushOpts) (_ *SSTable, err error) {
 	indexFile := fg.Open(filepath.Join(opts.prefix, info.IndexFile), os.O_WRONLY|os.O_CREATE, 0o644)
 	bloomFile := fg.Open(filepath.Join(opts.prefix, info.BloomFile), os.O_WRONLY|os.O_CREATE, 0o644)
 
-	if err = fg.Err(); err != nil {
+	if err = fg.OpenErr(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 

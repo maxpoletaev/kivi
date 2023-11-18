@@ -49,7 +49,7 @@ func OpenTable(info *SSTableInfo, prefix string, useMmap bool) (*SSTable, error)
 	indexFile := fg.Open(filepath.Join(prefix, info.IndexFile), os.O_RDONLY, 0)
 	bloomFile := fg.Open(filepath.Join(prefix, info.BloomFile), os.O_RDONLY, 0)
 
-	if err := fg.Err(); err != nil {
+	if err := fg.OpenErr(); err != nil {
 		return nil, fmt.Errorf("failed to open files: %w", err)
 	}
 

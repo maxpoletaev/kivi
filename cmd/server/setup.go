@@ -13,10 +13,10 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/maxpoletaev/kivi/membership"
+	"github.com/maxpoletaev/kivi/nodeapi"
 
 	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 	membershipsvc "github.com/maxpoletaev/kivi/membership/service"
-	nodeapigrpc "github.com/maxpoletaev/kivi/noderpc/grpc"
 	replicationpb "github.com/maxpoletaev/kivi/replication/proto"
 	replicationsvc "github.com/maxpoletaev/kivi/replication/service"
 	"github.com/maxpoletaev/kivi/storage"
@@ -50,10 +50,10 @@ func setupCluster(logger kitlog.Logger) (*membership.SWIMCluster, shutdownFunc) 
 	conf.ProbeTimeout = time.Millisecond * time.Duration(opts.Cluster.ProbeTimeout)
 	conf.ProbeInterval = time.Millisecond * time.Duration(opts.Cluster.ProbeInterval)
 	conf.IndirectNodes = opts.Cluster.ProbeIndirectNodes
-	conf.Dialer = nodeapigrpc.Dial
+	conf.Dialer = nodeapi.DialGRPC
 	conf.Logger = logger
 
-	cluster := membership.NewSWIM(conf)
+	cluster := membership.NewCluster(conf)
 	cluster.Start()
 
 	shutdown := func(ctx context.Context) error {
@@ -78,7 +78,7 @@ func setupGRPCServer(
 	grpcServer := grpc.NewServer()
 
 	storageService := storagesvc.New(engine, opts.Node.ID)
-	storagepb.RegisterStorageServiceServer(grpcServer, storageService)
+	storagepb.RegisterStorageServer(grpcServer, storageService)
 
 	membershipService := membershipsvc.NewMembershipService(cluster)
 	membershippb.RegisterMembershipServer(grpcServer, membershipService)

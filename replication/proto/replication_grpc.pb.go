@@ -25,16 +25,15 @@ type ReplicationClient interface {
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	Put(ctx context.Context, in *PutRequest, opts ...grpc.CallOption) (*PutResponse, error)
 	Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error)
-	CounterGet(ctx context.Context, in *CounterGetRequest, opts ...grpc.CallOption) (*CounterGetResponse, error)
-	CounterIncrement(ctx context.Context, in *CounterIncrementRequest, opts ...grpc.CallOption) (*CounterIncrementResponse, error)
-	CounterDecrement(ctx context.Context, in *CounterDecrementRequest, opts ...grpc.CallOption) (*CounterDecrementResponse, error)
 	SetAdd(ctx context.Context, in *SetAddRequest, opts ...grpc.CallOption) (*SetAddResponse, error)
 	SetGetAll(ctx context.Context, in *SetGetAllRequest, opts ...grpc.CallOption) (*SetGetAllResponse, error)
 	SetRemove(ctx context.Context, in *SetRemoveRequest, opts ...grpc.CallOption) (*SetRemoveResponse, error)
 	SetContains(ctx context.Context, in *SetContainsRequest, opts ...grpc.CallOption) (*SetContainsResponse, error)
 	SetIntersect(ctx context.Context, in *SetIntersectRequest, opts ...grpc.CallOption) (*SetIntersectResponse, error)
+	SetDelete(ctx context.Context, in *SetDeleteRequest, opts ...grpc.CallOption) (*SetDeleteResponse, error)
 	RegisterGet(ctx context.Context, in *RegisterGetRequest, opts ...grpc.CallOption) (*RegisterGetResponse, error)
 	RegisterPut(ctx context.Context, in *RegisterPutRequest, opts ...grpc.CallOption) (*RegisterPutResponse, error)
+	RegisterDelete(ctx context.Context, in *RegisterDeleteRequest, opts ...grpc.CallOption) (*RegisterDeleteResponse, error)
 }
 
 type replicationClient struct {
@@ -66,33 +65,6 @@ func (c *replicationClient) Put(ctx context.Context, in *PutRequest, opts ...grp
 func (c *replicationClient) Delete(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*DeleteResponse, error) {
 	out := new(DeleteResponse)
 	err := c.cc.Invoke(ctx, "/replication.Replication/Delete", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *replicationClient) CounterGet(ctx context.Context, in *CounterGetRequest, opts ...grpc.CallOption) (*CounterGetResponse, error) {
-	out := new(CounterGetResponse)
-	err := c.cc.Invoke(ctx, "/replication.Replication/CounterGet", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *replicationClient) CounterIncrement(ctx context.Context, in *CounterIncrementRequest, opts ...grpc.CallOption) (*CounterIncrementResponse, error) {
-	out := new(CounterIncrementResponse)
-	err := c.cc.Invoke(ctx, "/replication.Replication/CounterIncrement", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *replicationClient) CounterDecrement(ctx context.Context, in *CounterDecrementRequest, opts ...grpc.CallOption) (*CounterDecrementResponse, error) {
-	out := new(CounterDecrementResponse)
-	err := c.cc.Invoke(ctx, "/replication.Replication/CounterDecrement", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +116,15 @@ func (c *replicationClient) SetIntersect(ctx context.Context, in *SetIntersectRe
 	return out, nil
 }
 
+func (c *replicationClient) SetDelete(ctx context.Context, in *SetDeleteRequest, opts ...grpc.CallOption) (*SetDeleteResponse, error) {
+	out := new(SetDeleteResponse)
+	err := c.cc.Invoke(ctx, "/replication.Replication/SetDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *replicationClient) RegisterGet(ctx context.Context, in *RegisterGetRequest, opts ...grpc.CallOption) (*RegisterGetResponse, error) {
 	out := new(RegisterGetResponse)
 	err := c.cc.Invoke(ctx, "/replication.Replication/RegisterGet", in, out, opts...)
@@ -162,6 +143,15 @@ func (c *replicationClient) RegisterPut(ctx context.Context, in *RegisterPutRequ
 	return out, nil
 }
 
+func (c *replicationClient) RegisterDelete(ctx context.Context, in *RegisterDeleteRequest, opts ...grpc.CallOption) (*RegisterDeleteResponse, error) {
+	out := new(RegisterDeleteResponse)
+	err := c.cc.Invoke(ctx, "/replication.Replication/RegisterDelete", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ReplicationServer is the server API for Replication service.
 // All implementations must embed UnimplementedReplicationServer
 // for forward compatibility
@@ -169,16 +159,15 @@ type ReplicationServer interface {
 	Get(context.Context, *GetRequest) (*GetResponse, error)
 	Put(context.Context, *PutRequest) (*PutResponse, error)
 	Delete(context.Context, *DeleteRequest) (*DeleteResponse, error)
-	CounterGet(context.Context, *CounterGetRequest) (*CounterGetResponse, error)
-	CounterIncrement(context.Context, *CounterIncrementRequest) (*CounterIncrementResponse, error)
-	CounterDecrement(context.Context, *CounterDecrementRequest) (*CounterDecrementResponse, error)
 	SetAdd(context.Context, *SetAddRequest) (*SetAddResponse, error)
 	SetGetAll(context.Context, *SetGetAllRequest) (*SetGetAllResponse, error)
 	SetRemove(context.Context, *SetRemoveRequest) (*SetRemoveResponse, error)
 	SetContains(context.Context, *SetContainsRequest) (*SetContainsResponse, error)
 	SetIntersect(context.Context, *SetIntersectRequest) (*SetIntersectResponse, error)
+	SetDelete(context.Context, *SetDeleteRequest) (*SetDeleteResponse, error)
 	RegisterGet(context.Context, *RegisterGetRequest) (*RegisterGetResponse, error)
 	RegisterPut(context.Context, *RegisterPutRequest) (*RegisterPutResponse, error)
+	RegisterDelete(context.Context, *RegisterDeleteRequest) (*RegisterDeleteResponse, error)
 	mustEmbedUnimplementedReplicationServer()
 }
 
@@ -195,15 +184,6 @@ func (UnimplementedReplicationServer) Put(context.Context, *PutRequest) (*PutRes
 func (UnimplementedReplicationServer) Delete(context.Context, *DeleteRequest) (*DeleteResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Delete not implemented")
 }
-func (UnimplementedReplicationServer) CounterGet(context.Context, *CounterGetRequest) (*CounterGetResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CounterGet not implemented")
-}
-func (UnimplementedReplicationServer) CounterIncrement(context.Context, *CounterIncrementRequest) (*CounterIncrementResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CounterIncrement not implemented")
-}
-func (UnimplementedReplicationServer) CounterDecrement(context.Context, *CounterDecrementRequest) (*CounterDecrementResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CounterDecrement not implemented")
-}
 func (UnimplementedReplicationServer) SetAdd(context.Context, *SetAddRequest) (*SetAddResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetAdd not implemented")
 }
@@ -219,11 +199,17 @@ func (UnimplementedReplicationServer) SetContains(context.Context, *SetContainsR
 func (UnimplementedReplicationServer) SetIntersect(context.Context, *SetIntersectRequest) (*SetIntersectResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetIntersect not implemented")
 }
+func (UnimplementedReplicationServer) SetDelete(context.Context, *SetDeleteRequest) (*SetDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetDelete not implemented")
+}
 func (UnimplementedReplicationServer) RegisterGet(context.Context, *RegisterGetRequest) (*RegisterGetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterGet not implemented")
 }
 func (UnimplementedReplicationServer) RegisterPut(context.Context, *RegisterPutRequest) (*RegisterPutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RegisterPut not implemented")
+}
+func (UnimplementedReplicationServer) RegisterDelete(context.Context, *RegisterDeleteRequest) (*RegisterDeleteResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RegisterDelete not implemented")
 }
 func (UnimplementedReplicationServer) mustEmbedUnimplementedReplicationServer() {}
 
@@ -288,60 +274,6 @@ func _Replication_Delete_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ReplicationServer).Delete(ctx, req.(*DeleteRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Replication_CounterGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CounterGetRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReplicationServer).CounterGet(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/replication.Replication/CounterGet",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicationServer).CounterGet(ctx, req.(*CounterGetRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Replication_CounterIncrement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CounterIncrementRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReplicationServer).CounterIncrement(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/replication.Replication/CounterIncrement",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicationServer).CounterIncrement(ctx, req.(*CounterIncrementRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Replication_CounterDecrement_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CounterDecrementRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ReplicationServer).CounterDecrement(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/replication.Replication/CounterDecrement",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReplicationServer).CounterDecrement(ctx, req.(*CounterDecrementRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -436,6 +368,24 @@ func _Replication_SetIntersect_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Replication_SetDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).SetDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/replication.Replication/SetDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).SetDelete(ctx, req.(*SetDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Replication_RegisterGet_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RegisterGetRequest)
 	if err := dec(in); err != nil {
@@ -472,6 +422,24 @@ func _Replication_RegisterPut_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Replication_RegisterDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RegisterDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ReplicationServer).RegisterDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/replication.Replication/RegisterDelete",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ReplicationServer).RegisterDelete(ctx, req.(*RegisterDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Replication_ServiceDesc is the grpc.ServiceDesc for Replication service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -490,18 +458,6 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Delete",
 			Handler:    _Replication_Delete_Handler,
-		},
-		{
-			MethodName: "CounterGet",
-			Handler:    _Replication_CounterGet_Handler,
-		},
-		{
-			MethodName: "CounterIncrement",
-			Handler:    _Replication_CounterIncrement_Handler,
-		},
-		{
-			MethodName: "CounterDecrement",
-			Handler:    _Replication_CounterDecrement_Handler,
 		},
 		{
 			MethodName: "SetAdd",
@@ -524,12 +480,20 @@ var Replication_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Replication_SetIntersect_Handler,
 		},
 		{
+			MethodName: "SetDelete",
+			Handler:    _Replication_SetDelete_Handler,
+		},
+		{
 			MethodName: "RegisterGet",
 			Handler:    _Replication_RegisterGet_Handler,
 		},
 		{
 			MethodName: "RegisterPut",
 			Handler:    _Replication_RegisterPut_Handler,
+		},
+		{
+			MethodName: "RegisterDelete",
+			Handler:    _Replication_RegisterDelete_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -9,8 +9,7 @@ import (
 
 	"github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kivi/internal/generic"
-	"github.com/maxpoletaev/kivi/noderpc"
+	membershippb "github.com/maxpoletaev/kivi/membership/proto"
 )
 
 type probeResult struct {
@@ -44,9 +43,12 @@ func (cl *SWIMCluster) startDetector() {
 	}()
 }
 
-func (cl *SWIMCluster) pickRandomNode() *Node {
+func (cl *SWIMCluster) pickTargetNode() *Node {
 	nodes := cl.Nodes()
-	generic.Shuffle(nodes)
+
+	rand.Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
 
 	for _, node := range nodes {
 		if node.ID != cl.selfID && node.Status != StatusLeft {
@@ -59,7 +61,10 @@ func (cl *SWIMCluster) pickRandomNode() *Node {
 
 func (cl *SWIMCluster) pickIndirectNodes(node *Node) []*Node {
 	nodes := cl.Nodes()
-	generic.Shuffle(nodes)
+
+	rand.Shuffle(len(nodes), func(i, j int) {
+		nodes[i], nodes[j] = nodes[j], nodes[i]
+	})
 
 	res := make([]*Node, 0, cl.indirectNodes)
 
@@ -109,7 +114,7 @@ func (cl *SWIMCluster) setStatus(id NodeID, status Status, message string) {
 }
 
 func (cl *SWIMCluster) detectFailures() {
-	target := cl.pickRandomNode()
+	target := cl.pickTargetNode()
 	if target == nil {
 		return
 	}
@@ -193,7 +198,7 @@ func (cl *SWIMCluster) directProbe(ctx context.Context, node *Node) (*probeResul
 
 	// Lightweight ping message which also carries the state hash of the sender.
 	// It will be later used to determine if the full state exchange is required.
-	stateHash, err := conn.Ping(ctx)
+	pingRes, err := conn.Membership.Ping(ctx, &membershippb.PingRequest{})
 	if err != nil {
 		return &probeResult{ //nolint:nilerr
 			duration: time.Since(start),
@@ -205,17 +210,20 @@ func (cl *SWIMCluster) directProbe(ctx context.Context, node *Node) (*probeResul
 	// In case of a difference between the local and remote state hashes, the full
 	// state exchange is performed. This would merge the states of both nodes and
 	// make them consistent.
-	if stateHash != cl.StateHash() {
+	if pingRes.StateHash != cl.StateHash() {
 		level.Info(cl.logger).Log("msg", "performing state exchange", "node_id", node.ID)
-		nodesInfo, err := conn.PullPushState(ctx, toAPINodeInfoList(cl.Nodes()))
+
+		stateRes, err := conn.Membership.PullPushState(ctx, &membershippb.PullPushStateRequest{
+			Nodes: ToProtoNodeList(cl.Nodes()),
+		})
 
 		if err != nil {
 			level.Error(cl.logger).Log("msg", "state exchange failed", "node_id", node.ID, "err", err)
 			return nil, err
 		}
 
-		if len(nodesInfo) > 0 {
-			nodes := fromAPINodeInfoList(nodesInfo)
+		if len(stateRes.Nodes) > 0 {
+			nodes := FromProtoNodeList(stateRes.Nodes)
 			cl.ApplyState(nodes, node.ID)
 		}
 	}
@@ -243,22 +251,26 @@ func (cl *SWIMCluster) indirectProbe(ctx context.Context, target *Node, nodes []
 		go func(node *Node) {
 			defer wg.Done()
 
-			status, err := func() (noderpc.NodeStatus, error) {
+			status, err := func() (Status, error) {
 				conn, err := cl.ConnContext(ctx, node.ID)
 				if err != nil {
 					return 0, err
 				}
 
-				res, err := conn.PingIndirect(ctx, noderpc.NodeID(target.ID), cl.probeTimeout)
+				res, err := conn.Membership.PingIndirect(ctx, &membershippb.PingIndirectRequest{
+					Timeout: int64(cl.probeTimeout),
+					NodeId:  uint32(target.ID),
+				})
+
 				if err != nil {
 					return 0, err
 				}
 
-				return res.Status, nil
+				return FromProtoStatusMap[res.Status], nil
 			}()
 
 			votesCh <- voteResult{
-				status: fromAPIStatusMap[status],
+				status: status,
 				err:    err,
 			}
 		}(nodes[i])

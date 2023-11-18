@@ -9,13 +9,13 @@ message GetRequest {
 }
 
 message GetResponse {
-    repeated bytes values = 1;
+    repeated string values = 1;
     string version = 2;
 }
 
 message PutRequest {
     string key = 1;
-    bytes value = 2;
+    string value = 2;
     string version = 3;
 }
 
@@ -32,34 +32,6 @@ message DeleteRequest {
 message DeleteResponse {
     string version = 1;
     int32 acknowledged = 2;
-}
-
-/* Counter */
-
-message CounterGetRequest {
-    string key = 1;
-}
-
-message CounterGetResponse {
-    int64 value = 1;
-}
-
-message CounterIncrementRequest {
-    string key = 1;
-    int64 delta = 2;
-}
-
-message CounterIncrementResponse {
-    int64 value = 1;
-}
-
-message CounterDecrementRequest {
-    string key = 1;
-    int64 delta = 2;
-}
-
-message CounterDecrementResponse {
-    int64 value = 1;
 }
 
 /* Set */
@@ -107,6 +79,14 @@ message SetIntersectResponse {
     repeated string values = 1;
 }
 
+message SetDeleteRequest {
+    string key = 1;
+}
+
+message SetDeleteResponse {
+    int32 acknowledged = 1;
+}
+
 /* Register */
 
 message RegisterGetRequest {
@@ -114,16 +94,24 @@ message RegisterGetRequest {
 }
 
 message RegisterGetResponse {
-    bytes value = 1;
+    string value = 1;
     bool conflict = 2;
 }
 
 message RegisterPutRequest {
     string key = 1;
-    bytes value = 2;
+    string value = 2;
 }
 
 message RegisterPutResponse {
+    int32 acknowledged = 1;
+}
+
+message RegisterDeleteRequest {
+    string key = 1;
+}
+
+message RegisterDeleteResponse {
     int32 acknowledged = 1;
 }
 
@@ -132,15 +120,12 @@ service Replication {
     rpc Put(PutRequest) returns (PutResponse);
     rpc Delete(DeleteRequest) returns (DeleteResponse);
 
-    rpc CounterGet(CounterGetRequest) returns (CounterGetResponse);
-    rpc CounterIncrement(CounterIncrementRequest) returns (CounterIncrementResponse);
-    rpc CounterDecrement(CounterDecrementRequest) returns (CounterDecrementResponse);
-
     rpc SetAdd(SetAddRequest) returns (SetAddResponse);
     rpc SetGetAll(SetGetAllRequest) returns (SetGetAllResponse);
     rpc SetRemove(SetRemoveRequest) returns (SetRemoveResponse);
     rpc SetContains(SetContainsRequest) returns (SetContainsResponse);
     rpc SetIntersect(SetIntersectRequest) returns (SetIntersectResponse);
+    rpc SetClear(SetDeleteRequest) returns (SetDeleteResponse);
 
     rpc RegisterGet(RegisterGetRequest) returns (RegisterGetResponse);
     rpc RegisterPut(RegisterPutRequest) returns (RegisterPutResponse);

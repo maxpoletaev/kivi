@@ -75,9 +75,9 @@ func (s *ReplicationService) Get(ctx context.Context, req *proto.GetRequest) (*p
 		return nil, err
 	}
 
-	values := make([][]byte, 0, len(result.Values))
+	values := make([]string, 0, len(result.Values))
 	for _, data := range result.Values {
-		values = append(values, data)
+		values = append(values, string(data))
 	}
 
 	return &proto.GetResponse{
@@ -106,7 +106,7 @@ func (s *ReplicationService) Put(ctx context.Context, req *proto.PutRequest) (*p
 		Timeout: s.writeTimeout,
 	}
 
-	result, err := put.Do(ctx, req.Key, req.Value, req.Version)
+	result, err := put.Do(ctx, req.Key, []byte(req.Value), req.Version)
 	if err != nil {
 		return nil, err
 	}

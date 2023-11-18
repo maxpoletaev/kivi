@@ -6,10 +6,10 @@ import (
 
 	"github.com/go-kit/log/level"
 
-	"github.com/maxpoletaev/kivi/noderpc"
+	"github.com/maxpoletaev/kivi/nodeapi"
 )
 
-func (cl *SWIMCluster) loadConn(id NodeID) (noderpc.Client, bool) {
+func (cl *SWIMCluster) loadConn(id NodeID) (*nodeapi.Client, bool) {
 	cl.mut.RLock()
 
 	conn, ok := cl.connections[id]
@@ -43,7 +43,7 @@ func (cl *SWIMCluster) loadConn(id NodeID) (noderpc.Client, bool) {
 	return conn, ok
 }
 
-func (cl *SWIMCluster) connect(ctx context.Context, id NodeID) (noderpc.Client, error) {
+func (cl *SWIMCluster) connect(ctx context.Context, id NodeID) (*nodeapi.Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, cl.dialTimeout)
 	defer cancel()
 
@@ -75,7 +75,7 @@ func (cl *SWIMCluster) connect(ctx context.Context, id NodeID) (noderpc.Client, 
 		}
 
 		var (
-			conn noderpc.Client
+			conn *nodeapi.Client
 			ok   bool
 		)
 
@@ -145,7 +145,7 @@ func (cl *SWIMCluster) connect(ctx context.Context, id NodeID) (noderpc.Client, 
 
 // Conn returns a connection to the member with the given ID. If the connection
 // is not present, it attempts to dial the member and create a new connection.
-func (cl *SWIMCluster) Conn(id NodeID) (noderpc.Client, error) {
+func (cl *SWIMCluster) Conn(id NodeID) (*nodeapi.Client, error) {
 	if conn, ok := cl.loadConn(id); ok {
 		return conn, nil
 	}
@@ -156,7 +156,7 @@ func (cl *SWIMCluster) Conn(id NodeID) (noderpc.Client, error) {
 // ConnContext returns a connection to the member with the given ID. If the
 // connection is not present, it attempts to dial the member and create a new
 // connection. The context is used to cancel the dialing process.
-func (cl *SWIMCluster) ConnContext(ctx context.Context, id NodeID) (noderpc.Client, error) {
+func (cl *SWIMCluster) ConnContext(ctx context.Context, id NodeID) (*nodeapi.Client, error) {
 	if conn, ok := cl.loadConn(id); ok {
 		return conn, nil
 	}
@@ -166,9 +166,9 @@ func (cl *SWIMCluster) ConnContext(ctx context.Context, id NodeID) (noderpc.Clie
 
 // LocalConn returns a connection to the local member. It assumes that the local
 // connection is always stable, so it panics if it is not present.
-func (cl *SWIMCluster) LocalConn() noderpc.Client {
+func (cl *SWIMCluster) LocalConn() *nodeapi.Client {
 	var (
-		conn noderpc.Client
+		conn *nodeapi.Client
 		err  error
 		ok   bool
 	)
@@ -187,7 +187,7 @@ func (cl *SWIMCluster) LocalConn() noderpc.Client {
 // AddConn adds a connection to the cluster. If a connection to the same member
 // already exists, the old connection is closed. This method is intended to be
 // used during tests or during the cluster bootstrap.
-func (cl *SWIMCluster) AddConn(id NodeID, conn noderpc.Client) {
+func (cl *SWIMCluster) AddConn(id NodeID, conn *nodeapi.Client) {
 	cl.mut.Lock()
 	defer cl.mut.Unlock()
 

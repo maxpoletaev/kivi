@@ -2,8 +2,6 @@ package vclock
 
 import (
 	"maps"
-
-	"github.com/maxpoletaev/kivi/internal/generic"
 )
 
 // Causality is a type that represents the causality relationship between two vectors.
@@ -29,6 +27,24 @@ func (c Causality) String() string {
 	default:
 		return ""
 	}
+}
+
+// uniqueKeys returns a slice of unique keys from the given maps.
+func uniqueKeys[K comparable, V any](maps ...map[K]V) []K {
+	uq := make(map[K]struct{})
+
+	for _, m := range maps {
+		for k := range m {
+			uq[k] = struct{}{}
+		}
+	}
+
+	keys := make([]K, 0, len(uq))
+	for k := range uq {
+		keys = append(keys, k)
+	}
+
+	return keys
 }
 
 // Version represents a vector clock, which is a mapping of node IDs to clock values.
@@ -83,7 +99,7 @@ func (vc Version) Increment(nodeID uint32) {
 func Compare(a, b Version) Causality {
 	var greater, less bool
 
-	for _, key := range generic.MapKeys(a, b) {
+	for _, key := range uniqueKeys(a, b) {
 		if a[key] > b[key] {
 			greater = true
 		} else if a[key] < b[key] {
@@ -112,7 +128,7 @@ func IsEqual(a, b Version) bool {
 // each key in the two vectors. The operation is commutative and associative, so
 // that Merge(a, Merge(b, c)) == Merge(Merge(a, b), c).
 func Merge(a, b Version) Version {
-	keys := generic.MapKeys(a, b)
+	keys := uniqueKeys(a, b)
 	merged := make(Version, len(keys))
 
 	for _, key := range keys {

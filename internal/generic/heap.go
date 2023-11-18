@@ -1,14 +1,14 @@
-package heap
+package generic
 
 import "golang.org/x/exp/constraints"
 
 type comparator[T any] func(a, b T) bool
 
-// Min is a comparator function to implement min-heap for any type that supports ordering.
-func Min[T constraints.Ordered](a, b T) bool { return a < b }
+// MinHeap is a comparator function to implement min-heap for any type that supports ordering.
+func MinHeap[T constraints.Ordered](a, b T) bool { return a < b }
 
-// Max is a comparator function to implement max-heap for any type that supports ordering.
-func Max[T constraints.Ordered](a, b T) bool { return a > b }
+// MaxHeap is a comparator function to implement max-heap for any type that supports ordering.
+func MaxHeap[T constraints.Ordered](a, b T) bool { return a > b }
 
 // Heap is a generic port of container.Heap. Not safe to use concurrently.
 type Heap[T any] struct {
@@ -16,8 +16,8 @@ type Heap[T any] struct {
 	items []T
 }
 
-// New creates new heap data structure with given comparator.
-func New[T any](less comparator[T]) *Heap[T] {
+// NewHeap creates new heap data structure with given comparator.
+func NewHeap[T any](less comparator[T]) *Heap[T] {
 	return &Heap[T]{
 		items: make([]T, 0),
 		less:  less,

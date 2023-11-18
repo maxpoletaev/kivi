@@ -28,7 +28,7 @@ func (s *Engine) Get(key string) ([]storage.Value, error) {
 		return nil, storage.ErrNotFound
 	}
 
-	return fromProtoValues(entry.Values), nil
+	return fromProtoValueList(entry.Values), nil
 }
 
 func (s *Engine) Put(key string, value storage.Value) error {
@@ -41,7 +41,7 @@ func (s *Engine) Put(key string, value storage.Value) error {
 	if err != nil {
 		return err
 	} else if found {
-		values = fromProtoValues(entry.Values)
+		values = fromProtoValueList(entry.Values)
 	}
 
 	values, err = storage.AppendVersion(values, value)
@@ -51,7 +51,7 @@ func (s *Engine) Put(key string, value storage.Value) error {
 
 	entry = &proto.DataEntry{
 		Key:    key,
-		Values: toProtoValues(values),
+		Values: toProtoValueList(values),
 	}
 
 	if err := s.lsm.Put(entry); err != nil {

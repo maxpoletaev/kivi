@@ -12,7 +12,7 @@ func formatRegisterKey(key string) string {
 }
 
 func (s *ReplicationService) RegisterGet(ctx context.Context, req *proto.RegisterGetRequest) (*proto.RegisterGetResponse, error) {
-	get := dataTypeAction[*datatypes.Register]{
+	get := typeMutation[*datatypes.Register]{
 		New:     datatypes.NewRegister,
 		cluster: s.cluster,
 		timeout: s.readTimeout,
@@ -20,7 +20,7 @@ func (s *ReplicationService) RegisterGet(ctx context.Context, req *proto.Registe
 		logger:  s.logger,
 	}
 
-	res, err := get.do(
+	res, err := get.Do(
 		ctx,
 		formatRegisterKey(req.Key),
 		func(reg *datatypes.Register) error {
@@ -38,7 +38,7 @@ func (s *ReplicationService) RegisterGet(ctx context.Context, req *proto.Registe
 }
 
 func (s *ReplicationService) RegisterPut(ctx context.Context, req *proto.RegisterPutRequest) (*proto.RegisterPutResponse, error) {
-	put := dataTypeAction[*datatypes.Register]{
+	mutation := typeMutation[*datatypes.Register]{
 		New:     datatypes.NewRegister,
 		cluster: s.cluster,
 		timeout: s.writeTimeout,
@@ -46,7 +46,7 @@ func (s *ReplicationService) RegisterPut(ctx context.Context, req *proto.Registe
 		logger:  s.logger,
 	}
 
-	res, err := put.do(
+	res, err := mutation.DoWithConflictRetry(
 		ctx,
 		formatRegisterKey(req.Key),
 		func(reg *datatypes.Register) error {

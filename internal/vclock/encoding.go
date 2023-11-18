@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/maxpoletaev/kivi/internal/generic"
+	"golang.org/x/exp/maps"
 )
 
 // ToString encodes the vector clock into a string representation that can be used
@@ -15,7 +15,7 @@ import (
 // the node ID and v is the counter value. The counter value is encoded using
 // base 36.
 func ToString(vc Version) string {
-	keys := generic.MapKeys(vc)
+	keys := maps.Keys(vc)
 	slices.Sort(keys)
 
 	var s strings.Builder

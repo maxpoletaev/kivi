@@ -92,7 +92,6 @@ func (mt *Memtable) Get(key string) (*proto.DataEntry, bool) {
 // the memtable, it is overwritten. Removing an entry is done by inserting a
 // entry with a tombstone flag set to true.
 func (mt *Memtable) Put(entry *proto.DataEntry) error {
-	// FIXME: writer is not thread-safe
 	n, err := mt.walWriter.Append(entry)
 	if err != nil {
 		return fmt.Errorf("failed to append to WAL: %w", err)

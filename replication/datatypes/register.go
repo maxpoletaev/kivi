@@ -18,14 +18,14 @@ func NewRegister() *Register {
 	return &Register{}
 }
 
-func (r *Register) Get() []byte {
-	return r.value
+func (r *Register) Get() string {
+	return string(r.value)
 }
 
-func (r *Register) Put(value []byte) {
+func (r *Register) Put(value string) {
 	r.timestamp = time.Now().UnixMilli()
+	r.value = []byte(value)
 	r.modified = true
-	r.value = value
 }
 
 func (r *Register) Merge(other *Register) {

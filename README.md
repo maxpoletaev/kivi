@@ -140,8 +140,7 @@ is not required, allowing to use kivi as a more traditional key-value store. The
 following data types are currently supported:
 
  * **LWW-Register**: A last-write-wins register with timestamp-based conflict resolution
- * **String-Set**: A set of strings that supports adding and removing elements without conflicts
- * **Counter**: A counter that supports incrementing and decrementing without conflicts
+ * **Set**: A set of strings that supports adding and removing elements without conflicts
 
 Note that these data types have some overhead associated with storing additional
 metadata required for conflict resolution. For example, the LWW-Register stores 
